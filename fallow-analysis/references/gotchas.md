@@ -145,7 +145,7 @@ If an export IS flagged as unused despite being in a barrel file, it means no do
 |------|---------|--------|
 | 0 | No error-severity issues | Success |
 | 1 | Error-severity issues found | Review findings |
-| 2 | Runtime error | Fix config, check binary |
+| 2 | Runtime error (`fix` without `--yes` in non-TTY, invalid config) | Fix config or add `--yes` |
 
 Exit code 1 is triggered by issues with `"error"` severity in the rules config. Without a rules section, all issue types default to `"error"`. Use the rules system to control which issues fail CI:
 

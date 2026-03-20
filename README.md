@@ -139,7 +139,7 @@ See [CLAUDE.md](CLAUDE.md) for repository structure, skill creation guidelines, 
 
 - [fallow](https://github.com/fallow-rs/fallow) — The Rust-native dead code analyzer
 - [fallow-docs](https://docs.fallow.tools) — Official documentation
-- [fallow VS Code extension](https://marketplace.visualstudio.com/items?itemName=fallow.fallow-vscode) — Real-time dead code diagnostics in your editor
+- [fallow VS Code extension](https://marketplace.visualstudio.com/items?itemName=fallow-rs.fallow-vscode) — Real-time dead code diagnostics in your editor
 
 ## License
 
