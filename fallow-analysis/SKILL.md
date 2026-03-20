@@ -1,6 +1,11 @@
 ---
 name: fallow-analysis
 description: Analyzes JavaScript/TypeScript projects for dead code, unused exports, unused dependencies, and code duplication using fallow. Use when asked to "find dead code", "find unused exports", "find unused dependencies", "clean up the codebase", "find duplicates", "find code duplication", "remove unused code", "audit dead code", "check for unused files", "migrate from knip", "migrate from jscpd", or any codebase hygiene task involving unused or duplicated code in JS/TS projects.
+license: MIT
+metadata:
+  author: Bart Waardenburg
+  version: 1.0.0
+  homepage: https://docs.fallow.tools
 ---
 
 # Fallow — Dead Code & Duplication Analysis
