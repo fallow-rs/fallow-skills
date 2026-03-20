@@ -174,7 +174,7 @@ fallow migrate --dry-run
 # Apply migration (creates .fallowrc.json)
 fallow migrate
 
-# Migrate to TOML
+# Migrate to TOML (creates fallow.toml)
 fallow migrate --toml
 ```
 
@@ -193,7 +193,7 @@ fallow init --toml   # creates fallow.toml
 |------|---------|
 | 0 | Success — no error-severity issues |
 | 1 | Error-severity issues found |
-| 2 | Runtime error (invalid config, parse failure) |
+| 2 | Runtime error (invalid config, parse failure, or `fix` without `--yes` in non-TTY) |
 
 When `--format json` is active and exit code is 2, errors are emitted as JSON on stdout:
 ```json
@@ -252,4 +252,4 @@ For the full list with examples, see [references/gotchas.md](references/gotchas.
 5. **Report results clearly** — summarize issue counts, list specific findings, suggest next steps
 6. **For false positives** — suggest inline suppression comments or config rule adjustments
 
-If `$ARGUMENTS` is provided, interpret it as the project path or specific analysis to perform.
+If `$ARGUMENTS` is provided, use it as the `--root` path or pass it as the target for the appropriate fallow command.

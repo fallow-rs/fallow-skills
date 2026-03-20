@@ -323,7 +323,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 
 ```json
 {
-  "schema_version": "1.0.0",
+  "schema_version": 1,
   "version": "0.3.0",
   "elapsed_ms": 45,
   "total_issues": 12,
@@ -345,7 +345,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 
 ```json
 {
-  "schema_version": "1.0.0",
+  "schema_version": 1,
   "version": "0.3.0",
   "elapsed_ms": 82,
   "total_clones": 15,

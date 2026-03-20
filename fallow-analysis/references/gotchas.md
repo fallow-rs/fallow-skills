@@ -272,6 +272,27 @@ fallow check --format json --quiet
 
 ---
 
+## Suppressing Duplication False Positives
+
+Code duplication has its own suppression token: `code-duplication`. Use it for intentionally similar code (e.g., test helpers, generated patterns).
+
+```typescript
+// WRONG — using the wrong token
+// fallow-ignore-file unused-export
+// This suppresses dead code, not duplication
+
+// CORRECT — suppress duplication for a specific line
+// fallow-ignore-next-line code-duplication
+const handler = createStandardHandler(config);
+
+// CORRECT — suppress all duplication in a file
+// fallow-ignore-file code-duplication
+```
+
+This is separate from the dead code suppression tokens. See the full list of valid tokens in the [CLI Reference](cli-reference.md#inline-suppression-comments).
+
+---
+
 ## Decorated Members Are Skipped
 
 Class members with decorators (NestJS `@Get()`, Angular `@Input()`, TypeORM `@Column()`, etc.) are automatically excluded from unused member detection. Decorator-driven frameworks consume these via reflection at runtime.

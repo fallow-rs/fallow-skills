@@ -7,7 +7,7 @@ Agent skills for finding and removing dead code, unused dependencies, and code d
 
 ## Features
 
-- **11 dead code issue types** — unused files, exports, dependencies, types, enum/class members, and more
+- **10 dead code issue types** — unused files, exports, dependencies, types, enum/class members, circular deps, and more
 - **4 duplication detection modes** — strict, mild, weak, and semantic clone detection
 - **Step-by-step workflows** for CI setup, monorepo analysis, migration, and incremental adoption
 - **Gotcha documentation** covering agent-specific pitfalls and correct usage patterns

@@ -98,8 +98,8 @@ Parse the JSON to list specific files and exports that became unused.
 
 ```yaml
 - name: Fallow analysis
-  run: npx fallow check --format sarif --quiet > fallow.sarif
-  continue-on-error: true
+  run: npx fallow check --ci > fallow.sarif
+  continue-on-error: true  # --ci sets --fail-on-issues; continue to upload SARIF even if issues found
 
 - name: Upload SARIF
   uses: github/codeql-action/upload-sarif@v3
@@ -204,7 +204,7 @@ fallow check --format json --quiet --workspace package-a --fail-on-issues
 fallow check --format json --quiet --workspace package-b --fail-on-issues
 ```
 
-### List all workspace packages
+### List all discovered files across workspaces
 
 ```bash
 fallow list --files --format json --quiet
@@ -488,7 +488,6 @@ Create `.fallow/plugins/my-framework.jsonc`:
 
 ```jsonc
 {
-  "$schema": "fallow-plugin",
   "name": "my-framework",
   "detection": { "dependency": "my-framework" },
   "entryPoints": ["src/routes/**/*.ts"],
