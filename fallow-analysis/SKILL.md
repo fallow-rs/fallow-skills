@@ -8,9 +8,9 @@ metadata:
   homepage: https://docs.fallow.tools
 ---
 
-# Fallow — Dead Code & Duplication Analysis
+# Fallow — Codebase Analyzer
 
-Finds unused files, exports, dependencies, types, enum members, class members, unresolved imports, unlisted dependencies, duplicate exports, circular dependencies, and code duplication in JavaScript/TypeScript projects. 3-36x faster than knip, 20-33x faster than jscpd.
+The codebase analyzer for JavaScript and TypeScript. Finds unused code, circular dependencies, code duplication, and complexity hotspots — with 84 framework plugins, zero configuration, and sub-second performance. 3-36x faster than knip, 20-33x faster than jscpd.
 
 ## When to Use
 
