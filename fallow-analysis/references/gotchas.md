@@ -1,4 +1,4 @@
-# Fallow — Critical Gotchas
+# Fallow: Critical Gotchas
 
 Common pitfalls and their correct solutions when working with fallow.
 
@@ -92,7 +92,7 @@ fallow check --format json --quiet
 
 ---
 
-## Syntactic Analysis — No TypeScript Compiler
+## Syntactic Analysis: No TypeScript Compiler
 
 Fallow uses Oxc for pure syntactic analysis. It does not run the TypeScript compiler. This means:
 

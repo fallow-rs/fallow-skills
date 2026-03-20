@@ -11,9 +11,9 @@
   <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v0.3.0-orange" alt="fallow v0.3.0"></a>
 </p>
 
-Agent skills for [fallow](https://github.com/fallow-rs/fallow), the Rust-native codebase analyzer for JavaScript and TypeScript. Fallow finds unused code, circular dependencies, code duplication, and complexity hotspots — with 84 framework plugins, zero configuration, and sub-second performance. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification — Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
+Agent skills for [fallow](https://github.com/fallow-rs/fallow), the Rust-native codebase analyzer for JavaScript and TypeScript. Fallow finds unused code, circular dependencies, code duplication, and complexity hotspots. 84 framework plugins, zero configuration, sub-second performance. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
 
-> **Linters enforce style. Formatters enforce consistency. Fallow enforces relevance.** AI agents can generate code but can't perform static analysis — building module graphs, tracing re-export chains, and exhaustively checking every import across thousands of files. Fallow does this in milliseconds. These skills teach agents *how* to use fallow effectively: which commands to run, what flags to use, how to interpret output, and how to avoid common pitfalls.
+> **Linters enforce style. Formatters enforce consistency. Fallow enforces relevance.** AI agents can generate code but can't perform static analysis: building module graphs, tracing re-export chains, and exhaustively checking every import across thousands of files requires a dedicated tool. Fallow does this in milliseconds. These skills teach agents *how* to use fallow effectively: which commands to run, what flags to use, how to interpret output, and how to avoid common pitfalls.
 
 ## Quick Start
 

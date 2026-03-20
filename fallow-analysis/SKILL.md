@@ -8,9 +8,9 @@ metadata:
   homepage: https://docs.fallow.tools
 ---
 
-# Fallow — Codebase Analyzer
+# Fallow: Codebase Analyzer
 
-The codebase analyzer for JavaScript and TypeScript. Finds unused code, circular dependencies, code duplication, and complexity hotspots — with 84 framework plugins, zero configuration, and sub-second performance. 3-36x faster than knip, 20-33x faster than jscpd.
+The codebase analyzer for JavaScript and TypeScript. Finds unused code, circular dependencies, code duplication, and complexity hotspots. 84 framework plugins, zero configuration, sub-second performance. 3-36x faster than knip, 20-33x faster than jscpd.
 
 ## When to Use
 
@@ -50,7 +50,7 @@ cargo install fallow-cli        # build from source
 2. **Use issue type filters** (`--unused-exports`, `--unused-files`, etc.) to limit output scope
 3. **Always `--dry-run` before `fix`**, then `fix --yes` to apply
 4. **All output paths are relative** to the project root
-5. **Never run `fallow watch`** — it is interactive and never exits
+5. **Never run `fallow watch`**. It is interactive and never exits
 
 ## Commands
 
@@ -62,7 +62,7 @@ cargo install fallow-cli        # build from source
 | `init` | Generate config file | `--toml` for TOML format |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
 | `list` | Inspect project structure | `--files`, `--entry-points`, `--frameworks` |
-| `schema` | Dump CLI definition as JSON | — |
+| `schema` | Dump CLI definition as JSON | |
 
 ## Issue Types
 
@@ -81,9 +81,9 @@ cargo install fallow-cli        # build from source
 
 ## References
 
-- [CLI Reference](references/cli-reference.md) — complete command and flag specifications
-- [Gotchas](references/gotchas.md) — common pitfalls, edge cases, and correct usage patterns
-- [Patterns](references/patterns.md) — workflow recipes for CI, monorepos, migration, and incremental adoption
+- [CLI Reference](references/cli-reference.md): complete command and flag specifications
+- [Gotchas](references/gotchas.md): common pitfalls, edge cases, and correct usage patterns
+- [Patterns](references/patterns.md): workflow recipes for CI, monorepos, migration, and incremental adoption
 
 ## Common Workflows
 
@@ -93,7 +93,7 @@ cargo install fallow-cli        # build from source
 fallow check --format json --quiet
 ```
 
-Parse the JSON output — it contains arrays for each issue type (`unused_files`, `unused_exports`, `unused_types`, `unused_dependencies`, etc.) plus `total_issues` and `elapsed_ms` metadata.
+Parse the JSON output. It contains arrays for each issue type (`unused_files`, `unused_exports`, `unused_types`, `unused_dependencies`, etc.) plus `total_issues` and `elapsed_ms` metadata.
 
 ### Find only unused exports (smaller output)
 
@@ -197,7 +197,7 @@ fallow init --toml   # creates fallow.toml
 
 | Code | Meaning |
 |------|---------|
-| 0 | Success — no error-severity issues |
+| 0 | Success, no error-severity issues |
 | 1 | Error-severity issues found |
 | 2 | Runtime error (invalid config, parse failure, or `fix` without `--yes` in non-TTY) |
 
@@ -241,11 +241,11 @@ export const keepThisToo = 2;
 
 ## Key Gotchas
 
-- **`fix --yes` is required** in non-TTY (agent) environments — without it, `fix` exits with code 2
-- **Zero config by default** — 84 framework plugins auto-detect, don't create config unless customization is needed
-- **Syntactic analysis only** — no TypeScript compiler, so fully dynamic `import(variable)` is not resolved
-- **Re-export chains are resolved** — exports through barrel files are tracked, not falsely flagged
-- **`--changed-since` is additive** — only new issues in changed files, not all issues in the project
+- **`fix --yes` is required** in non-TTY (agent) environments. Without it, `fix` exits with code 2
+- **Zero config by default.** 84 framework plugins auto-detect. Don't create config unless customization is needed
+- **Syntactic analysis only.** No TypeScript compiler, so fully dynamic `import(variable)` is not resolved
+- **Re-export chains are resolved.** Exports through barrel files are tracked, not falsely flagged
+- **`--changed-since` is additive.** Only new issues in changed files, not all issues in the project
 
 For the full list with examples, see [references/gotchas.md](references/gotchas.md).
 
@@ -254,8 +254,8 @@ For the full list with examples, see [references/gotchas.md](references/gotchas.
 1. **Identify the task** from the user's request (audit, fix, find dupes, set up CI, migrate, debug)
 2. **Run the appropriate command** with `--format json --quiet`
 3. **Use filter flags** to limit output when the user asks about specific issue types
-4. **Always dry-run before fix** — show the user what will change, then apply
-5. **Report results clearly** — summarize issue counts, list specific findings, suggest next steps
-6. **For false positives** — suggest inline suppression comments or config rule adjustments
+4. **Always dry-run before fix.** Show the user what will change, then apply
+5. **Report results clearly.** Summarize issue counts, list specific findings, suggest next steps
+6. **For false positives,** suggest inline suppression comments or config rule adjustments
 
 If `$ARGUMENTS` is provided, use it as the `--root` path or pass it as the target for the appropriate fallow command.

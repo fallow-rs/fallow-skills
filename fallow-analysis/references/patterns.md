@@ -1,4 +1,4 @@
-# Fallow — Common Workflow Patterns & Recipes
+# Fallow: Common Workflow Patterns & Recipes
 
 Step-by-step workflows for common fallow usage scenarios.
 
