@@ -9,10 +9,10 @@ Common pitfalls and their correct solutions when working with fallow.
 The `fix` command prompts for confirmation in interactive terminals. In agent subprocesses, CI pipelines, or piped input (non-TTY), the `--yes` flag is mandatory. Without it, `fix` exits with code 2 and an error.
 
 ```bash
-# WRONG — fix exits with code 2 in non-TTY
+# WRONG: fix exits with code 2 in non-TTY
 fallow fix --format json --quiet
 
-# CORRECT — always use --dry-run first, then --yes
+# CORRECT: always use --dry-run first, then --yes
 fallow fix --dry-run --format json --quiet   # preview
 fallow fix --yes --format json --quiet       # apply
 ```
@@ -26,11 +26,11 @@ Always preview with `--dry-run` before applying. This is a destructive operation
 Fallow works with zero configuration for most projects thanks to 84 auto-detecting framework plugins. Creating an unnecessary config file can mask issues or override detection behavior.
 
 ```bash
-# WRONG — creating config for a standard Next.js project
+# WRONG: creating config for a standard Next.js project
 fallow init
 # This may override auto-detected settings
 
-# CORRECT — run analysis first with zero config
+# CORRECT: run analysis first with zero config
 fallow check --format json --quiet
 # Only create config if you need to customize rules, ignore patterns, or entry points
 ```
@@ -48,10 +48,10 @@ Only create a config when you need to:
 Human-formatted output contains ANSI colors, progress bars, and timing info. Never parse it programmatically.
 
 ```bash
-# WRONG — parsing human output
+# WRONG: parsing human output
 fallow check | grep "unused"
 
-# CORRECT — use structured JSON
+# CORRECT: use structured JSON
 fallow check --format json --quiet
 ```
 
@@ -61,7 +61,7 @@ The `--quiet` flag suppresses progress bars on stderr. Without it, stderr output
 
 ## `--changed-since` Shows Only New Issues
 
-The `--changed-since` flag limits analysis to files modified since a git ref. It only reports issues in those files — not all issues in the project.
+The `--changed-since` flag limits analysis to files modified since a git ref. It only reports issues in those files, not all issues in the project.
 
 ```bash
 # This only shows issues in files changed since main
@@ -77,7 +77,7 @@ Don't use `--changed-since` when auditing the full project. Use it for PR checks
 
 ## Filter Flags Are Additive
 
-Issue type filter flags (`--unused-exports`, `--unused-files`, etc.) are inclusive — they select which issue types to show. Using multiple flags shows the union.
+Issue type filter flags (`--unused-exports`, `--unused-files`, etc.) are inclusive. They select which issue types to show. Using multiple flags shows the union.
 
 ```bash
 # Shows only unused exports
@@ -96,18 +96,18 @@ fallow check --format json --quiet
 
 Fallow uses Oxc for pure syntactic analysis. It does not run the TypeScript compiler. This means:
 
-- **Fully dynamic imports** (`import(variable)`) are not resolved — only static strings, template literals with static prefixes, `import.meta.glob`, and `require.context` patterns
-- **Value-level type narrowing** is not performed — fallow can't know that `if (x instanceof Foo)` means `Foo` is "used"
+- **Fully dynamic imports** (`import(variable)`) are not resolved. Only static strings, template literals with static prefixes, `import.meta.glob`, and `require.context` patterns
+- **Value-level type narrowing** is not performed. Fallow can't know that `if (x instanceof Foo)` means `Foo` is "used"
 - **Conditional exports** based on runtime values are not analyzed
 
 ```typescript
-// RESOLVED — static pattern with prefix
+// RESOLVED: static pattern with prefix
 import(`./locales/${lang}.json`);
 
-// RESOLVED — import.meta.glob
+// RESOLVED: import.meta.glob
 const modules = import.meta.glob('./modules/*.ts');
 
-// NOT RESOLVED — fully dynamic
+// NOT RESOLVED: fully dynamic
 const mod = import(someVariable);
 ```
 
@@ -126,7 +126,7 @@ Fallow fully resolves `export *` and named re-export chains through barrel files
 
 ```typescript
 // src/utils.ts
-export const helper = () => {};  // NOT flagged — used via barrel chain
+export const helper = () => {};  // NOT flagged, used via barrel chain
 
 // src/index.ts (barrel)
 export * from './utils';
@@ -135,7 +135,7 @@ export * from './utils';
 import { helper } from './index';  // Resolves through the chain
 ```
 
-If an export IS flagged as unused despite being in a barrel file, it means no downstream consumer actually imports it — the barrel file re-exports it, but nobody uses it from there.
+If an export IS flagged as unused despite being in a barrel file, it means no downstream consumer actually imports it. The barrel file re-exports it, but nobody uses it from there.
 
 ---
 
@@ -202,19 +202,19 @@ Commit the baseline file to your repo. Update it periodically as you fix existin
 The detection mode significantly affects results. Choose based on your needs:
 
 ```bash
-# strict — exact token match only
+# strict: exact token match only
 fallow dupes --format json --quiet --mode strict
 # Catches: copy-pasted code with zero changes
 
-# mild (default) — syntax normalized
+# mild (default): syntax normalized
 fallow dupes --format json --quiet --mode mild
 # Catches: whitespace and semicolon differences
 
-# weak — literal values normalized
+# weak: literal values normalized
 fallow dupes --format json --quiet --mode weak
 # Catches: same structure with different strings/numbers
 
-# semantic — identifier names normalized
+# semantic: identifier names normalized
 fallow dupes --format json --quiet --mode semantic
 # Catches: same logic with renamed variables
 ```
@@ -248,11 +248,11 @@ fallow check --format json --quiet --workspace my-package
 - Type-only production dependencies ARE reported (should be devDependencies)
 
 ```bash
-# WRONG — using --production for a full audit
+# WRONG: using --production for a full audit
 fallow check --format json --quiet --production
 # Misses test-file dead code and devDependency issues
 
-# CORRECT — use --production only for production-focused CI
+# CORRECT: use --production only for production-focused CI
 fallow check --format json --quiet --production --fail-on-issues
 ```
 
@@ -263,10 +263,10 @@ fallow check --format json --quiet --production --fail-on-issues
 The `watch` command starts an interactive file watcher that never exits. Never use it in agent workflows.
 
 ```bash
-# WRONG — this will hang forever
+# WRONG: this will hang forever
 fallow watch
 
-# CORRECT — run one-shot analysis
+# CORRECT: run one-shot analysis
 fallow check --format json --quiet
 ```
 
@@ -277,15 +277,15 @@ fallow check --format json --quiet
 Code duplication has its own suppression token: `code-duplication`. Use it for intentionally similar code (e.g., test helpers, generated patterns).
 
 ```typescript
-// WRONG — using the wrong token
+// WRONG: using the wrong token
 // fallow-ignore-file unused-export
 // This suppresses dead code, not duplication
 
-// CORRECT — suppress duplication for a specific line
+// CORRECT: suppress duplication for a specific line
 // fallow-ignore-next-line code-duplication
 const handler = createStandardHandler(config);
 
-// CORRECT — suppress all duplication in a file
+// CORRECT: suppress all duplication in a file
 // fallow-ignore-file code-duplication
 ```
 
@@ -300,8 +300,8 @@ Class members with decorators (NestJS `@Get()`, Angular `@Input()`, TypeORM `@Co
 ```typescript
 class UserController {
   @Get('/users')
-  getUsers() { ... }  // NOT flagged — has decorator
+  getUsers() { ... }  // NOT flagged, has decorator
 }
 ```
 
-This is handled automatically — no suppression needed.
+This is handled automatically. No suppression needed.

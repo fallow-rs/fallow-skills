@@ -6,15 +6,15 @@ Complete command and flag specifications for all fallow CLI commands.
 
 ## Table of Contents
 
-- [`check` — Dead Code Analysis](#check--dead-code-analysis)
-- [`dupes` — Duplication Detection](#dupes--duplication-detection)
-- [`fix` — Auto-Remove Unused Code](#fix--auto-remove-unused-code)
-- [`list` — Project Introspection](#list--project-introspection)
-- [`init` — Config Generation](#init--config-generation)
-- [`migrate` — Config Migration](#migrate--config-migration)
-- [`schema` — CLI Introspection](#schema--cli-introspection)
-- [`config-schema` — Config JSON Schema](#config-schema--config-json-schema)
-- [`plugin-schema` — Plugin JSON Schema](#plugin-schema--plugin-json-schema)
+- [`check`: Dead Code Analysis](#check-dead-code-analysis)
+- [`dupes`: Duplication Detection](#dupes-duplication-detection)
+- [`fix`: Auto-Remove Unused Code](#fix-auto-remove-unused-code)
+- [`list`: Project Introspection](#list-project-introspection)
+- [`init`: Config Generation](#init-config-generation)
+- [`migrate`: Config Migration](#migrate-config-migration)
+- [`schema`: CLI Introspection](#schema-cli-introspection)
+- [`config-schema`: Config JSON Schema](#config-schema-config-json-schema)
+- [`plugin-schema`: Plugin JSON Schema](#plugin-schema-plugin-json-schema)
 - [Global Flags](#global-flags)
 - [Environment Variables](#environment-variables)
 - [Output Formats](#output-formats)
@@ -24,9 +24,9 @@ Complete command and flag specifications for all fallow CLI commands.
 
 ---
 
-## `check` — Dead Code Analysis
+## `check`: Dead Code Analysis
 
-Analyzes the project for unused files, exports, dependencies, types, members, and more. This is the default command — running `fallow` with no subcommand is equivalent to `fallow check`.
+Analyzes the project for unused files, exports, dependencies, types, members, and more. This is the default command. Running `fallow` with no subcommand is equivalent to `fallow check`.
 
 ### Flags
 
@@ -70,7 +70,7 @@ fallow check --format json --quiet
 # Only unused exports
 fallow check --format json --quiet --unused-exports
 
-# PR check — only changed files
+# PR check: only changed files
 fallow check --format json --quiet --changed-since main --fail-on-issues
 
 # CI mode with SARIF upload
@@ -92,7 +92,7 @@ fallow check --format json --quiet --baseline .fallow-baseline.json --fail-on-is
 
 ---
 
-## `dupes` — Duplication Detection
+## `dupes`: Duplication Detection
 
 Finds code duplication and clones across the project.
 
@@ -144,7 +144,7 @@ fallow dupes --format json --quiet --baseline .fallow-dupes-baseline.json --thre
 
 ---
 
-## `fix` — Auto-Remove Unused Code
+## `fix`: Auto-Remove Unused Code
 
 Auto-removes unused exports and dependencies.
 
@@ -170,7 +170,7 @@ fallow fix --yes --format json --quiet
 
 ---
 
-## `list` — Project Introspection
+## `list`: Project Introspection
 
 Inspect discovered files, entry points, and detected frameworks.
 
@@ -195,7 +195,7 @@ fallow list --frameworks --format json --quiet
 
 ---
 
-## `init` — Config Generation
+## `init`: Config Generation
 
 Creates a config file in the project root.
 
@@ -214,7 +214,7 @@ fallow init --toml   # creates fallow.toml
 
 ---
 
-## `migrate` — Config Migration
+## `migrate`: Config Migration
 
 Migrates configuration from knip and/or jscpd to fallow. Auto-detects config files.
 
@@ -244,7 +244,7 @@ fallow migrate --from knip.json
 
 ---
 
-## `schema` — CLI Introspection
+## `schema`: CLI Introspection
 
 Dumps the full CLI interface definition as machine-readable JSON.
 
@@ -254,7 +254,7 @@ fallow schema
 
 ---
 
-## `config-schema` — Config JSON Schema
+## `config-schema`: Config JSON Schema
 
 Prints the JSON Schema for fallow configuration files.
 
@@ -264,7 +264,7 @@ fallow config-schema > schema.json
 
 ---
 
-## `plugin-schema` — Plugin JSON Schema
+## `plugin-schema`: Plugin JSON Schema
 
 Prints the JSON Schema for external plugin definition files.
 

@@ -81,7 +81,7 @@ See the [installation guide](https://docs.fallow.tools/installation) for all opt
 
 | Skill | Description | Trigger phrases |
 |---|---|---|
-| [fallow-analysis](fallow-analysis/) | Codebase analysis for JS/TS — unused code, circular deps, duplication, complexity | "find dead code", "unused exports", "find duplicates", "clean up codebase" |
+| [fallow-analysis](fallow-analysis/) | Codebase analysis for JS/TS: unused code, circular deps, duplication, complexity | "find dead code", "unused exports", "find duplicates", "clean up codebase" |
 
 ## What's Included
 
@@ -99,9 +99,9 @@ See the [installation guide](https://docs.fallow.tools/installation) for all opt
 
 ### Reference Documentation
 
-- **[CLI Reference](fallow-analysis/references/cli-reference.md)** — all 9 commands, flags, JSON output structure, config format
-- **[Gotchas](fallow-analysis/references/gotchas.md)** — 16 pitfalls with WRONG/CORRECT examples
-- **[Patterns](fallow-analysis/references/patterns.md)** — 14 workflow recipes for CI, monorepos, migration, incremental adoption
+- **[CLI Reference](fallow-analysis/references/cli-reference.md)**: all 9 commands, flags, JSON output structure, config format
+- **[Gotchas](fallow-analysis/references/gotchas.md)**: 16 pitfalls with WRONG/CORRECT examples
+- **[Patterns](fallow-analysis/references/patterns.md)**: 14 workflow recipes for CI, monorepos, migration, incremental adoption
 
 ## Example Prompts
 
@@ -133,10 +133,10 @@ Agent summarizes findings with file paths and line numbers
 ```
 
 The skill provides agents with:
-1. **Command knowledge** — which fallow command + flags to use for each task
-2. **Output parsing** — how to interpret JSON results
-3. **Guardrails** — always dry-run before fix, never run watch, use `--yes` in non-TTY
-4. **Debugging** — how to trace false positives with `--trace`
+1. **Command knowledge**: which fallow command + flags to use for each task
+2. **Output parsing**: how to interpret JSON results
+3. **Guardrails**: always dry-run before fix, never run watch, use `--yes` in non-TTY
+4. **Debugging**: how to trace false positives with `--trace`
 
 ## Contributing
 
@@ -144,11 +144,11 @@ See [CLAUDE.md](CLAUDE.md) for repository structure, skill creation guidelines, 
 
 ## Related
 
-- [fallow](https://github.com/fallow-rs/fallow) — The Rust-native codebase analyzer for JavaScript (3-36x faster than knip)
-- [fallow-docs](https://docs.fallow.tools) — Official documentation
-- [VS Code extension](https://marketplace.visualstudio.com/items?itemName=fallow-rs.fallow-vscode) — Real-time diagnostics in your editor
-- [Agent Skills specification](https://agentskills.io) — The open standard this skill follows
+- [fallow](https://github.com/fallow-rs/fallow): The Rust-native codebase analyzer for JavaScript (3-36x faster than knip)
+- [fallow-docs](https://docs.fallow.tools): Official documentation
+- [VS Code extension](https://marketplace.visualstudio.com/items?itemName=fallow-rs.fallow-vscode): Real-time diagnostics in your editor
+- [Agent Skills specification](https://agentskills.io): The open standard this skill follows
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT. See [LICENSE](LICENSE) for details.

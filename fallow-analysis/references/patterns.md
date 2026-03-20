@@ -87,14 +87,14 @@ Parse the JSON to list specific files and exports that became unused.
 
 ## CI Pipeline Setup
 
-### GitHub Actions — Basic
+### GitHub Actions: Basic
 
 ```yaml
 - name: Dead code check
   run: npx fallow check --fail-on-issues --quiet
 ```
 
-### GitHub Actions — With SARIF Upload
+### GitHub Actions: With SARIF Upload
 
 ```yaml
 - name: Fallow analysis
@@ -107,7 +107,7 @@ Parse the JSON to list specific files and exports that became unused.
     sarif_file: fallow.sarif
 ```
 
-### GitHub Actions — Using the Official Action
+### GitHub Actions: Using the Official Action
 
 ```yaml
 - uses: fallow-rs/fallow@v0
@@ -117,14 +117,14 @@ Parse the JSON to list specific files and exports that became unused.
     changed-since: main
 ```
 
-### GitHub Actions — PR-Scoped Check
+### GitHub Actions: PR-Scoped Check
 
 ```yaml
 - name: Check for new dead code
   run: npx fallow check --format json --quiet --changed-since ${{ github.event.pull_request.base.sha }} --fail-on-issues
 ```
 
-### GitHub Actions — Duplication Gate
+### GitHub Actions: Duplication Gate
 
 ```yaml
 - name: Duplication check
@@ -137,7 +137,7 @@ Fails if overall duplication exceeds 5%.
 
 ## Incremental Adoption with Baselines
 
-For large projects with existing dead code — adopt gradually without fixing everything at once.
+For large projects with existing dead code. Adopt gradually without fixing everything at once.
 
 ### Step 1: Save current state as baseline
 
@@ -336,10 +336,10 @@ fallow fix --dry-run --format json --quiet
 ### Step 2: Review each proposed change
 
 Parse the JSON `changes` array. Each entry shows:
-- `path` — file to be modified
-- `action` — what will happen (`remove_export`, `remove_dependency`)
-- `name` — the symbol or dependency being removed
-- `line` — the line number
+- `path`: file to be modified
+- `action`: what will happen (`remove_export`, `remove_dependency`)
+- `name`: the symbol or dependency being removed
+- `line`: the line number
 
 ### Step 3: Confirm with user before applying
 
@@ -453,7 +453,7 @@ Cross-reference dead code with duplication findings to find high-priority cleanu
 fallow check --format json --quiet --include-dupes
 ```
 
-This adds duplication context to dead code findings — identifying clone instances that exist in unused files or overlap with unused exports.
+This adds duplication context to dead code findings, identifying clone instances that exist in unused files or overlap with unused exports.
 
 ### Step 2: Prioritize cleanup
 
