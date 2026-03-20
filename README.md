@@ -1,9 +1,15 @@
-# fallow-skills
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml/badge.svg)](https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml)
-[![Agent Skills](https://img.shields.io/badge/Agent_Skills-compatible-8A2BE2)](https://agentskills.io)
-[![fallow](https://img.shields.io/badge/fallow-v0.3-orange)](https://github.com/fallow-rs/fallow)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/fallow-rs/fallow/main/assets/logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/fallow-rs/fallow/main/assets/logo.svg">
+    <img src="https://raw.githubusercontent.com/fallow-rs/fallow/main/assets/logo.svg" alt="fallow" width="290">
+  </picture><br>
+  <strong>Agent skills for dead code and duplication analysis in JavaScript/TypeScript.</strong><br><br>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
+  <a href="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml"><img src="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
+  <a href="https://agentskills.io"><img src="https://img.shields.io/badge/Agent_Skills-compatible-8A2BE2" alt="Agent Skills"></a>
+  <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v0.3.0-orange" alt="fallow v0.3.0"></a>
+</p>
 
 Agent skills for finding and removing dead code, unused dependencies, and code duplication in JavaScript/TypeScript projects using [fallow](https://github.com/fallow-rs/fallow). Works with any agent that supports the [Agent Skills](https://agentskills.io) specification — Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
 

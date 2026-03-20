@@ -29,6 +29,18 @@ jobs:
             head -1 "$f" | grep -q "^---$" || { echo "ERROR: $f missing frontmatter"; exit 1; }
             awk '/^---$/{n++; next} n==1{print}' "$f" | grep -q "^name:" || { echo "ERROR: $f missing 'name' in frontmatter"; exit 1; }
             awk '/^---$/{n++; next} n==1{print}' "$f" | grep -q "^description:" || { echo "ERROR: $f missing 'description' in frontmatter"; exit 1; }
+            # Validate name matches directory (Agent Skills spec)
+            skill_dir=$(basename "$(dirname "$f")")
+            skill_name=$(awk '/^---$/{n++; next} n==1 && /^name:/{print $2; exit}' "$f")
+            if [ "$skill_name" != "$skill_dir" ]; then
+              echo "ERROR: $f name '$skill_name' does not match directory '$skill_dir'"
+              exit 1
+            fi
+            # Validate name is lowercase-and-hyphens only
+            if ! echo "$skill_name" | grep -qE '^[a-z][a-z0-9-]*$'; then
+              echo "ERROR: $f name '$skill_name' must be lowercase letters, numbers, and hyphens"
+              exit 1
+            fi
           done
           echo "All SKILL.md files are valid."
 

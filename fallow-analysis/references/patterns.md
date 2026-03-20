@@ -537,4 +537,4 @@ fallow check --format sarif --quiet > fallow.sarif
 fallow check --ci > fallow.sarif
 ```
 
-The `--ci` flag is equivalent to `--format sarif --fail-on-issues --quiet`.
+The `--ci` flag is equivalent to `--format sarif --fail-on-issues --quiet`. Note: `--fail-on-issues` means exit code 1 if issues exist — in CI scripts, use `continue-on-error: true` or `|| true` to ensure the SARIF upload step still runs.
