@@ -1,0 +1,27 @@
+{
+  "name": "fallow",
+  "version": "1.0.0",
+  "description": "Agent skills for finding and removing dead code, unused dependencies, and code duplication in JavaScript/TypeScript projects using fallow",
+  "author": {
+    "name": "Bart Waardenburg",
+    "url": "https://github.com/bartwaardenburg"
+  },
+  "homepage": "https://github.com/fallow-rs/fallow-skills",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fallow-rs/fallow-skills.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "fallow",
+    "dead-code",
+    "unused-exports",
+    "unused-dependencies",
+    "code-duplication",
+    "javascript",
+    "typescript",
+    "codebase-hygiene",
+    "static-analysis",
+    "lint"
+  ]
+}

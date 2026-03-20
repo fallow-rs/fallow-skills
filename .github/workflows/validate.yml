@@ -1,0 +1,53 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON files
+        run: |
+          echo "Validating JSON files..."
+          for f in $(find . -name "*.json" -not -path "./node_modules/*"); do
+            echo "  Checking $f"
+            python3 -c "import json; json.load(open('$f'))" || exit 1
+          done
+          echo "All JSON files are valid."
+
+      - name: Validate SKILL.md frontmatter
+        run: |
+          echo "Validating SKILL.md files..."
+          for f in $(find . -name "SKILL.md"); do
+            echo "  Checking $f"
+            head -1 "$f" | grep -q "^---$" || { echo "ERROR: $f missing frontmatter"; exit 1; }
+            awk '/^---$/{n++; next} n==1{print}' "$f" | grep -q "^name:" || { echo "ERROR: $f missing 'name' in frontmatter"; exit 1; }
+            awk '/^---$/{n++; next} n==1{print}' "$f" | grep -q "^description:" || { echo "ERROR: $f missing 'description' in frontmatter"; exit 1; }
+          done
+          echo "All SKILL.md files are valid."
+
+      - name: Check for hardcoded paths
+        run: |
+          echo "Checking for hardcoded paths..."
+          if grep -rn "/Users/" --include="*.md" --include="*.json" .; then
+            echo "ERROR: Found hardcoded user paths"
+            exit 1
+          fi
+          echo "No hardcoded paths found."
+
+      - name: Check version sync
+        run: |
+          echo "Checking version sync..."
+          MARKETPLACE_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['version'])")
+          PLUGIN_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+          if [ "$MARKETPLACE_VERSION" != "$PLUGIN_VERSION" ]; then
+            echo "ERROR: Version mismatch - marketplace.json ($MARKETPLACE_VERSION) != plugin.json ($PLUGIN_VERSION)"
+            exit 1
+          fi
+          echo "Versions in sync: $MARKETPLACE_VERSION"
