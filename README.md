@@ -61,12 +61,12 @@ Clone into the Windsurf skills directory:
 git clone https://github.com/fallow-rs/fallow-skills.git ~/.codeium/windsurf/skills/fallow-skills
 ```
 
-### GitHub Copilot / VS Code
+### GitHub Copilot
 
-Clone into your project or user skills directory:
+Clone into your project's `.github/skills/` directory or your user skills directory:
 
 ```bash
-git clone https://github.com/fallow-rs/fallow-skills.git ~/.agents/skills/fallow-skills
+git clone https://github.com/fallow-rs/fallow-skills.git .github/skills/fallow-skills
 ```
 
 ### Gemini CLI

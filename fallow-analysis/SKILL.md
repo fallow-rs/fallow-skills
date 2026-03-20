@@ -45,28 +45,27 @@ cargo install fallow-cli        # build from source
 2. **Use issue type filters** (`--unused-exports`, `--unused-files`, etc.) to limit output scope
 3. **Always `--dry-run` before `fix`**, then `fix --yes` to apply
 4. **All output paths are relative** to the project root
-5. **Never run `watch`** — it is interactive and never exits
+5. **Never run `fallow watch`** — it is interactive and never exits
 
 ## Commands
 
 | Command | Purpose | Key Flags |
 |---------|---------|-----------|
 | `check` | Dead code analysis (default) | `--unused-exports`, `--changed-since`, `--production`, `--ci` |
-| `dupes` | Code duplication detection | `--mode semantic`, `--threshold 5`, `--skip-local` |
+| `dupes` | Code duplication detection | `--mode`, `--threshold`, `--skip-local`, `--cross-language` |
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
 | `init` | Generate config file | `--toml` for TOML format |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
 | `list` | Inspect project structure | `--files`, `--entry-points`, `--frameworks` |
 
-## Issue Types (11)
+## Issue Types
 
 | Type | Filter Flag | Description |
 |------|-------------|-------------|
 | Unused files | `--unused-files` | Files unreachable from entry points |
 | Unused exports | `--unused-exports` | Symbols never imported elsewhere |
 | Unused types | `--unused-types` | Type aliases and interfaces |
-| Unused dependencies | `--unused-deps` | Packages in `dependencies` |
-| Unused devDependencies | `--unused-deps` | Packages in `devDependencies` |
+| Unused dependencies | `--unused-deps` | Packages in `dependencies` and `devDependencies` |
 | Unused enum members | `--unused-enum-members` | Enum values never referenced |
 | Unused class members | `--unused-class-members` | Methods and properties |
 | Unresolved imports | `--unresolved-imports` | Imports that can't be resolved |

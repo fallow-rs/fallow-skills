@@ -12,6 +12,18 @@
     "url": "https://github.com/fallow-rs/fallow-skills.git"
   },
   "license": "MIT",
+  "keywords": [
+    "fallow",
+    "dead-code",
+    "unused-exports",
+    "unused-dependencies",
+    "code-duplication",
+    "javascript",
+    "typescript",
+    "codebase-hygiene",
+    "static-analysis",
+    "lint"
+  ],
   "plugins": [
     {
       "name": "fallow",

@@ -98,7 +98,7 @@ Parse the JSON to list specific files and exports that became unused.
 
 ```yaml
 - name: Fallow analysis
-  run: npx fallow check --ci --format sarif > fallow.sarif
+  run: npx fallow check --format sarif --quiet > fallow.sarif
   continue-on-error: true
 
 - name: Upload SARIF
