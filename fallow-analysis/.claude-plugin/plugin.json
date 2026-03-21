@@ -1,0 +1,14 @@
+{
+  "name": "fallow",
+  "version": "1.0.0",
+  "description": "Dead code analysis, duplication detection, and auto-fix for JavaScript/TypeScript using fallow",
+  "author": {
+    "name": "Bart Waardenburg"
+  },
+  "homepage": "https://docs.fallow.tools",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fallow-rs/fallow-skills.git"
+  },
+  "license": "MIT"
+}
