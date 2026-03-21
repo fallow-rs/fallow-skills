@@ -6,9 +6,6 @@
     "name": "Bart Waardenburg"
   },
   "homepage": "https://docs.fallow.tools",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/fallow-rs/fallow-skills.git"
-  },
+  "repository": "https://github.com/fallow-rs/fallow-skills",
   "license": "MIT"
 }
