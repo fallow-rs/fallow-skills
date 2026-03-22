@@ -57,7 +57,7 @@ cargo install fallow-cli        # build from source
 | Command | Purpose | Key Flags |
 |---------|---------|-----------|
 | `check` | Dead code analysis (default) | `--unused-exports`, `--changed-since`, `--production`, `--ci` |
-| `dupes` | Code duplication detection | `--mode`, `--threshold`, `--skip-local`, `--cross-language` |
+| `dupes` | Code duplication detection | `--mode`, `--threshold`, `--changed-since`, `--skip-local`, `--cross-language` |
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
 | `init` | Generate config file | `--toml` for TOML format |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |

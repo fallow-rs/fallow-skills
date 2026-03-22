@@ -110,6 +110,7 @@ Finds code duplication and clones across the project.
 | `--skip-local` | bool | `false` | Only report cross-directory duplicates |
 | `--cross-language` | bool | `false` | Strip type annotations for TS↔JS matching |
 | `--trace` | `FILE:LINE` | — | Trace all clones at a specific location |
+| `--changed-since` | string | — | Only report duplication in files changed since a git ref |
 | `--baseline` | path | — | Compare against baseline |
 | `--save-baseline` | path | — | Save results as baseline |
 | `--workspace` | string | — | Scope to a single workspace package |
@@ -137,6 +138,9 @@ fallow dupes --format json --quiet --skip-local --threshold 5
 
 # Trace clones at a specific location
 fallow dupes --format json --quiet --trace src/utils.ts:42
+
+# Only check duplication in changed files
+fallow dupes --format json --quiet --changed-since main
 
 # Incremental CI
 fallow dupes --format json --quiet --save-baseline .fallow-dupes-baseline.json

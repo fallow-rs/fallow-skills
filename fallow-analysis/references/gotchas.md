@@ -61,11 +61,14 @@ The `--quiet` flag suppresses progress bars on stderr. Without it, stderr output
 
 ## `--changed-since` Shows Only New Issues
 
-The `--changed-since` flag limits analysis to files modified since a git ref. It only reports issues in those files, not all issues in the project.
+The `--changed-since` flag limits analysis to files modified since a git ref. It only reports issues in those files, not all issues in the project. Works with both `check` and `dupes`.
 
 ```bash
 # This only shows issues in files changed since main
 fallow check --format json --quiet --changed-since main
+
+# Same for duplication — only clone groups involving changed files
+fallow dupes --format json --quiet --changed-since main
 
 # This shows ALL issues in the project
 fallow check --format json --quiet

@@ -133,6 +133,15 @@ Parse the JSON to list specific files and exports that became unused.
 
 Fails if overall duplication exceeds 5%.
 
+### GitHub Actions: PR-Scoped Duplication Check
+
+```yaml
+- name: Check duplication in changed files
+  run: npx fallow dupes --format json --quiet --changed-since ${{ github.event.pull_request.base.sha }}
+```
+
+Only reports duplication in files modified by the PR.
+
 ---
 
 ## Incremental Adoption with Baselines
