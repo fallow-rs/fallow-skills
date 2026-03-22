@@ -78,6 +78,7 @@ cargo install fallow-cli        # build from source
 | Unlisted dependencies | `--unlisted-deps` | Used packages missing from package.json |
 | Duplicate exports | `--duplicate-exports` | Same symbol exported from multiple modules |
 | Circular dependencies | `--circular-deps` | Import cycles in the module graph |
+| Unused optionalDependencies | `--unused-optional-deps` | Packages in `optionalDependencies` never imported |
 
 ## References
 
@@ -244,6 +245,7 @@ export const keepThisToo = 2;
 - **`fix --yes` is required** in non-TTY (agent) environments. Without it, `fix` exits with code 2
 - **Zero config by default.** 84 framework plugins auto-detect. Don't create config unless customization is needed
 - **Syntactic analysis only.** No TypeScript compiler, so fully dynamic `import(variable)` is not resolved
+- **Function overloads are deduplicated.** TypeScript function overload signatures are merged into a single export (not reported as separate unused exports)
 - **Re-export chains are resolved.** Exports through barrel files are tracked, not falsely flagged
 - **`--changed-since` is additive.** Only new issues in changed files, not all issues in the project
 

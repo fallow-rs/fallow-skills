@@ -99,6 +99,7 @@ Fallow uses Oxc for pure syntactic analysis. It does not run the TypeScript comp
 - **Fully dynamic imports** (`import(variable)`) are not resolved. Only static strings, template literals with static prefixes, `import.meta.glob`, and `require.context` patterns
 - **Value-level type narrowing** is not performed. Fallow can't know that `if (x instanceof Foo)` means `Foo` is "used"
 - **Conditional exports** based on runtime values are not analyzed
+- **Function overload signatures are deduplicated**: TypeScript function overloads (multiple signatures for the same function name) are merged into a single export. They are not reported as separate unused exports
 
 ```typescript
 // RESOLVED: static pattern with prefix

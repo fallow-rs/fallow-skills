@@ -60,6 +60,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 | `--unlisted-deps` | Unlisted dependencies |
 | `--duplicate-exports` | Duplicate exports |
 | `--circular-deps` | Circular dependencies |
+| `--unused-optional-deps` | Unused optionalDependencies |
 
 ### Examples
 
@@ -337,7 +338,8 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
   "unresolved_imports": [{ "path": "src/index.ts", "specifier": "./missing", "line": 3 }],
   "unlisted_dependencies": [{ "name": "chalk", "used_in": ["src/cli.ts"] }],
   "duplicate_exports": [{ "name": "Config", "locations": ["src/config.ts:5", "src/types.ts:12"] }],
-  "circular_dependencies": [{ "cycle": ["src/a.ts", "src/b.ts", "src/a.ts"] }]
+  "circular_dependencies": [{ "cycle": ["src/a.ts", "src/b.ts", "src/a.ts"] }],
+  "unused_optional_dependencies": [{ "name": "fsevents" }]
 }
 ```
 
