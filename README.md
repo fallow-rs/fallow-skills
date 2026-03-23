@@ -99,7 +99,7 @@ See the [installation guide](https://docs.fallow.tools/installation) for all opt
 
 ### Reference Documentation
 
-- **[CLI Reference](fallow-analysis/references/cli-reference.md)**: all 9 commands, flags, JSON output structure, config format
+- **[CLI Reference](fallow-analysis/references/cli-reference.md)**: all 10 commands, flags, JSON output structure, config format
 - **[Gotchas](fallow-analysis/references/gotchas.md)**: 19 pitfalls with WRONG/CORRECT examples
 - **[Patterns](fallow-analysis/references/patterns.md)**: 14 workflow recipes for CI, monorepos, migration, incremental adoption
 

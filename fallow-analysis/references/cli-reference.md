@@ -12,6 +12,7 @@ Complete command and flag specifications for all fallow CLI commands.
 - [`list`: Project Introspection](#list-project-introspection)
 - [`init`: Config Generation](#init-config-generation)
 - [`migrate`: Config Migration](#migrate-config-migration)
+- [`health`: Function Complexity Analysis](#health-function-complexity-analysis)
 - [`schema`: CLI Introspection](#schema-cli-introspection)
 - [`config-schema`: Config JSON Schema](#config-schema-config-json-schema)
 - [`plugin-schema`: Plugin JSON Schema](#plugin-schema-plugin-json-schema)
@@ -246,6 +247,71 @@ fallow migrate --dry-run    # preview
 fallow migrate              # auto-detect and write .fallowrc.json
 fallow migrate --toml       # output as TOML
 fallow migrate --from knip.json
+```
+
+---
+
+## `health`: Function Complexity Analysis
+
+Analyzes function complexity across the project using cyclomatic and cognitive complexity metrics.
+
+### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--format` | `human\|json\|compact` | `human` | Output format |
+| `--quiet` | bool | `false` | Suppress progress bars |
+| `--max-cyclomatic` | number | `20` | Fail if any function exceeds this cyclomatic complexity |
+| `--max-cognitive` | number | `15` | Fail if any function exceeds this cognitive complexity |
+| `--top` | number | — | Only show the top N most complex functions |
+| `--sort` | `cyclomatic\|cognitive\|lines` | `cyclomatic` | Sort order for results |
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | No functions exceed thresholds |
+| 1 | One or more functions exceed thresholds |
+
+### Examples
+
+```bash
+# Full complexity analysis with JSON output
+fallow health --format json --quiet
+
+# Top 10 most complex functions
+fallow health --format json --quiet --top 10
+
+# Sort by cognitive complexity
+fallow health --format json --quiet --sort cognitive
+
+# Custom thresholds
+fallow health --format json --quiet --max-cyclomatic 15 --max-cognitive 10
+
+# CI: fail if any function is too complex
+fallow health --max-cyclomatic 25 --max-cognitive 20 --quiet
+```
+
+### JSON Output Structure
+
+```json
+{
+  "schema_version": 1,
+  "version": "1.5.0",
+  "elapsed_ms": 32,
+  "total_functions": 482,
+  "functions_exceeding_threshold": 3,
+  "functions": [
+    {
+      "path": "src/parser.ts",
+      "name": "parseExpression",
+      "line": 42,
+      "cyclomatic": 28,
+      "cognitive": 22,
+      "lines": 95
+    }
+  ]
+}
 ```
 
 ---

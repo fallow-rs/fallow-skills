@@ -62,6 +62,7 @@ cargo install fallow-cli        # build from source
 | `init` | Generate config file | `--toml` for TOML format |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
 | `list` | Inspect project structure | `--files`, `--entry-points`, `--frameworks` |
+| `health` | Function complexity analysis | `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort` |
 | `schema` | Dump CLI definition as JSON | |
 
 ## Issue Types
