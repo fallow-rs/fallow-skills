@@ -61,6 +61,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 | `--duplicate-exports` | Duplicate exports |
 | `--circular-deps` | Circular dependencies |
 | `--unused-optional-deps` | Unused optionalDependencies |
+| `--type-only-deps` | Type-only dependencies (production deps only used via `import type`) |
 
 ### Examples
 
@@ -343,7 +344,8 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
   "unlisted_dependencies": [{ "name": "chalk", "used_in": ["src/cli.ts"] }],
   "duplicate_exports": [{ "name": "Config", "locations": ["src/config.ts:5", "src/types.ts:12"] }],
   "circular_dependencies": [{ "cycle": ["src/a.ts", "src/b.ts", "src/a.ts"] }],
-  "unused_optional_dependencies": [{ "name": "fsevents" }]
+  "unused_optional_dependencies": [{ "name": "fsevents" }],
+  "type_only_dependencies": [{ "name": "zod", "used_in": ["src/schema.ts"] }]
 }
 ```
 
@@ -422,7 +424,8 @@ Config files are searched in priority order: `.fallowrc.json` > `fallow.toml` > 
     "unresolved-imports": "error",
     "unlisted-dependencies": "error",
     "duplicate-exports": "warn",
-    "circular-dependencies": "warn"
+    "circular-dependencies": "warn",
+    "type-only-dependencies": "error"
   },
 
   // Per-path rule overrides
@@ -500,4 +503,4 @@ unused-exports = "off"
 
 ### Valid Issue Type Tokens
 
-`unused-file`, `unused-export`, `unused-type`, `unused-dependency`, `unused-dev-dependency`, `unused-enum-member`, `unused-class-member`, `unresolved-import`, `unlisted-dependency`, `duplicate-export`, `circular-dependency`, `code-duplication`
+`unused-file`, `unused-export`, `unused-type`, `unused-dependency`, `unused-dev-dependency`, `unused-enum-member`, `unused-class-member`, `unresolved-import`, `unlisted-dependency`, `duplicate-export`, `circular-dependency`, `unused-optional-dependency`, `type-only-dependency`, `code-duplication`

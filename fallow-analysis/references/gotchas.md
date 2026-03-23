@@ -309,3 +309,67 @@ class UserController {
 ```
 
 This is handled automatically. No suppression needed.
+
+---
+
+## JSDoc `@public` Keeps Exports Alive
+
+Exports annotated with `/** @public */` or `/** @api public */` are never reported as unused. This is designed for library authors whose exports are consumed by external projects not visible to fallow.
+
+```typescript
+// NOT flagged: @public annotation
+/** @public */
+export const createWidget = () => {};
+
+// NOT flagged: @api public variant
+/** @api public */
+export interface WidgetConfig {}
+
+// STILL flagged: line comments don't count
+// @public
+export const notProtected = () => {};
+```
+
+Only `/** */` JSDoc block comments are recognized. Line comments (`// @public`) are ignored.
+
+---
+
+## Class Instance Members Are Tracked
+
+Fallow tracks class member usage through instance variables. If you instantiate a class and call methods on the instance, those members are correctly marked as used.
+
+```typescript
+class MyService {
+  greet() { return 'hello'; }   // NOT flagged: used via instance
+  unused() { return 'bye'; }    // Flagged: never called
+}
+
+const svc = new MyService();
+svc.greet();
+```
+
+This also handles whole-object instance patterns (`Object.values(svc)`, `{ ...svc }`, `for..in`) conservatively (all members marked as used). The tracking is scope-unaware, so same-named variables in different scopes may produce false negatives (not false positives).
+
+---
+
+## Type-Only Dependencies Should Be devDependencies
+
+In `--production` mode, fallow detects production dependencies that are only imported via `import type`. Since TypeScript types are erased at runtime, these packages should be in `devDependencies` instead.
+
+```typescript
+// If "zod" is in dependencies (not devDependencies):
+import type { ZodSchema } from 'zod';  // Flagged as type-only dependency
+
+// This is a real import, not type-only:
+import { z } from 'zod';  // NOT flagged
+```
+
+```bash
+# Detect type-only dependencies
+fallow check --format json --quiet --production --type-only-deps
+
+# Suppress for a specific dependency
+# fallow-ignore-next-line type-only-dependency
+```
+
+The `type-only-dependencies` rule defaults to `error`. Suppress with `"type-only-dependencies": "off"` in your rules config if you intentionally keep type-only packages in production dependencies.

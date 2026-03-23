@@ -79,6 +79,7 @@ cargo install fallow-cli        # build from source
 | Duplicate exports | `--duplicate-exports` | Same symbol exported from multiple modules |
 | Circular dependencies | `--circular-deps` | Import cycles in the module graph |
 | Unused optionalDependencies | `--unused-optional-deps` | Packages in `optionalDependencies` never imported |
+| Type-only dependencies | `--type-only-deps` | Production deps only used via `import type` (should be devDependencies) |
 
 ## References
 
