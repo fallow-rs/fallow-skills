@@ -266,6 +266,9 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 | `--top` | number | — | Only show the top N most complex functions (and file scores) |
 | `--sort` | `cyclomatic\|cognitive\|lines` | `cyclomatic` | Sort order for complexity findings |
 | `--file-scores` | bool | `false` | Compute per-file maintainability index (fan-in, fan-out, dead code ratio, complexity density). Runs the full analysis pipeline. |
+| `--hotspots` | bool | `false` | Identify hotspots: files that are both complex and frequently changing. Combines git churn history with complexity data. Requires a git repository. |
+| `--since` | string | `6m` | Git history window for hotspot analysis. Accepts durations (`6m`, `90d`, `1y`, `2w`) or ISO dates (`2025-06-01`). |
+| `--min-commits` | number | `3` | Minimum number of commits for a file to be included in hotspot ranking. |
 | `--changed-since` | string | — | Only analyze files changed since a git ref |
 | `--workspace` | string | — | Scope to a single workspace package |
 | `--baseline` | path | — | Compare against a saved baseline |
@@ -311,6 +314,18 @@ fallow health --format json --quiet --baseline .fallow-health-baseline.json
 
 # CI: fail if any function is too complex
 fallow health --max-cyclomatic 25 --max-cognitive 20 --quiet
+
+# Hotspot analysis (complex + frequently changing files)
+fallow health --format json --quiet --hotspots
+
+# Hotspots from the last year
+fallow health --format json --quiet --hotspots --since 1y
+
+# Hotspots with at least 5 commits
+fallow health --format json --quiet --hotspots --min-commits 5
+
+# Top 10 hotspots from the last 90 days
+fallow health --format json --quiet --hotspots --since 90d --top 10
 ```
 
 ### JSON Output Structure
@@ -318,7 +333,7 @@ fallow health --max-cyclomatic 25 --max-cognitive 20 --quiet
 ```json
 {
   "schema_version": 3,
-  "version": "1.6.1",
+  "version": "1.7.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -368,6 +383,35 @@ With `--file-scores`, the JSON output also includes `file_scores` array and `sum
 ```
 
 Maintainability index formula: `100 - (complexity_density × 30) - (dead_code_ratio × 20) - min(ln(fan_out+1) × 4, 15)`, clamped to 0–100. Higher is better. Type-only exports are excluded from dead_code_ratio. Zero-function files (barrels) are excluded by default.
+
+With `--hotspots`, the JSON output includes a `hotspots` array and `hotspot_summary`:
+
+```json
+{
+  "hotspot_summary": {
+    "since": "6m",
+    "min_commits": 3,
+    "files_analyzed": 482,
+    "files_excluded": 312,
+    "shallow_clone": false
+  },
+  "hotspots": [
+    {
+      "path": "src/parser.ts",
+      "score": 92,
+      "commits": 28,
+      "weighted_commits": 34.5,
+      "lines_added": 410,
+      "lines_deleted": 180,
+      "complexity_density": 0.22,
+      "fan_in": 8,
+      "trend": "Accelerating"
+    }
+  ]
+}
+```
+
+Hotspot score formula: `normalized_churn × normalized_complexity × 100`, scaled 0–100. Higher means more urgent to refactor. The `trend` field indicates recent change velocity: `Accelerating` (increasing churn), `Stable` (constant), or `Cooling` (decreasing). Files below `--min-commits` are excluded. The `shallow_clone` field warns when git history is truncated (shallow clone), which may undercount commits.
 
 ---
 
@@ -452,7 +496,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "1.6.1",
+  "version": "1.7.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "unused_files": [{ "path": "src/old.ts" }],
@@ -476,7 +520,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "1.6.1",
+  "version": "1.7.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
