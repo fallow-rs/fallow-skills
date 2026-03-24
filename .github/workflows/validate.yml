@@ -56,7 +56,7 @@ jobs:
       - name: Check version sync
         run: |
           echo "Checking version sync..."
-          MARKETPLACE_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['version'])")
+          MARKETPLACE_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['metadata']['version'])")
           PLUGIN_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
           if [ "$MARKETPLACE_VERSION" != "$PLUGIN_VERSION" ]; then
             echo "ERROR: Version mismatch - marketplace.json ($MARKETPLACE_VERSION) != plugin.json ($PLUGIN_VERSION)"
