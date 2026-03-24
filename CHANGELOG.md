@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-03-24
+
+### Changed
+
+- Updated for fallow v1.6.0 (was v1.4.0)
+- JSON output `schema_version` bumped from 2 to 3
+- `unlisted_dependencies[].imported_from` changed from `string[]` to `ImportSite[]` (`{path, line, col}` objects)
+- `unused_dependencies` and `unused_dev_dependencies` now include a `line` field
+- `type_only_dependencies` now includes a `line` field
+- `circular_dependencies` now includes `line` and `col` fields
+
 ## [1.1.0] - 2026-03-23
 
 ### Changed
@@ -26,5 +37,6 @@ All notable changes to this project will be documented in this file.
 - CI validation pipeline (JSON, frontmatter, hardcoded paths, version sync)
 - Plugin metadata for Claude Code marketplace (`.claude-plugin/`)
 
+[1.2.0]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.2.0
 [1.1.0]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.1.0
 [1.0.0]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.0.0

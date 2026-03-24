@@ -296,8 +296,8 @@ fallow health --max-cyclomatic 25 --max-cognitive 20 --quiet
 
 ```json
 {
-  "schema_version": 1,
-  "version": "1.5.0",
+  "schema_version": 3,
+  "version": "1.6.0",
   "elapsed_ms": 32,
   "total_functions": 482,
   "functions_exceeding_threshold": 3,
@@ -395,23 +395,23 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 
 ```json
 {
-  "schema_version": 1,
-  "version": "0.3.0",
+  "schema_version": 3,
+  "version": "1.6.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "unused_files": [{ "path": "src/old.ts" }],
   "unused_exports": [{ "path": "src/utils.ts", "name": "unusedFn", "line": 42 }],
   "unused_types": [{ "path": "src/types.ts", "name": "OldType", "line": 10 }],
-  "unused_dependencies": [{ "name": "lodash" }],
-  "unused_dev_dependencies": [{ "name": "jest" }],
+  "unused_dependencies": [{ "name": "lodash", "line": 5 }],
+  "unused_dev_dependencies": [{ "name": "jest", "line": 8 }],
   "unused_enum_members": [{ "path": "src/enums.ts", "enum_name": "Status", "member": "Archived", "line": 5 }],
   "unused_class_members": [{ "path": "src/service.ts", "class_name": "Service", "member": "oldMethod", "line": 20 }],
   "unresolved_imports": [{ "path": "src/index.ts", "specifier": "./missing", "line": 3 }],
-  "unlisted_dependencies": [{ "name": "chalk", "used_in": ["src/cli.ts"] }],
+  "unlisted_dependencies": [{ "name": "chalk", "imported_from": [{ "path": "src/cli.ts", "line": 1, "col": 0 }] }],
   "duplicate_exports": [{ "name": "Config", "locations": ["src/config.ts:5", "src/types.ts:12"] }],
-  "circular_dependencies": [{ "cycle": ["src/a.ts", "src/b.ts", "src/a.ts"] }],
+  "circular_dependencies": [{ "cycle": ["src/a.ts", "src/b.ts", "src/a.ts"], "line": 3, "col": 0 }],
   "unused_optional_dependencies": [{ "name": "fsevents" }],
-  "type_only_dependencies": [{ "name": "zod", "used_in": ["src/schema.ts"] }]
+  "type_only_dependencies": [{ "name": "zod", "used_in": ["src/schema.ts"], "line": 12 }]
 }
 ```
 
@@ -419,8 +419,8 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 
 ```json
 {
-  "schema_version": 1,
-  "version": "0.3.0",
+  "schema_version": 3,
+  "version": "1.6.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
