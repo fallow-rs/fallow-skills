@@ -33,7 +33,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | `human\|json\|sarif\|compact` | `human` | Output format |
+| `--format` | `human\|json\|sarif\|compact\|markdown` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars and timing on stderr |
 | `--fail-on-issues` | bool | `false` | Exit 1 if any issues found (promotes `warn` to `error`) |
 | `--changed-since` | string | — | Only analyze files changed since a git ref (e.g., `main`, `HEAD~3`) |
@@ -103,7 +103,7 @@ Finds code duplication and clones across the project.
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | `human\|json\|sarif\|compact` | `human` | Output format |
+| `--format` | `human\|json\|sarif\|compact\|markdown` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars |
 | `--mode` | `strict\|mild\|weak\|semantic` | `mild` | Detection mode |
 | `--min-tokens` | number | `50` | Minimum token count for a clone |
@@ -251,20 +251,25 @@ fallow migrate --from knip.json
 
 ---
 
-## `health`: Function Complexity Analysis
+## `health`: Function Complexity & File Health Analysis
 
-Analyzes function complexity across the project using cyclomatic and cognitive complexity metrics.
+Analyzes function complexity across the project using cyclomatic and cognitive complexity metrics. With `--file-scores`, also computes per-file maintainability index.
 
 ### Flags
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | `human\|json\|compact` | `human` | Output format |
+| `--format` | `human\|json\|compact\|markdown\|sarif` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars |
 | `--max-cyclomatic` | number | `20` | Fail if any function exceeds this cyclomatic complexity |
 | `--max-cognitive` | number | `15` | Fail if any function exceeds this cognitive complexity |
-| `--top` | number | — | Only show the top N most complex functions |
-| `--sort` | `cyclomatic\|cognitive\|lines` | `cyclomatic` | Sort order for results |
+| `--top` | number | — | Only show the top N most complex functions (and file scores) |
+| `--sort` | `cyclomatic\|cognitive\|lines` | `cyclomatic` | Sort order for complexity findings |
+| `--file-scores` | bool | `false` | Compute per-file maintainability index (fan-in, fan-out, dead code ratio, complexity density). Runs the full analysis pipeline. |
+| `--changed-since` | string | — | Only analyze files changed since a git ref |
+| `--workspace` | string | — | Scope to a single workspace package |
+| `--baseline` | path | — | Compare against a saved baseline |
+| `--save-baseline` | path | — | Save current results as a baseline |
 
 ### Exit Codes
 
@@ -288,6 +293,22 @@ fallow health --format json --quiet --sort cognitive
 # Custom thresholds
 fallow health --format json --quiet --max-cyclomatic 15 --max-cognitive 10
 
+# Per-file maintainability index
+fallow health --format json --quiet --file-scores
+
+# Worst 20 files by maintainability
+fallow health --format json --quiet --file-scores --top 20
+
+# Only analyze files changed since main
+fallow health --format json --quiet --changed-since main
+
+# Single workspace package
+fallow health --format json --quiet --workspace my-package
+
+# Incremental adoption with baseline
+fallow health --format json --quiet --save-baseline .fallow-health-baseline.json
+fallow health --format json --quiet --baseline .fallow-health-baseline.json
+
 # CI: fail if any function is too complex
 fallow health --max-cyclomatic 25 --max-cognitive 20 --quiet
 ```
@@ -297,22 +318,56 @@ fallow health --max-cyclomatic 25 --max-cognitive 20 --quiet
 ```json
 {
   "schema_version": 3,
-  "version": "1.6.0",
+  "version": "1.6.1",
   "elapsed_ms": 32,
-  "total_functions": 482,
-  "functions_exceeding_threshold": 3,
-  "functions": [
+  "summary": {
+    "files_analyzed": 482,
+    "functions_analyzed": 3200,
+    "functions_above_threshold": 3,
+    "max_cyclomatic_threshold": 20,
+    "max_cognitive_threshold": 15
+  },
+  "findings": [
     {
       "path": "src/parser.ts",
       "name": "parseExpression",
       "line": 42,
+      "col": 0,
       "cyclomatic": 28,
       "cognitive": 22,
-      "lines": 95
+      "line_count": 95,
+      "exceeded": "both"
     }
   ]
 }
 ```
+
+With `--file-scores`, the JSON output also includes `file_scores` array and `summary.files_scored` / `summary.average_maintainability`:
+
+```json
+{
+  "summary": {
+    "files_scored": 482,
+    "average_maintainability": 88.5
+  },
+  "file_scores": [
+    {
+      "path": "src/parser.ts",
+      "fan_in": 8,
+      "fan_out": 4,
+      "dead_code_ratio": 0.25,
+      "complexity_density": 0.22,
+      "maintainability_index": 75.1,
+      "total_cyclomatic": 42,
+      "total_cognitive": 35,
+      "function_count": 12,
+      "lines": 190
+    }
+  ]
+}
+```
+
+Maintainability index formula: `100 - (complexity_density × 30) - (dead_code_ratio × 20) - min(ln(fan_out+1) × 4, 15)`, clamped to 0–100. Higher is better. Type-only exports are excluded from dead_code_ratio. Zero-function files (barrels) are excluded by default.
 
 ---
 
@@ -386,6 +441,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 | `json` | Machine-readable JSON | Agent integration, CI pipelines |
 | `sarif` | Static Analysis Results Interchange Format | GitHub Code Scanning |
 | `compact` | Grep-friendly: `type:path:line:name` per line | Quick filtering |
+| `markdown` | Markdown tables | Documentation, PR comments |
 
 ---
 
@@ -396,7 +452,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "1.6.0",
+  "version": "1.6.1",
   "elapsed_ms": 45,
   "total_issues": 12,
   "unused_files": [{ "path": "src/old.ts" }],
@@ -420,7 +476,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "1.6.0",
+  "version": "1.6.1",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
