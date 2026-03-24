@@ -105,6 +105,7 @@ Finds code duplication and clones across the project.
 |------|------|---------|-------------|
 | `--format` | `human\|json\|sarif\|compact\|markdown` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars |
+| `--top` | number | — | Show only the N largest clone groups (sorted by line count descending). Summary stats reflect the full project. |
 | `--mode` | `strict\|mild\|weak\|semantic` | `mild` | Detection mode |
 | `--min-tokens` | number | `50` | Minimum token count for a clone |
 | `--min-lines` | number | `5` | Minimum line count for a clone |
@@ -253,7 +254,7 @@ fallow migrate --from knip.json
 
 ## `health`: Function Complexity & File Health Analysis
 
-Analyzes function complexity across the project using cyclomatic and cognitive complexity metrics. With `--file-scores`, also computes per-file maintainability index.
+Analyzes function complexity across the project using cyclomatic and cognitive complexity metrics. By default all sections are included (complexity findings, file scores, and hotspots). Use `--complexity`, `--file-scores`, or `--hotspots` to show only specific sections.
 
 ### Flags
 
@@ -265,8 +266,9 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 | `--max-cognitive` | number | `15` | Fail if any function exceeds this cognitive complexity |
 | `--top` | number | — | Only show the top N most complex functions (and file scores) |
 | `--sort` | `cyclomatic\|cognitive\|lines` | `cyclomatic` | Sort order for complexity findings |
-| `--file-scores` | bool | `false` | Compute per-file maintainability index (fan-in, fan-out, dead code ratio, complexity density). Runs the full analysis pipeline. |
-| `--hotspots` | bool | `false` | Identify hotspots: files that are both complex and frequently changing. Combines git churn history with complexity data. Requires a git repository. |
+| `--complexity` | bool | `false` | Show only function complexity findings. When no section flags are set, all sections are shown by default. |
+| `--file-scores` | bool | `false` | Show only per-file maintainability index (fan-in, fan-out, dead code ratio, complexity density). Runs the full analysis pipeline. When no section flags are set, all sections are shown by default. |
+| `--hotspots` | bool | `false` | Show only hotspots: files that are both complex and frequently changing. Combines git churn history with complexity data. Requires a git repository. When no section flags are set, all sections are shown by default. |
 | `--since` | string | `6m` | Git history window for hotspot analysis. Accepts durations (`6m`, `90d`, `1y`, `2w`) or ISO dates (`2025-06-01`). |
 | `--min-commits` | number | `3` | Minimum number of commits for a file to be included in hotspot ranking. |
 | `--changed-since` | string | — | Only analyze files changed since a git ref |
@@ -333,7 +335,7 @@ fallow health --format json --quiet --hotspots --since 90d --top 10
 ```json
 {
   "schema_version": 3,
-  "version": "1.7.0",
+  "version": "1.8.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -462,6 +464,7 @@ Available on all commands:
 | `--save-baseline` | path | Save results as baseline |
 | `--performance` | bool | Show pipeline timing breakdown |
 | `-w, --workspace` | string | Scope to single workspace package |
+| `--explain` | bool | Include metric definitions in JSON output (`_meta` object). Always on for MCP |
 
 ---
 
@@ -496,7 +499,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "1.7.0",
+  "version": "1.8.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "unused_files": [{ "path": "src/old.ts" }],
@@ -520,7 +523,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "1.7.0",
+  "version": "1.8.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,

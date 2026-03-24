@@ -47,22 +47,23 @@ cargo install fallow-cli        # build from source
 ## Agent Rules
 
 1. **Always use `--format json --quiet`** for machine-readable output
-2. **Use issue type filters** (`--unused-exports`, `--unused-files`, etc.) to limit output scope
-3. **Always `--dry-run` before `fix`**, then `fix --yes` to apply
-4. **All output paths are relative** to the project root
-5. **Never run `fallow watch`**. It is interactive and never exits
+2. **Use `--explain`** to include a `_meta` object in JSON output with metric definitions, ranges, and interpretation hints
+3. **Use issue type filters** (`--unused-exports`, `--unused-files`, etc.) to limit output scope
+4. **Always `--dry-run` before `fix`**, then `fix --yes` to apply
+5. **All output paths are relative** to the project root
+6. **Never run `fallow watch`**. It is interactive and never exits
 
 ## Commands
 
 | Command | Purpose | Key Flags |
 |---------|---------|-----------|
 | `check` | Dead code analysis (default) | `--unused-exports`, `--changed-since`, `--production`, `--ci` |
-| `dupes` | Code duplication detection | `--mode`, `--threshold`, `--changed-since`, `--skip-local`, `--cross-language` |
+| `dupes` | Code duplication detection | `--mode`, `--threshold`, `--top`, `--changed-since`, `--skip-local`, `--cross-language` |
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
 | `init` | Generate config file | `--toml` for TOML format |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
 | `list` | Inspect project structure | `--files`, `--entry-points`, `--frameworks` |
-| `health` | Function complexity analysis | `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--since`, `--min-commits`, `--workspace`, `--baseline` |
+| `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--since`, `--min-commits`, `--workspace`, `--baseline` |
 | `schema` | Dump CLI definition as JSON | |
 
 ## Issue Types
