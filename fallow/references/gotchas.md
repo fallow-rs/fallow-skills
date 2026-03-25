@@ -365,8 +365,8 @@ import { z } from 'zod';  // NOT flagged
 ```
 
 ```bash
-# Detect type-only dependencies
-fallow dead-code --format json --quiet --production --type-only-deps
+# Detect type-only dependencies (reported automatically with --production)
+fallow dead-code --format json --quiet --production
 
 # Suppress for a specific dependency
 # fallow-ignore-next-line type-only-dependency

@@ -52,15 +52,13 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 | `--unused-files` | Unused files |
 | `--unused-exports` | Unused exports |
 | `--unused-types` | Unused types |
-| `--unused-deps` | Unused dependencies and devDependencies |
+| `--unused-deps` | Unused dependencies, devDependencies, optionalDependencies, and type-only production deps |
 | `--unused-enum-members` | Unused enum members |
 | `--unused-class-members` | Unused class members |
 | `--unresolved-imports` | Unresolved imports |
 | `--unlisted-deps` | Unlisted dependencies |
 | `--duplicate-exports` | Duplicate exports |
 | `--circular-deps` | Circular dependencies |
-| `--unused-optional-deps` | Unused optionalDependencies |
-| `--type-only-deps` | Type-only dependencies (production deps only used via `import type`) |
 
 ### Examples
 
@@ -186,8 +184,7 @@ Inspect discovered files, entry points, and detected frameworks.
 |------|------|-------------|
 | `--files` | bool | List all discovered files |
 | `--entry-points` | bool | List detected entry points |
-| `--frameworks` | bool | List active framework plugins |
-| `--plugins` | bool | List all available plugins |
+| `--plugins` | bool | List active framework plugins |
 | `--format` | `human\|json` | Output format |
 | `--quiet` | bool | Suppress progress bars |
 
@@ -196,7 +193,7 @@ Inspect discovered files, entry points, and detected frameworks.
 ```bash
 fallow list --files --format json --quiet
 fallow list --entry-points --format json --quiet
-fallow list --frameworks --format json --quiet
+fallow list --plugins --format json --quiet
 ```
 
 ---
@@ -347,7 +344,7 @@ fallow health --format json --quiet --save-snapshot .fallow/baseline-snapshot.js
 ```json
 {
   "schema_version": 3,
-  "version": "1.8.0",
+  "version": "2.0.1",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -553,18 +550,19 @@ Available on all commands:
 |------|------|-------------|
 | `-r, --root` | path | Project root directory |
 | `-c, --config` | path | Config file path |
-| `-f, --format` | string | Output format |
+| `-f, --format` (alias: `--output`) | string | Output format |
 | `-q, --quiet` | bool | Suppress progress output |
 | `--no-cache` | bool | Disable incremental caching |
 | `--threads` | number | Number of parser threads |
 | `--changed-since` | string | Git-aware incremental analysis |
 | `--baseline` | path | Compare to baseline |
 | `--save-baseline` | path | Save results as baseline |
+| `--production` | bool | Exclude test/dev files, only start/build scripts |
 | `--performance` | bool | Show pipeline timing breakdown |
 | `-w, --workspace` | string | Scope to single workspace package |
 | `--explain` | bool | Include metric definitions in JSON output (`_meta` object). Always on for MCP |
-| `--only` | string | Run only specific analyses (e.g., `--only dead-code,dupes`) |
-| `--skip` | string | Skip specific analyses (e.g., `--skip health`) |
+| `--only` | string | Run only specific analyses (e.g., `--only check,dupes`). Values: `check`, `dupes`, `health` |
+| `--skip` | string | Skip specific analyses (e.g., `--skip health`). Values: `check`, `dupes`, `health` |
 | `--ci` | bool | CI mode: `--format sarif --fail-on-issues --quiet` |
 | `--fail-on-issues` | bool | Exit 1 if any issues found (promotes `warn` to `error`) |
 | `--sarif-file` | path | Write SARIF output to a file instead of stdout |
@@ -602,7 +600,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "1.8.0",
+  "version": "2.0.1",
   "elapsed_ms": 45,
   "total_issues": 12,
   "unused_files": [{ "path": "src/old.ts" }],
@@ -626,7 +624,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "1.8.0",
+  "version": "2.0.1",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -665,7 +663,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.0.0",
+    "version": "2.0.1",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -684,7 +682,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.0.0",
+    "version": "2.0.1",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -693,7 +691,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.0.0",
+    "version": "2.0.1",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],

@@ -64,7 +64,7 @@ cargo install fallow-cli        # build from source
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
 | `init` | Generate config file | `--toml` for TOML format |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
-| `list` | Inspect project structure | `--files`, `--entry-points`, `--frameworks` |
+| `list` | Inspect project structure | `--files`, `--entry-points`, `--plugins` |
 | `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--targets`, `--since`, `--min-commits`, `--save-snapshot`, `--workspace`, `--baseline`, `--save-baseline` |
 | `schema` | Dump CLI definition as JSON | |
 
@@ -75,15 +75,13 @@ cargo install fallow-cli        # build from source
 | Unused files | `--unused-files` | Files unreachable from entry points |
 | Unused exports | `--unused-exports` | Symbols never imported elsewhere |
 | Unused types | `--unused-types` | Type aliases and interfaces |
-| Unused dependencies | `--unused-deps` | Packages in `dependencies` and `devDependencies` |
+| Unused dependencies | `--unused-deps` | Packages in `dependencies`, `devDependencies`, `optionalDependencies`, and type-only production deps |
 | Unused enum members | `--unused-enum-members` | Enum values never referenced |
 | Unused class members | `--unused-class-members` | Methods and properties |
 | Unresolved imports | `--unresolved-imports` | Imports that can't be resolved |
 | Unlisted dependencies | `--unlisted-deps` | Used packages missing from package.json |
 | Duplicate exports | `--duplicate-exports` | Same symbol exported from multiple modules |
 | Circular dependencies | `--circular-deps` | Import cycles in the module graph |
-| Unused optionalDependencies | `--unused-optional-deps` | Packages in `optionalDependencies` never imported |
-| Type-only dependencies | `--type-only-deps` | Production deps only used via `import type` (should be devDependencies) |
 
 ## References
 
@@ -143,7 +141,7 @@ The `--yes` flag is required in non-TTY environments (agent subprocesses). Witho
 
 ```bash
 fallow list --entry-points --format json --quiet
-fallow list --frameworks --format json --quiet
+fallow list --plugins --format json --quiet
 ```
 
 Shows detected entry points and active framework plugins (84 built-in: Next.js, Vite, Jest, Storybook, Tailwind, etc.).
