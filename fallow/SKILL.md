@@ -1,6 +1,6 @@
 ---
-name: fallow-analysis
-description: Analyzes JavaScript/TypeScript projects for dead code, unused exports, unused dependencies, and code duplication using fallow. Use when asked to "find dead code", "find unused exports", "find unused dependencies", "clean up the codebase", "find duplicates", "find code duplication", "remove unused code", "audit dead code", "check for unused files", "migrate from knip", "migrate from jscpd", or any codebase hygiene task involving unused or duplicated code in JS/TS projects.
+name: fallow
+description: Analyze JavaScript/TypeScript projects with fallow. Finds dead code (unused files, exports, types, dependencies), code duplication, circular dependencies, and complexity hotspots. Use when asked to find dead code, find unused exports, clean up the codebase, find duplicates, check code health, audit unused code, auto-fix dead code, or run fallow.
 license: MIT
 metadata:
   author: Bart Waardenburg
@@ -10,17 +10,18 @@ metadata:
 
 # Fallow: Codebase Analyzer
 
-The codebase analyzer for JavaScript and TypeScript. Finds unused code, circular dependencies, code duplication, and complexity hotspots. 84 framework plugins, zero configuration, sub-second performance. 3-36x faster than knip, 20-33x faster than jscpd.
+The codebase analyzer for JavaScript and TypeScript. Finds unused code, circular dependencies, code duplication, and complexity hotspots. 84 framework plugins, zero configuration, sub-second performance.
 
 ## When to Use
 
 - Finding dead code (unused files, exports, types, enum/class members)
 - Finding unused or unlisted dependencies
 - Detecting code duplication and clones
+- Checking code health and complexity hotspots
 - Cleaning up a codebase before a release or refactor
 - Auditing a project for codebase hygiene
 - Setting up CI checks for dead code or duplication thresholds
-- Migrating from knip or jscpd to fallow
+- Auto-fixing unused exports and dependencies
 - Investigating why a specific export or file appears unused
 
 ## When NOT to Use
@@ -63,7 +64,7 @@ cargo install fallow-cli        # build from source
 | `init` | Generate config file | `--toml` for TOML format |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
 | `list` | Inspect project structure | `--files`, `--entry-points`, `--frameworks` |
-| `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--since`, `--min-commits`, `--workspace`, `--baseline` |
+| `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--targets`, `--since`, `--min-commits`, `--workspace`, `--baseline` |
 | `schema` | Dump CLI definition as JSON | |
 
 ## Issue Types

@@ -254,7 +254,7 @@ fallow migrate --from knip.json
 
 ## `health`: Function Complexity & File Health Analysis
 
-Analyzes function complexity across the project using cyclomatic and cognitive complexity metrics. By default all sections are included (complexity findings, file scores, and hotspots). Use `--complexity`, `--file-scores`, or `--hotspots` to show only specific sections.
+Analyzes function complexity across the project using cyclomatic and cognitive complexity metrics. By default all sections are included (complexity findings, file scores, hotspots, and refactoring targets). Use `--complexity`, `--file-scores`, `--hotspots`, or `--targets` to show only specific sections.
 
 ### Flags
 
@@ -264,11 +264,12 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 | `--quiet` | bool | `false` | Suppress progress bars |
 | `--max-cyclomatic` | number | `20` | Fail if any function exceeds this cyclomatic complexity |
 | `--max-cognitive` | number | `15` | Fail if any function exceeds this cognitive complexity |
-| `--top` | number | — | Only show the top N most complex functions (and file scores) |
+| `--top` | number | — | Only show the top N most complex functions (and file scores/hotspots/targets) |
 | `--sort` | `cyclomatic\|cognitive\|lines` | `cyclomatic` | Sort order for complexity findings |
 | `--complexity` | bool | `false` | Show only function complexity findings. When no section flags are set, all sections are shown by default. |
 | `--file-scores` | bool | `false` | Show only per-file maintainability index (fan-in, fan-out, dead code ratio, complexity density). Runs the full analysis pipeline. When no section flags are set, all sections are shown by default. |
 | `--hotspots` | bool | `false` | Show only hotspots: files that are both complex and frequently changing. Combines git churn history with complexity data. Requires a git repository. When no section flags are set, all sections are shown by default. |
+| `--targets` | bool | `false` | Show only refactoring targets: ranked recommendations based on complexity, coupling, churn, and dead code signals. Categories: churn+complexity, circular dep, high impact, dead code, complexity, coupling. When no section flags are set, all sections are shown by default. |
 | `--since` | string | `6m` | Git history window for hotspot analysis. Accepts durations (`6m`, `90d`, `1y`, `2w`) or ISO dates (`2025-06-01`). |
 | `--min-commits` | number | `3` | Minimum number of commits for a file to be included in hotspot ranking. |
 | `--changed-since` | string | — | Only analyze files changed since a git ref |
@@ -328,6 +329,12 @@ fallow health --format json --quiet --hotspots --min-commits 5
 
 # Top 10 hotspots from the last 90 days
 fallow health --format json --quiet --hotspots --since 90d --top 10
+
+# Ranked refactoring recommendations
+fallow health --format json --quiet --targets
+
+# Top 5 refactoring targets
+fallow health --format json --quiet --targets --top 5
 ```
 
 ### JSON Output Structure
@@ -414,6 +421,37 @@ With `--hotspots`, the JSON output includes a `hotspots` array and `hotspot_summ
 ```
 
 Hotspot score formula: `normalized_churn × normalized_complexity × 100`, scaled 0–100. Higher means more urgent to refactor. The `trend` field indicates recent change velocity: `Accelerating` (increasing churn), `Stable` (constant), or `Cooling` (decreasing). Files below `--min-commits` are excluded. The `shallow_clone` field warns when git history is truncated (shallow clone), which may undercount commits.
+
+With `--targets`, the JSON output includes a `targets` array with ranked refactoring recommendations:
+
+```json
+{
+  "targets": [
+    {
+      "path": "src/parser.ts",
+      "priority": 82.5,
+      "recommendation": "Split high-impact file — 25 dependents amplify every change",
+      "category": "split_high_impact",
+      "factors": [
+        {
+          "metric": "complexity_density",
+          "value": 0.75,
+          "threshold": 0.3,
+          "detail": "density 0.75 exceeds 0.3"
+        },
+        {
+          "metric": "fan_in",
+          "value": 25.0,
+          "threshold": 10.0,
+          "detail": "25 files depend on this"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Priority formula: `min(complexity_density, 1) × 30 + hotspot_boost × 25 + dead_code_ratio × 20 + min(fan_in/20, 1) × 15 + min(fan_out/30, 1) × 10`, clamped to 0–100. Higher is more urgent. Categories: `urgent_churn_complexity`, `break_circular_dependency`, `split_high_impact`, `remove_dead_code`, `extract_complex_functions`, `extract_dependencies`. Each target includes the contributing `factors` that triggered the recommendation.
 
 ---
 

@@ -8,7 +8,7 @@ Agent skills for finding and removing dead code, unused dependencies, and code d
 .claude-plugin/
   marketplace.json          # Marketplace metadata
   plugin.json               # Plugin metadata
-fallow-analysis/            # Dead code & duplication analysis skill
+fallow/                     # Codebase analysis skill (dead code, duplication, complexity)
   SKILL.md                  # Skill entry point
   references/
     cli-reference.md        # Complete CLI specs and output formats
@@ -44,8 +44,8 @@ fallow-analysis/            # Dead code & duplication analysis skill
 
 ### Naming Conventions
 
-- Directories: kebab-case (`fallow-analysis`)
-- Skill names: kebab-case (`fallow-analysis`)
+- Directories: kebab-case (`fallow`)
+- Skill names: kebab-case (`fallow`)
 - Reference files: kebab-case (`cli-reference.md`)
 
 ## Quality Standards

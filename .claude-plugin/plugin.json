@@ -14,11 +14,12 @@
     "unused-exports",
     "unused-dependencies",
     "code-duplication",
+    "complexity",
+    "circular-dependencies",
     "javascript",
     "typescript",
     "codebase-hygiene",
-    "static-analysis",
-    "lint"
+    "static-analysis"
   ],
   "plugins": [
     {

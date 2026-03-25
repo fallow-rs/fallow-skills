@@ -81,27 +81,27 @@ See the [installation guide](https://docs.fallow.tools/installation) for all opt
 
 | Skill | Description | Trigger phrases |
 |---|---|---|
-| [fallow-analysis](fallow-analysis/) | Codebase analysis for JS/TS: unused code, circular deps, duplication, complexity | "find dead code", "unused exports", "find duplicates", "clean up codebase" |
+| [fallow](fallow/) | Codebase analysis for JS/TS: unused code, circular deps, duplication, complexity | "find dead code", "unused exports", "find duplicates", "check code health" |
 
 ## What's Included
 
-### fallow-analysis
+### fallow
 
 | Category | What it does |
 |---|---|
 | **Dead Code** | Find unused files, exports, types, dependencies, enum/class members (13 issue types) |
 | **Duplication** | Find code clones with 4 modes: strict, mild, weak, semantic |
+| **Complexity** | Function complexity analysis, hotspot detection, health scores |
 | **Auto-Fix** | Remove unused exports and dependencies with dry-run preview |
 | **CI** | GitHub Actions, SARIF upload, baseline comparison, PR-scoped checks |
-| **Migration** | Auto-migrate from knip and jscpd configurations |
 | **Monorepo** | Per-workspace analysis with cross-package resolution |
 | **Debug** | Trace export usage chains, file edges, and dependency usage |
 
 ### Reference Documentation
 
-- **[CLI Reference](fallow-analysis/references/cli-reference.md)**: all 10 commands, flags, JSON output structure, config format
-- **[Gotchas](fallow-analysis/references/gotchas.md)**: 19 pitfalls with WRONG/CORRECT examples
-- **[Patterns](fallow-analysis/references/patterns.md)**: 14 workflow recipes for CI, monorepos, migration, incremental adoption
+- **[CLI Reference](fallow/references/cli-reference.md)**: all 10 commands, flags, JSON output structure, config format
+- **[Gotchas](fallow/references/gotchas.md)**: 19 pitfalls with WRONG/CORRECT examples
+- **[Patterns](fallow/references/patterns.md)**: 14 workflow recipes for CI, monorepos, migration, incremental adoption
 
 ## Example Prompts
 
@@ -112,7 +112,7 @@ Once installed, you can use natural language:
 - "Find code duplication in the codebase"
 - "Clean up unused exports"
 - "Set up a CI check for dead code"
-- "Migrate my knip config to fallow"
+- "Check the complexity of this codebase"
 - "Why is this export flagged as unused?"
 - "Check if this PR introduces dead code"
 - "Find unused files in the payments package"
@@ -123,7 +123,7 @@ Once installed, you can use natural language:
 ```
 User: "Find all unused exports"
   ↓
-Agent loads fallow-analysis skill
+Agent loads fallow skill
   ↓
 Skill instructs: run `fallow check --format json --quiet --unused-exports`
   ↓
