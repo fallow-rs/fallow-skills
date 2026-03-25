@@ -40,7 +40,7 @@ Fallow must be installed. If not available, install it:
 ```bash
 npm install -g fallow          # prebuilt binaries (fastest)
 # or
-npx fallow check               # run without installing
+npx fallow dead-code               # run without installing
 # or
 cargo install fallow-cli        # build from source
 ```
@@ -58,13 +58,14 @@ cargo install fallow-cli        # build from source
 
 | Command | Purpose | Key Flags |
 |---------|---------|-----------|
-| `check` | Dead code analysis (default) | `--unused-exports`, `--changed-since`, `--production`, `--ci` |
+| `fallow` | Run all analyses: dead code + duplication + complexity (default) | `--only`, `--skip`, `--ci`, `--fail-on-issues` |
+| `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--production`, `--ci` |
 | `dupes` | Code duplication detection | `--mode`, `--threshold`, `--top`, `--changed-since`, `--skip-local`, `--cross-language` |
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
 | `init` | Generate config file | `--toml` for TOML format |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
 | `list` | Inspect project structure | `--files`, `--entry-points`, `--frameworks` |
-| `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--targets`, `--since`, `--min-commits`, `--workspace`, `--baseline` |
+| `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--targets`, `--since`, `--min-commits`, `--save-snapshot`, `--workspace`, `--baseline`, `--save-baseline` |
 | `schema` | Dump CLI definition as JSON | |
 
 ## Issue Types
@@ -95,7 +96,7 @@ cargo install fallow-cli        # build from source
 ### Audit a project for all dead code
 
 ```bash
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 ```
 
 Parse the JSON output. It contains arrays for each issue type (`unused_files`, `unused_exports`, `unused_types`, `unused_dependencies`, etc.) plus `total_issues` and `elapsed_ms` metadata.
@@ -103,13 +104,13 @@ Parse the JSON output. It contains arrays for each issue type (`unused_files`, `
 ### Find only unused exports (smaller output)
 
 ```bash
-fallow check --format json --quiet --unused-exports
+fallow dead-code --format json --quiet --unused-exports
 ```
 
 ### Check if a PR introduces dead code
 
 ```bash
-fallow check --format json --quiet --changed-since main --fail-on-issues
+fallow dead-code --format json --quiet --changed-since main --fail-on-issues
 ```
 
 Exit code 1 if new dead code is introduced. Only analyzes files changed since the `main` branch.
@@ -133,7 +134,7 @@ fallow fix --dry-run --format json --quiet
 fallow fix --yes --format json --quiet
 
 # 3. Verify the fix worked
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 ```
 
 The `--yes` flag is required in non-TTY environments (agent subprocesses). Without it, `fix` exits with code 2.
@@ -150,7 +151,7 @@ Shows detected entry points and active framework plugins (84 built-in: Next.js, 
 ### Production-only analysis
 
 ```bash
-fallow check --format json --quiet --production
+fallow dead-code --format json --quiet --production
 ```
 
 Excludes test/dev files (`*.test.*`, `*.spec.*`, `*.stories.*`) and only analyzes production scripts.
@@ -158,7 +159,7 @@ Excludes test/dev files (`*.test.*`, `*.spec.*`, `*.stories.*`) and only analyze
 ### Analyze a single workspace package
 
 ```bash
-fallow check --format json --quiet --workspace my-package
+fallow dead-code --format json --quiet --workspace my-package
 ```
 
 Scopes output to one package while keeping the full cross-workspace graph.
@@ -167,13 +168,13 @@ Scopes output to one package while keeping the full cross-workspace graph.
 
 ```bash
 # Trace an export's usage chain
-fallow check --format json --quiet --trace src/utils.ts:myFunction
+fallow dead-code --format json --quiet --trace src/utils.ts:myFunction
 
 # Trace all edges for a file
-fallow check --format json --quiet --trace-file src/utils.ts
+fallow dead-code --format json --quiet --trace-file src/utils.ts
 
 # Trace where a dependency is used
-fallow check --format json --quiet --trace-dependency lodash
+fallow dead-code --format json --quiet --trace-dependency lodash
 ```
 
 ### Migrate from knip or jscpd

@@ -6,7 +6,7 @@ Complete command and flag specifications for all fallow CLI commands.
 
 ## Table of Contents
 
-- [`check`: Dead Code Analysis](#check-dead-code-analysis)
+- [`dead-code`: Dead Code Analysis](#dead-code-dead-code-analysis)
 - [`dupes`: Duplication Detection](#dupes-duplication-detection)
 - [`fix`: Auto-Remove Unused Code](#fix-auto-remove-unused-code)
 - [`list`: Project Introspection](#list-project-introspection)
@@ -25,9 +25,9 @@ Complete command and flag specifications for all fallow CLI commands.
 
 ---
 
-## `check`: Dead Code Analysis
+## `dead-code`: Dead Code Analysis
 
-Analyzes the project for unused files, exports, dependencies, types, members, and more. This is the default command. Running `fallow` with no subcommand is equivalent to `fallow check`.
+Analyzes the project for unused files, exports, dependencies, types, members, and more. Running `fallow` with no subcommand runs all analyses (dead code + duplication + complexity). Use `fallow dead-code` for dead code only.
 
 ### Flags
 
@@ -35,10 +35,8 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 |------|------|---------|-------------|
 | `--format` | `human\|json\|sarif\|compact\|markdown` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars and timing on stderr |
-| `--fail-on-issues` | bool | `false` | Exit 1 if any issues found (promotes `warn` to `error`) |
 | `--changed-since` | string | — | Only analyze files changed since a git ref (e.g., `main`, `HEAD~3`) |
 | `--production` | bool | `false` | Exclude test/dev files, only start/build scripts |
-| `--ci` | bool | `false` | CI mode: `--format sarif --fail-on-issues --quiet` |
 | `--baseline` | path | — | Compare against a saved baseline |
 | `--save-baseline` | path | — | Save current results as a baseline |
 | `--workspace` | string | — | Scope to a single workspace package |
@@ -68,29 +66,29 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 
 ```bash
 # Full analysis with JSON output
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 
 # Only unused exports
-fallow check --format json --quiet --unused-exports
+fallow dead-code --format json --quiet --unused-exports
 
 # PR check: only changed files
-fallow check --format json --quiet --changed-since main --fail-on-issues
+fallow dead-code --format json --quiet --changed-since main --fail-on-issues
 
 # CI mode with SARIF upload
-fallow check --ci
+fallow dead-code --ci
 
 # Production-only analysis
-fallow check --format json --quiet --production
+fallow dead-code --format json --quiet --production
 
 # Single workspace package
-fallow check --format json --quiet --workspace my-package
+fallow dead-code --format json --quiet --workspace my-package
 
 # Debug: trace an export
-fallow check --format json --quiet --trace src/utils.ts:myFunction
+fallow dead-code --format json --quiet --trace src/utils.ts:myFunction
 
 # Incremental adoption with baseline
-fallow check --format json --quiet --save-baseline .fallow-baseline.json
-fallow check --format json --quiet --baseline .fallow-baseline.json --fail-on-issues
+fallow dead-code --format json --quiet --save-baseline .fallow-baseline.json
+fallow dead-code --format json --quiet --baseline .fallow-baseline.json --fail-on-issues
 ```
 
 ---
@@ -276,6 +274,7 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 | `--workspace` | string | — | Scope to a single workspace package |
 | `--baseline` | path | — | Compare against a saved baseline |
 | `--save-baseline` | path | — | Save current results as a baseline |
+| `--save-snapshot` | path (optional) | `.fallow/snapshots/<timestamp>.json` | Save vital signs snapshot for trend tracking. Forces file-scores + hotspot computation. |
 
 ### Exit Codes
 
@@ -335,6 +334,12 @@ fallow health --format json --quiet --targets
 
 # Top 5 refactoring targets
 fallow health --format json --quiet --targets --top 5
+
+# Save a vital signs snapshot for trend tracking
+fallow health --format json --quiet --save-snapshot
+
+# Save snapshot to a custom path
+fallow health --format json --quiet --save-snapshot .fallow/baseline-snapshot.json
 ```
 
 ### JSON Output Structure
@@ -453,6 +458,61 @@ With `--targets`, the JSON output includes a `targets` array with ranked refacto
 
 Priority formula: `min(complexity_density, 1) × 30 + hotspot_boost × 25 + dead_code_ratio × 20 + min(fan_in/20, 1) × 15 + min(fan_out/30, 1) × 10`, clamped to 0–100. Higher is more urgent. Categories: `urgent_churn_complexity`, `break_circular_dependency`, `split_high_impact`, `remove_dead_code`, `extract_complex_functions`, `extract_dependencies`. Each target includes the contributing `factors` that triggered the recommendation.
 
+### Vital Signs
+
+All `health` JSON output includes a `vital_signs` object with project-wide metrics:
+
+```json
+{
+  "vital_signs": {
+    "dead_file_pct": 3.2,
+    "dead_export_pct": 8.1,
+    "avg_cyclomatic": 4.5,
+    "p90_cyclomatic": 12,
+    "maintainability_avg": 88.5,
+    "hotspot_count": 7,
+    "circular_dep_count": 2,
+    "unused_dep_count": 3
+  }
+}
+```
+
+Fields are `null` when the corresponding data source is not available (e.g., `hotspot_count` is null without `--hotspots` or when git is not available).
+
+### Vital Signs Snapshots
+
+`--save-snapshot` persists a `VitalSignsSnapshot` JSON file for trend tracking across runs. The snapshot contains more detail than the inline `vital_signs` object:
+
+```json
+{
+  "schema_version": 1,
+  "timestamp": "2025-12-01T10:30:00Z",
+  "vital_signs": {
+    "dead_file_pct": 3.2,
+    "dead_export_pct": 8.1,
+    "avg_cyclomatic": 4.5,
+    "p90_cyclomatic": 12,
+    "maintainability_avg": 88.5,
+    "hotspot_count": 7,
+    "circular_dep_count": 2,
+    "unused_dep_count": 3
+  },
+  "counts": {
+    "total_files": 482,
+    "dead_files": 15,
+    "total_exports": 1200,
+    "dead_exports": 97,
+    "total_dependencies": 42,
+    "unused_dependencies": 3
+  },
+  "git_sha": "abc1234",
+  "git_branch": "main",
+  "shallow_clone": false
+}
+```
+
+The snapshot `schema_version` is independent of the report `schema_version`. Default path: `.fallow/snapshots/<timestamp>.json`. The `--save-snapshot` flag forces file-scores and hotspot computation to populate all vital signs fields.
+
 ---
 
 ## `schema`: CLI Introspection
@@ -503,6 +563,11 @@ Available on all commands:
 | `--performance` | bool | Show pipeline timing breakdown |
 | `-w, --workspace` | string | Scope to single workspace package |
 | `--explain` | bool | Include metric definitions in JSON output (`_meta` object). Always on for MCP |
+| `--only` | string | Run only specific analyses (e.g., `--only dead-code,dupes`) |
+| `--skip` | string | Skip specific analyses (e.g., `--skip health`) |
+| `--ci` | bool | CI mode: `--format sarif --fail-on-issues --quiet` |
+| `--fail-on-issues` | bool | Exit 1 if any issues found (promotes `warn` to `error`) |
+| `--sarif-file` | path | Write SARIF output to a file instead of stdout |
 
 ---
 
@@ -532,7 +597,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 
 ## JSON Output Structure
 
-### `check` output
+### `dead-code` output
 
 ```json
 {
@@ -591,6 +656,53 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
   "total_changes": 2
 }
 ```
+
+### Combined output (`fallow` with no subcommand)
+
+When running `fallow` with no subcommand (all analyses), the JSON output combines results from all enabled analyses:
+
+```json
+{
+  "check": {
+    "schema_version": 3,
+    "version": "2.0.0",
+    "elapsed_ms": 45,
+    "total_issues": 12,
+    "unused_files": [],
+    "unused_exports": [],
+    "unused_types": [],
+    "unused_dependencies": [],
+    "unused_dev_dependencies": [],
+    "unused_enum_members": [],
+    "unused_class_members": [],
+    "unresolved_imports": [],
+    "unlisted_dependencies": [],
+    "duplicate_exports": [],
+    "circular_dependencies": [],
+    "unused_optional_dependencies": [],
+    "type_only_dependencies": []
+  },
+  "dupes": {
+    "schema_version": 3,
+    "version": "2.0.0",
+    "elapsed_ms": 82,
+    "total_clones": 15,
+    "total_lines_duplicated": 230,
+    "duplication_percentage": 4.2,
+    "clone_groups": []
+  },
+  "health": {
+    "schema_version": 3,
+    "version": "2.0.0",
+    "elapsed_ms": 32,
+    "summary": {},
+    "findings": [],
+    "vital_signs": {}
+  }
+}
+```
+
+Use `--only` or `--skip` to control which analyses are included in the combined output.
 
 ### Error output (exit code 2)
 

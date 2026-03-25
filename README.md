@@ -8,7 +8,7 @@
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
   <a href="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml"><img src="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
   <a href="https://agentskills.io"><img src="https://img.shields.io/badge/Agent_Skills-compatible-8A2BE2" alt="Agent Skills"></a>
-  <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v1.7.0-orange" alt="fallow v1.7.0"></a>
+  <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v2.0.0-orange" alt="fallow v2.0.0"></a>
 </p>
 
 Agent skills for [fallow](https://github.com/fallow-rs/fallow), the Rust-native codebase analyzer for JavaScript and TypeScript. Fallow finds unused code, circular dependencies, code duplication, and complexity hotspots. 84 framework plugins, zero configuration, sub-second performance. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
@@ -72,7 +72,7 @@ Fallow must be installed in the target project:
 
 ```bash
 npm install -g fallow    # prebuilt binaries
-npx fallow check         # or run without installing
+npx fallow dead-code         # or run without installing
 ```
 
 See the [installation guide](https://docs.fallow.tools/installation) for all options including `cargo install fallow-cli`.
@@ -125,7 +125,7 @@ User: "Find all unused exports"
   ↓
 Agent loads fallow skill
   ↓
-Skill instructs: run `fallow check --format json --quiet --unused-exports`
+Skill instructs: run `fallow dead-code --format json --quiet --unused-exports`
   ↓
 Agent executes command, parses JSON output
   ↓

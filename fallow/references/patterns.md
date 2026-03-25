@@ -30,7 +30,7 @@ Complete codebase hygiene audit.
 ### Step 1: Run full analysis
 
 ```bash
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 ```
 
 ### Step 2: Review issue counts
@@ -58,7 +58,7 @@ fallow fix --yes --format json --quiet
 ### Step 6: Verify
 
 ```bash
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 ```
 
 ---
@@ -70,7 +70,7 @@ Check if a pull request introduces new dead code.
 ### Step 1: Analyze changed files
 
 ```bash
-fallow check --format json --quiet --changed-since main --fail-on-issues
+fallow dead-code --format json --quiet --changed-since main --fail-on-issues
 ```
 
 Exit code 1 if the PR introduces new dead code. Exit code 0 if clean.
@@ -78,7 +78,7 @@ Exit code 1 if the PR introduces new dead code. Exit code 0 if clean.
 ### Step 2: If issues found, show specifics
 
 ```bash
-fallow check --format json --quiet --changed-since main
+fallow dead-code --format json --quiet --changed-since main
 ```
 
 Parse the JSON to list specific files and exports that became unused.
@@ -91,14 +91,14 @@ Parse the JSON to list specific files and exports that became unused.
 
 ```yaml
 - name: Dead code check
-  run: npx fallow check --fail-on-issues --quiet
+  run: npx fallow dead-code --fail-on-issues --quiet
 ```
 
 ### GitHub Actions: With SARIF Upload
 
 ```yaml
 - name: Fallow analysis
-  run: npx fallow check --ci > fallow.sarif
+  run: npx fallow dead-code --ci > fallow.sarif
   continue-on-error: true  # --ci sets --fail-on-issues; continue to upload SARIF even if issues found
 
 - name: Upload SARIF
@@ -112,7 +112,7 @@ Parse the JSON to list specific files and exports that became unused.
 ```yaml
 - uses: fallow-rs/fallow@v0
   with:
-    command: check
+    command: dead-code
     fail-on-issues: true
     changed-since: main
 ```
@@ -121,7 +121,7 @@ Parse the JSON to list specific files and exports that became unused.
 
 ```yaml
 - name: Check for new dead code
-  run: npx fallow check --format json --quiet --changed-since ${{ github.event.pull_request.base.sha }} --fail-on-issues
+  run: npx fallow dead-code --format json --quiet --changed-since ${{ github.event.pull_request.base.sha }} --fail-on-issues
 ```
 
 ### GitHub Actions: Duplication Gate
@@ -151,7 +151,7 @@ For large projects with existing dead code. Adopt gradually without fixing every
 ### Step 1: Save current state as baseline
 
 ```bash
-fallow check --format json --quiet --save-baseline .fallow-baseline.json
+fallow dead-code --format json --quiet --save-baseline .fallow-baseline.json
 ```
 
 ### Step 2: Commit the baseline
@@ -164,7 +164,7 @@ git commit -m "chore: add fallow baseline"
 ### Step 3: CI only fails on NEW issues
 
 ```bash
-fallow check --format json --quiet --baseline .fallow-baseline.json --fail-on-issues
+fallow dead-code --format json --quiet --baseline .fallow-baseline.json --fail-on-issues
 ```
 
 ### Step 4: Gradually fix and update baseline
@@ -172,7 +172,7 @@ fallow check --format json --quiet --baseline .fallow-baseline.json --fail-on-is
 As you fix existing issues, regenerate the baseline:
 
 ```bash
-fallow check --format json --quiet --save-baseline .fallow-baseline.json
+fallow dead-code --format json --quiet --save-baseline .fallow-baseline.json
 ```
 
 ### Duplication baseline
@@ -191,7 +191,7 @@ fallow dupes --format json --quiet --baseline .fallow-dupes-baseline.json --thre
 ### Analyze the full monorepo
 
 ```bash
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 ```
 
 Fallow auto-detects workspaces from `package.json` workspaces or `pnpm-workspace.yaml`.
@@ -199,7 +199,7 @@ Fallow auto-detects workspaces from `package.json` workspaces or `pnpm-workspace
 ### Analyze a single package
 
 ```bash
-fallow check --format json --quiet --workspace my-package
+fallow dead-code --format json --quiet --workspace my-package
 ```
 
 Full cross-workspace graph is built (so imports between packages are resolved), but only issues in `my-package` are reported.
@@ -209,8 +209,8 @@ Full cross-workspace graph is built (so imports between packages are resolved), 
 Run analysis for each workspace package separately:
 
 ```bash
-fallow check --format json --quiet --workspace package-a --fail-on-issues
-fallow check --format json --quiet --workspace package-b --fail-on-issues
+fallow dead-code --format json --quiet --workspace package-a --fail-on-issues
+fallow dead-code --format json --quiet --workspace package-b --fail-on-issues
 ```
 
 ### List all discovered files across workspaces
@@ -283,7 +283,7 @@ Creates `.fallowrc.json` with mapped settings:
 
 ```bash
 # Run fallow
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 
 # Compare with knip output
 npx knip --reporter json
@@ -363,7 +363,7 @@ fallow fix --yes --format json --quiet
 ### Step 5: Verify
 
 ```bash
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 ```
 
 ### Step 6: Run project tests
@@ -377,7 +377,7 @@ After auto-fix, always run the project's test suite to verify nothing broke.
 ### Full audit (default)
 
 ```bash
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 ```
 
 Includes all files, all scripts, all dependencies (including devDependencies).
@@ -385,7 +385,7 @@ Includes all files, all scripts, all dependencies (including devDependencies).
 ### Production audit
 
 ```bash
-fallow check --format json --quiet --production
+fallow dead-code --format json --quiet --production
 ```
 
 Differences:
@@ -411,7 +411,7 @@ Use full mode for:
 ### Trace an export's usage chain
 
 ```bash
-fallow check --format json --quiet --trace src/utils.ts:myFunction
+fallow dead-code --format json --quiet --trace src/utils.ts:myFunction
 ```
 
 Shows where `myFunction` is imported (or not imported) and why it's flagged.
@@ -419,7 +419,7 @@ Shows where `myFunction` is imported (or not imported) and why it's flagged.
 ### Trace all edges for a file
 
 ```bash
-fallow check --format json --quiet --trace-file src/utils.ts
+fallow dead-code --format json --quiet --trace-file src/utils.ts
 ```
 
 Shows all imports/exports for the file and their resolution status.
@@ -427,7 +427,7 @@ Shows all imports/exports for the file and their resolution status.
 ### Trace a dependency
 
 ```bash
-fallow check --format json --quiet --trace-dependency lodash
+fallow dead-code --format json --quiet --trace-dependency lodash
 ```
 
 Shows all files that import lodash.
@@ -459,7 +459,7 @@ Cross-reference dead code with duplication findings to find high-priority cleanu
 ### Step 1: Run combined analysis
 
 ```bash
-fallow check --format json --quiet --include-dupes
+fallow dead-code --format json --quiet --include-dupes
 ```
 
 This adds duplication context to dead code findings, identifying clone instances that exist in unused files or overlap with unused exports.
@@ -528,7 +528,7 @@ Upload fallow results to GitHub's Code Scanning dashboard.
 ### Step 1: Generate SARIF output
 
 ```bash
-fallow check --format sarif --quiet > fallow.sarif
+fallow dead-code --format sarif --quiet > fallow.sarif
 ```
 
 ### Step 2: Upload via GitHub Action
@@ -543,7 +543,7 @@ fallow check --format sarif --quiet > fallow.sarif
 ### All-in-one with `--ci`
 
 ```bash
-fallow check --ci > fallow.sarif
+fallow dead-code --ci > fallow.sarif
 ```
 
 The `--ci` flag is equivalent to `--format sarif --fail-on-issues --quiet`. Note: `--fail-on-issues` means exit code 1 if issues exist — in CI scripts, use `continue-on-error: true` or `|| true` to ensure the SARIF upload step still runs.

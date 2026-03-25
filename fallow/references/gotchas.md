@@ -31,7 +31,7 @@ fallow init
 # This may override auto-detected settings
 
 # CORRECT: run analysis first with zero config
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 # Only create config if you need to customize rules, ignore patterns, or entry points
 ```
 
@@ -49,10 +49,10 @@ Human-formatted output contains ANSI colors, progress bars, and timing info. Nev
 
 ```bash
 # WRONG: parsing human output
-fallow check | grep "unused"
+fallow dead-code | grep "unused"
 
 # CORRECT: use structured JSON
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 ```
 
 The `--quiet` flag suppresses progress bars on stderr. Without it, stderr output may interfere with stdout parsing.
@@ -61,17 +61,17 @@ The `--quiet` flag suppresses progress bars on stderr. Without it, stderr output
 
 ## `--changed-since` Shows Only New Issues
 
-The `--changed-since` flag limits analysis to files modified since a git ref. It only reports issues in those files, not all issues in the project. Works with both `check` and `dupes`.
+The `--changed-since` flag limits analysis to files modified since a git ref. It only reports issues in those files, not all issues in the project. Works with both `dead-code` and `dupes`.
 
 ```bash
 # This only shows issues in files changed since main
-fallow check --format json --quiet --changed-since main
+fallow dead-code --format json --quiet --changed-since main
 
 # Same for duplication — only clone groups involving changed files
 fallow dupes --format json --quiet --changed-since main
 
 # This shows ALL issues in the project
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 ```
 
 Don't use `--changed-since` when auditing the full project. Use it for PR checks and incremental CI.
@@ -84,13 +84,13 @@ Issue type filter flags (`--unused-exports`, `--unused-files`, etc.) are inclusi
 
 ```bash
 # Shows only unused exports
-fallow check --format json --quiet --unused-exports
+fallow dead-code --format json --quiet --unused-exports
 
 # Shows unused exports AND unused files
-fallow check --format json --quiet --unused-exports --unused-files
+fallow dead-code --format json --quiet --unused-exports --unused-files
 
 # Shows ALL issue types (default when no filter is specified)
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 ```
 
 ---
@@ -175,10 +175,10 @@ The `--fail-on-issues` flag promotes all `warn`-severity rules to `error` for th
 # With rules: { "unused-exports": "warn" }
 
 # This exits 0 even with warn-level findings
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 
 # This exits 1 if ANY issue is found (warn promoted to error)
-fallow check --format json --quiet --fail-on-issues
+fallow dead-code --format json --quiet --fail-on-issues
 ```
 
 Use `--fail-on-issues` for strict CI gates. Use the rules system for gradual adoption.
@@ -191,10 +191,10 @@ Baselines track issues by identity (file + issue type + name), not by count. Add
 
 ```bash
 # Save current state as baseline
-fallow check --format json --quiet --save-baseline .fallow-baseline.json
+fallow dead-code --format json --quiet --save-baseline .fallow-baseline.json
 
 # Later: only fail on NEW issues not in the baseline
-fallow check --format json --quiet --baseline .fallow-baseline.json --fail-on-issues
+fallow dead-code --format json --quiet --baseline .fallow-baseline.json --fail-on-issues
 ```
 
 Commit the baseline file to your repo. Update it periodically as you fix existing issues.
@@ -237,7 +237,7 @@ The `--workspace` flag scopes **output** to a single package, but the full cross
 
 ```bash
 # Analyze everything, show only issues in "my-package"
-fallow check --format json --quiet --workspace my-package
+fallow dead-code --format json --quiet --workspace my-package
 ```
 
 ---
@@ -253,11 +253,11 @@ fallow check --format json --quiet --workspace my-package
 
 ```bash
 # WRONG: using --production for a full audit
-fallow check --format json --quiet --production
+fallow dead-code --format json --quiet --production
 # Misses test-file dead code and devDependency issues
 
 # CORRECT: use --production only for production-focused CI
-fallow check --format json --quiet --production --fail-on-issues
+fallow dead-code --format json --quiet --production --fail-on-issues
 ```
 
 ---
@@ -271,7 +271,7 @@ The `watch` command starts an interactive file watcher that never exits. Never u
 fallow watch
 
 # CORRECT: run one-shot analysis
-fallow check --format json --quiet
+fallow dead-code --format json --quiet
 ```
 
 ---
@@ -366,7 +366,7 @@ import { z } from 'zod';  // NOT flagged
 
 ```bash
 # Detect type-only dependencies
-fallow check --format json --quiet --production --type-only-deps
+fallow dead-code --format json --quiet --production --type-only-deps
 
 # Suppress for a specific dependency
 # fallow-ignore-next-line type-only-dependency
