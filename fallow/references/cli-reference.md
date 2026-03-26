@@ -561,8 +561,8 @@ Available on all commands:
 | `--performance` | bool | Show pipeline timing breakdown |
 | `-w, --workspace` | string | Scope to single workspace package |
 | `--explain` | bool | Include metric definitions in JSON output (`_meta` object). Always on for MCP |
-| `--only` | string | Run only specific analyses (e.g., `--only check,dupes`). Values: `check`, `dupes`, `health` |
-| `--skip` | string | Skip specific analyses (e.g., `--skip health`). Values: `check`, `dupes`, `health` |
+| `--only` | string | Run only specific analyses (e.g., `--only dead-code,dupes`). Values: `dead-code` (alias: `check`), `dupes`, `health` |
+| `--skip` | string | Skip specific analyses (e.g., `--skip health`). Values: `dead-code` (alias: `check`), `dupes`, `health` |
 | `--ci` | bool | CI mode: `--format sarif --fail-on-issues --quiet` |
 | `--fail-on-issues` | bool | Exit 1 if any issues found (promotes `warn` to `error`) |
 | `--sarif-file` | path | Write SARIF output to a file instead of stdout |
