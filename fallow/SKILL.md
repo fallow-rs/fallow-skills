@@ -48,11 +48,12 @@ cargo install fallow-cli        # build from source
 ## Agent Rules
 
 1. **Always use `--format json --quiet`** for machine-readable output
-2. **Use `--explain`** to include a `_meta` object in JSON output with metric definitions, ranges, and interpretation hints
-3. **Use issue type filters** (`--unused-exports`, `--unused-files`, etc.) to limit output scope
-4. **Always `--dry-run` before `fix`**, then `fix --yes` to apply
-5. **All output paths are relative** to the project root
-6. **Never run `fallow watch`**. It is interactive and never exits
+2. **Always append `|| true`** to every fallow command. Exit code 1 means "issues found" (normal), not a runtime error. Without `|| true`, the Bash tool treats exit 1 as failure and cancels parallel commands. Only exit code 2 is a real error (invalid config, parse failure)
+3. **Use `--explain`** to include a `_meta` object in JSON output with metric definitions, ranges, and interpretation hints
+4. **Use issue type filters** (`--unused-exports`, `--unused-files`, etc.) to limit output scope
+5. **Always `--dry-run` before `fix`**, then `fix --yes` to apply
+6. **All output paths are relative** to the project root
+7. **Never run `fallow watch`**. It is interactive and never exits
 
 ## Commands
 
