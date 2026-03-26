@@ -432,8 +432,11 @@ With `--targets`, the JSON output includes a `targets` array with ranked refacto
     {
       "path": "src/parser.ts",
       "priority": 82.5,
+      "efficiency": 27.5,
       "recommendation": "Split high-impact file — 25 dependents amplify every change",
       "category": "split_high_impact",
+      "effort": "high",
+      "confidence": "medium",
       "factors": [
         {
           "metric": "complexity_density",
@@ -449,11 +452,17 @@ With `--targets`, the JSON output includes a `targets` array with ranked refacto
         }
       ]
     }
-  ]
+  ],
+  "target_thresholds": {
+    "fan_in_p95": 12.0,
+    "fan_in_p75": 5.0,
+    "fan_out_p95": 15.0,
+    "fan_out_p90": 8
+  }
 }
 ```
 
-Priority formula: `min(complexity_density, 1) × 30 + hotspot_boost × 25 + dead_code_ratio × 20 + min(fan_in/20, 1) × 15 + min(fan_out/30, 1) × 10`, clamped to 0–100. Higher is more urgent. Categories: `urgent_churn_complexity`, `break_circular_dependency`, `split_high_impact`, `remove_dead_code`, `extract_complex_functions`, `extract_dependencies`. Each target includes the contributing `factors` that triggered the recommendation.
+Targets are sorted by `efficiency` (priority / effort_numeric) descending, surfacing quick wins first. The `target_thresholds` object exposes the adaptive percentile-based thresholds used for scoring. Priority formula: `min(complexity_density, 1) × 30 + hotspot_boost × 25 + dead_code_ratio × 20 + fan_in_norm × 15 + fan_out_norm × 10`, clamped to 0–100. Fan-in and fan-out normalization uses the project's p95 values (with floors). Categories: `urgent_churn_complexity`, `break_circular_dependency`, `split_high_impact`, `remove_dead_code`, `extract_complex_functions`, `extract_dependencies`. Each target includes `efficiency`, `effort` (low/medium/high), `confidence` (high/medium/low — data source reliability), and contributing `factors`.
 
 ### Vital Signs
 
