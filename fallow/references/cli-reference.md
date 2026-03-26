@@ -587,9 +587,17 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 |--------|-------------|----------|
 | `human` | Colored terminal output | Interactive use |
 | `json` | Machine-readable JSON | Agent integration, CI pipelines |
-| `sarif` | Static Analysis Results Interchange Format | GitHub Code Scanning |
+| `sarif` | Static Analysis Results Interchange Format | GitHub Code Scanning, SARIF-compatible tools |
 | `compact` | Grep-friendly: `type:path:line:name` per line | Quick filtering |
 | `markdown` | Markdown tables | Documentation, PR comments |
+
+---
+
+## CI Integration
+
+- **GitHub Actions**: `uses: fallow-rs/fallow@v1` — supports SARIF upload to Code Scanning, PR comments, all commands
+- **GitLab CI**: include `ci/gitlab-ci.yml` template and extend `.fallow` — generates Code Quality reports (inline MR annotations), MR comments, all commands. Variables use `FALLOW_` prefix (e.g., `FALLOW_COMMAND`, `FALLOW_FAIL_ON_ISSUES`)
+- **Any CI**: `npx fallow --ci` — equivalent to `--format sarif --fail-on-issues --quiet`
 
 ---
 

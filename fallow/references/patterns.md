@@ -110,7 +110,7 @@ Parse the JSON to list specific files and exports that became unused.
 ### GitHub Actions: Using the Official Action
 
 ```yaml
-- uses: fallow-rs/fallow@v0
+- uses: fallow-rs/fallow@v1
   with:
     command: dead-code
     fail-on-issues: true
@@ -141,6 +141,48 @@ Fails if overall duplication exceeds 5%.
 ```
 
 Only reports duplication in files modified by the PR.
+
+### GitLab CI: Using the Official Template
+
+```yaml
+include:
+  - remote: 'https://raw.githubusercontent.com/fallow-rs/fallow/main/ci/gitlab-ci.yml'
+
+fallow:
+  extends: .fallow
+  variables:
+    FALLOW_COMMAND: "dead-code"
+    FALLOW_FAIL_ON_ISSUES: "true"
+```
+
+Generates Code Quality reports (inline MR annotations) automatically.
+
+### GitLab CI: With MR Comments
+
+```yaml
+include:
+  - remote: 'https://raw.githubusercontent.com/fallow-rs/fallow/main/ci/gitlab-ci.yml'
+
+fallow:
+  extends: .fallow
+  variables:
+    FALLOW_COMMENT: "true"
+    FALLOW_CHANGED_SINCE: "origin/main"
+```
+
+Requires `GITLAB_TOKEN` CI/CD variable (project access token with `api` scope) or enabling job token API access.
+
+### GitLab CI: Manual (Without Template)
+
+```yaml
+fallow:
+  image: node:20-slim
+  script:
+    - npx fallow dead-code --fail-on-issues --quiet --format json > fallow-results.json
+  artifacts:
+    paths:
+      - fallow-results.json
+```
 
 ---
 
