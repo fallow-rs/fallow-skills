@@ -33,7 +33,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | `human\|json\|sarif\|compact\|markdown` | `human` | Output format |
+| `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars and timing on stderr |
 | `--changed-since` | string | — | Only analyze files changed since a git ref (e.g., `main`, `HEAD~3`) |
 | `--production` | bool | `false` | Exclude test/dev files, only start/build scripts |
@@ -99,7 +99,7 @@ Finds code duplication and clones across the project.
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | `human\|json\|sarif\|compact\|markdown` | `human` | Output format |
+| `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars |
 | `--top` | number | — | Show only the N largest clone groups (sorted by line count descending). Summary stats reflect the full project. |
 | `--mode` | `strict\|mild\|weak\|semantic` | `mild` | Detection mode |
@@ -255,7 +255,7 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | `human\|json\|compact\|markdown\|sarif` | `human` | Output format |
+| `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars |
 | `--max-cyclomatic` | number | `20` | Fail if any function exceeds this cyclomatic complexity |
 | `--max-cognitive` | number | `15` | Fail if any function exceeds this cognitive complexity |
@@ -344,7 +344,7 @@ fallow health --format json --quiet --save-snapshot .fallow/baseline-snapshot.js
 ```json
 {
   "schema_version": 3,
-  "version": "2.2.1",
+  "version": "2.2.2",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -599,13 +599,14 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 | `sarif` | Static Analysis Results Interchange Format | GitHub Code Scanning, SARIF-compatible tools |
 | `compact` | Grep-friendly: `type:path:line:name` per line | Quick filtering |
 | `markdown` | Markdown tables | Documentation, PR comments |
+| `codeclimate` | CodeClimate JSON array | GitLab Code Quality, CodeClimate-compatible tools |
 
 ---
 
 ## CI Integration
 
-- **GitHub Actions**: `uses: fallow-rs/fallow@v1` — supports SARIF upload to Code Scanning, PR comments, all commands
-- **GitLab CI**: include `ci/gitlab-ci.yml` template and extend `.fallow` — generates Code Quality reports (inline MR annotations), MR comments, all commands. Variables use `FALLOW_` prefix (e.g., `FALLOW_COMMAND`, `FALLOW_FAIL_ON_ISSUES`)
+- **GitHub Actions**: `uses: fallow-rs/fallow@v1` — supports SARIF upload to Code Scanning, inline PR annotations (`annotations: true`), PR comments, all commands. Annotations use workflow commands (no Advanced Security required); limit with `max-annotations` (default 50)
+- **GitLab CI**: include `ci/gitlab-ci.yml` template and extend `.fallow` — generates Code Quality reports via `--format codeclimate` (inline MR annotations), MR comments, all commands. Variables use `FALLOW_` prefix (e.g., `FALLOW_COMMAND`, `FALLOW_FAIL_ON_ISSUES`)
 - **Any CI**: `npx fallow --ci` — equivalent to `--format sarif --fail-on-issues --quiet`
 
 ---
@@ -617,7 +618,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.2.1",
+  "version": "2.2.2",
   "elapsed_ms": 45,
   "total_issues": 12,
   "unused_files": [{ "path": "src/old.ts" }],
@@ -641,7 +642,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.2.1",
+  "version": "2.2.2",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -680,7 +681,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.2.1",
+    "version": "2.2.2",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -699,7 +700,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.2.1",
+    "version": "2.2.2",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -708,7 +709,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.2.1",
+    "version": "2.2.2",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],

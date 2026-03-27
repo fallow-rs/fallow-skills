@@ -117,6 +117,21 @@ Parse the JSON to list specific files and exports that became unused.
     changed-since: main
 ```
 
+### GitHub Actions: Inline PR Annotations (No Advanced Security)
+
+The official action supports inline PR annotations via GitHub workflow commands. This does not require Advanced Security (unlike SARIF upload) and works on any GitHub plan.
+
+```yaml
+- uses: fallow-rs/fallow@v1
+  with:
+    command: dead-code
+    changed-since: main
+    annotations: true
+    max-annotations: 50   # default: 50, limits annotation count
+```
+
+Annotations appear as inline warnings on the PR diff. They work with all commands (`dead-code`, `dupes`, `health`, and the default combined mode). The `max-annotations` input prevents annotation flooding on large projects.
+
 ### GitHub Actions: PR-Scoped Check
 
 ```yaml
