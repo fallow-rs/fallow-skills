@@ -170,9 +170,9 @@ fallow:
     FALLOW_FAIL_ON_ISSUES: "true"
 ```
 
-Generates Code Quality reports (inline MR annotations) automatically.
+Generates Code Quality reports (inline MR annotations) automatically. In MR pipelines, `--changed-since` is automatically set to the target branch — no manual configuration needed.
 
-### GitLab CI: With MR Comments
+### GitLab CI: With MR Summary Comments
 
 ```yaml
 include:
@@ -182,10 +182,39 @@ fallow:
   extends: .fallow
   variables:
     FALLOW_COMMENT: "true"
-    FALLOW_CHANGED_SINCE: "origin/main"
 ```
 
-Requires `GITLAB_TOKEN` CI/CD variable (project access token with `api` scope) or enabling job token API access.
+Posts a summary comment on the MR with issue counts and findings. In MR pipelines, `--changed-since` is auto-detected from `$CI_MERGE_REQUEST_TARGET_BRANCH_NAME`, so only issues from changed files are reported. Requires `GITLAB_TOKEN` CI/CD variable (project access token with `api` scope) or enabling job token API access.
+
+### GitLab CI: With Inline Code Review Comments
+
+```yaml
+include:
+  - remote: 'https://raw.githubusercontent.com/fallow-rs/fallow/main/ci/gitlab-ci.yml'
+
+fallow:
+  extends: .fallow
+  variables:
+    FALLOW_REVIEW: "true"
+```
+
+Posts inline review comments directly on the MR diff lines where issues were found. This gives developers precise feedback without leaving the code review flow. Can be combined with `FALLOW_COMMENT: "true"` for both a summary and inline comments. Requires `GITLAB_TOKEN`.
+
+### GitLab CI: Combined MR Comments + Review
+
+```yaml
+include:
+  - remote: 'https://raw.githubusercontent.com/fallow-rs/fallow/main/ci/gitlab-ci.yml'
+
+fallow:
+  extends: .fallow
+  variables:
+    FALLOW_COMMENT: "true"
+    FALLOW_REVIEW: "true"
+    FALLOW_FAIL_ON_ISSUES: "true"
+```
+
+Posts both a summary comment and inline review comments on the MR. The template auto-detects the package manager (npm/pnpm/yarn) from lockfiles, so review comments show the correct commands for the project (e.g., `pnpm remove` instead of `npm uninstall`).
 
 ### GitLab CI: Manual (Without Template)
 

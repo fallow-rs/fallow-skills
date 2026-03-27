@@ -373,3 +373,55 @@ fallow dead-code --format json --quiet --production
 ```
 
 The `type-only-dependencies` rule defaults to `error`. Suppress with `"type-only-dependencies": "off"` in your rules config if you intentionally keep type-only packages in production dependencies.
+
+---
+
+## GitLab CI: `FALLOW_COMMENT` vs `FALLOW_REVIEW`
+
+These are separate features and can be used independently or together:
+
+- **`FALLOW_COMMENT: "true"`** — posts a single summary comment on the MR with issue counts and a findings table
+- **`FALLOW_REVIEW: "true"`** — posts inline code review comments on the exact MR diff lines where issues were found
+
+```yaml
+# WRONG: expecting inline review comments from FALLOW_COMMENT
+variables:
+  FALLOW_COMMENT: "true"
+# This only posts a summary comment, not inline annotations
+
+# CORRECT: use FALLOW_REVIEW for inline diff comments
+variables:
+  FALLOW_REVIEW: "true"
+
+# CORRECT: use both for summary + inline
+variables:
+  FALLOW_COMMENT: "true"
+  FALLOW_REVIEW: "true"
+```
+
+Both require a `GITLAB_TOKEN` CI/CD variable (project access token with `api` scope) or job token API access enabled.
+
+---
+
+## GitLab CI: Auto `--changed-since` in MR Pipelines
+
+The official GitLab CI template automatically sets `--changed-since origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME` in merge request pipelines. You do not need to set `FALLOW_CHANGED_SINCE` manually unless you want a different ref.
+
+```yaml
+# UNNECESSARY: changed-since is auto-detected in MR pipelines
+variables:
+  FALLOW_CHANGED_SINCE: "origin/main"
+
+# CORRECT: let the template auto-detect
+# (no FALLOW_CHANGED_SINCE needed — it reads the MR target branch)
+```
+
+Override `FALLOW_CHANGED_SINCE` only when you need a specific ref (e.g., a release branch) or want to disable auto-detection by setting it to an empty string.
+
+---
+
+## GitLab CI: Package Manager Detection
+
+The GitLab CI template auto-detects the project's package manager from lockfiles (`package-lock.json` for npm, `pnpm-lock.yaml` for pnpm, `yarn.lock` for yarn). MR comments and review comments use the correct commands for the detected manager.
+
+This means review comments will show `pnpm remove lodash` instead of `npm uninstall lodash` in a pnpm project. No configuration is needed — detection is automatic.
