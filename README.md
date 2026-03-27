@@ -8,7 +8,7 @@
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
   <a href="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml"><img src="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
   <a href="https://agentskills.io"><img src="https://img.shields.io/badge/Agent_Skills-compatible-8A2BE2" alt="Agent Skills"></a>
-  <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v2.0.0-orange" alt="fallow v2.0.0"></a>
+  <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v2.4.0-orange" alt="fallow v2.4.0"></a>
 </p>
 
 Agent skills for [fallow](https://github.com/fallow-rs/fallow), the Rust-native codebase analyzer for JavaScript and TypeScript. Fallow finds unused code, circular dependencies, code duplication, and complexity hotspots. 84 framework plugins, zero configuration, sub-second performance. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
@@ -89,7 +89,7 @@ See the [installation guide](https://docs.fallow.tools/installation) for all opt
 
 | Category | What it does |
 |---|---|
-| **Dead Code** | Find unused files, exports, types, dependencies, enum/class members (13 issue types) |
+| **Dead Code** | Find unused files, exports, types, dependencies, enum/class members (14 issue types) |
 | **Duplication** | Find code clones with 4 modes: strict, mild, weak, semantic |
 | **Complexity** | Function complexity analysis, hotspot detection, health scores |
 | **Auto-Fix** | Remove unused exports and dependencies with dry-run preview |

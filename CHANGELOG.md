@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-03-27
+
+### Changed
+
+- Updated for fallow v2.4.0 (was v2.3.1)
+- Issue types table now lists 14 types (was 13): added `test-only-dependencies`
+- New suppression token: `test-only-dependency`
+- New `test_only_dependencies` field in JSON output
+- Added `test-only-dependencies` to rules config example (default severity: `warn`)
+- New gotcha: test-only dependencies should be devDependencies
+- Version badge updated to v2.4.0
+
 ## [1.2.0] - 2026-03-24
 
 ### Changed
@@ -37,6 +49,7 @@ All notable changes to this project will be documented in this file.
 - CI validation pipeline (JSON, frontmatter, hardcoded paths, version sync)
 - Plugin metadata for Claude Code marketplace (`.claude-plugin/`)
 
+[1.3.0]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.3.0
 [1.2.0]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.2.0
 [1.1.0]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.1.0
 [1.0.0]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.0.0

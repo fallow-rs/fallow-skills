@@ -52,7 +52,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 | `--unused-files` | Unused files |
 | `--unused-exports` | Unused exports |
 | `--unused-types` | Unused types |
-| `--unused-deps` | Unused dependencies, devDependencies, optionalDependencies, and type-only production deps |
+| `--unused-deps` | Unused dependencies, devDependencies, optionalDependencies, type-only production deps, and test-only production deps |
 | `--unused-enum-members` | Unused enum members |
 | `--unused-class-members` | Unused class members |
 | `--unresolved-imports` | Unresolved imports |
@@ -344,7 +344,7 @@ fallow health --format json --quiet --save-snapshot .fallow/baseline-snapshot.js
 ```json
 {
   "schema_version": 3,
-  "version": "2.3.0",
+  "version": "2.4.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -641,7 +641,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.3.0",
+  "version": "2.4.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "unused_files": [{ "path": "src/old.ts" }],
@@ -656,7 +656,8 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
   "duplicate_exports": [{ "name": "Config", "locations": ["src/config.ts:5", "src/types.ts:12"] }],
   "circular_dependencies": [{ "cycle": ["src/a.ts", "src/b.ts", "src/a.ts"], "line": 3, "col": 0 }],
   "unused_optional_dependencies": [{ "name": "fsevents" }],
-  "type_only_dependencies": [{ "name": "zod", "used_in": ["src/schema.ts"], "line": 12 }]
+  "type_only_dependencies": [{ "name": "zod", "used_in": ["src/schema.ts"], "line": 12 }],
+  "test_only_dependencies": [{ "name": "msw", "path": "package.json", "line": 15 }]
 }
 ```
 
@@ -665,7 +666,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.3.0",
+  "version": "2.4.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -704,7 +705,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.3.0",
+    "version": "2.4.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -719,11 +720,12 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
     "duplicate_exports": [],
     "circular_dependencies": [],
     "unused_optional_dependencies": [],
-    "type_only_dependencies": []
+    "type_only_dependencies": [],
+    "test_only_dependencies": []
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.3.0",
+    "version": "2.4.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -732,7 +734,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.3.0",
+    "version": "2.4.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
@@ -783,7 +785,8 @@ Config files are searched in priority order: `.fallowrc.json` > `fallow.toml` > 
     "unlisted-dependencies": "error",
     "duplicate-exports": "warn",
     "circular-dependencies": "warn",
-    "type-only-dependencies": "error"
+    "type-only-dependencies": "error",
+    "test-only-dependencies": "warn"
   },
 
   // Per-path rule overrides
@@ -861,4 +864,4 @@ unused-exports = "off"
 
 ### Valid Issue Type Tokens
 
-`unused-file`, `unused-export`, `unused-type`, `unused-dependency`, `unused-dev-dependency`, `unused-enum-member`, `unused-class-member`, `unresolved-import`, `unlisted-dependency`, `duplicate-export`, `circular-dependency`, `unused-optional-dependency`, `type-only-dependency`, `code-duplication`
+`unused-file`, `unused-export`, `unused-type`, `unused-dependency`, `unused-dev-dependency`, `unused-enum-member`, `unused-class-member`, `unresolved-import`, `unlisted-dependency`, `duplicate-export`, `circular-dependency`, `unused-optional-dependency`, `type-only-dependency`, `test-only-dependency`, `code-duplication`

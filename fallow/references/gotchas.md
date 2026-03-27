@@ -372,7 +372,31 @@ fallow dead-code --format json --quiet --production
 # fallow-ignore-next-line type-only-dependency
 ```
 
-The `type-only-dependencies` rule defaults to `error`. Suppress with `"type-only-dependencies": "off"` in your rules config if you intentionally keep type-only packages in production dependencies.
+The `type-only-dependencies` rule defaults to `warn`. Suppress with `"type-only-dependencies": "off"` in your rules config if you intentionally keep type-only packages in production dependencies.
+
+---
+
+## Test-Only Dependencies Should Be devDependencies
+
+Fallow detects production dependencies that are only imported from test files (`*.test.*`, `*.spec.*`, `__tests__/**`). Since these packages are never used in production code, they should be in `devDependencies` instead.
+
+```typescript
+// If "msw" is in dependencies (not devDependencies):
+// src/handlers.test.ts
+import { setupServer } from 'msw/node';  // Flagged as test-only dependency
+
+// src/app.ts — no imports of "msw" here
+```
+
+```bash
+# Detect test-only dependencies (reported automatically)
+fallow dead-code --format json --quiet
+
+# Suppress for a specific dependency
+# fallow-ignore-next-line test-only-dependency
+```
+
+The `test-only-dependencies` rule defaults to `warn`. Suppress with `"test-only-dependencies": "off"` in your rules config if you intentionally keep test-only packages in production dependencies.
 
 ---
 

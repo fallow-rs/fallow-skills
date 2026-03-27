@@ -76,13 +76,14 @@ cargo install fallow-cli        # build from source
 | Unused files | `--unused-files` | Files unreachable from entry points |
 | Unused exports | `--unused-exports` | Symbols never imported elsewhere |
 | Unused types | `--unused-types` | Type aliases and interfaces |
-| Unused dependencies | `--unused-deps` | Packages in `dependencies`, `devDependencies`, `optionalDependencies`, and type-only production deps |
+| Unused dependencies | `--unused-deps` | Packages in `dependencies`, `devDependencies`, `optionalDependencies`, type-only production deps, and test-only production deps |
 | Unused enum members | `--unused-enum-members` | Enum values never referenced |
 | Unused class members | `--unused-class-members` | Methods and properties |
 | Unresolved imports | `--unresolved-imports` | Imports that can't be resolved |
 | Unlisted dependencies | `--unlisted-deps` | Used packages missing from package.json |
 | Duplicate exports | `--duplicate-exports` | Same symbol exported from multiple modules |
 | Circular dependencies | `--circular-deps` | Import cycles in the module graph |
+| Test-only dependencies | — | Production deps only imported from test files (should be devDependencies) |
 
 ## References
 
