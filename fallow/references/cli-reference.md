@@ -87,6 +87,10 @@ fallow dead-code --format json --quiet --trace src/utils.ts:myFunction
 # Incremental adoption with baseline
 fallow dead-code --format json --quiet --save-baseline .fallow-baseline.json
 fallow dead-code --format json --quiet --baseline .fallow-baseline.json --fail-on-issues
+
+# Regression detection: save baseline on main, compare on PRs
+fallow dead-code --format json --quiet --save-regression-baseline
+fallow dead-code --format json --quiet --fail-on-regression --tolerance 2%
 ```
 
 ---
@@ -265,6 +269,8 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 | `--file-scores` | bool | `false` | Show only per-file maintainability index (fan-in, fan-out, dead code ratio, complexity density). Runs the full analysis pipeline. When no section flags are set, all sections are shown by default. |
 | `--hotspots` | bool | `false` | Show only hotspots: files that are both complex and frequently changing. Combines git churn history with complexity data. Requires a git repository. When no section flags are set, all sections are shown by default. |
 | `--targets` | bool | `false` | Show only refactoring targets: ranked recommendations based on complexity, coupling, churn, and dead code signals. Categories: churn+complexity, circular dep, high impact, dead code, complexity, coupling. When no section flags are set, all sections are shown by default. |
+| `--score` | bool | `false` | Show only the project health score (0-100) with letter grade (A/B/C/D/F). Forces full pipeline (file-scores + hotspots) for maximum accuracy. JSON includes `health_score` object with `score`, `grade`, and `penalties` breakdown. |
+| `--min-score` | number | — | Fail if health score is below this threshold (exit code 1). Implies `--score`. CI quality gate. |
 | `--since` | string | `6m` | Git history window for hotspot analysis. Accepts durations (`6m`, `90d`, `1y`, `2w`) or ISO dates (`2025-06-01`). |
 | `--min-commits` | number | `3` | Minimum number of commits for a file to be included in hotspot ranking. |
 | `--changed-since` | string | — | Only analyze files changed since a git ref |
@@ -277,14 +283,20 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 
 | Code | Meaning |
 |------|---------|
-| 0 | No functions exceed thresholds |
-| 1 | One or more functions exceed thresholds |
+| 0 | No functions exceed thresholds (and score above `--min-score` if set) |
+| 1 | Functions exceed thresholds, or score below `--min-score` |
 
 ### Examples
 
 ```bash
 # Full complexity analysis with JSON output
 fallow health --format json --quiet
+
+# Project health score with letter grade
+fallow health --format json --quiet --score
+
+# CI gate: fail if score below 70
+fallow health --format json --quiet --min-score 70
 
 # Top 10 most complex functions
 fallow health --format json --quiet --top 10
@@ -485,9 +497,32 @@ All `health` JSON output includes a `vital_signs` object with project-wide metri
 
 Fields are `null` when the corresponding data source is not available (e.g., `hotspot_count` is null without `--hotspots` or when git is not available).
 
+With `--score`, the JSON output includes a `health_score` object:
+
+```json
+{
+  "health_score": {
+    "score": 76.9,
+    "grade": "B",
+    "penalties": {
+      "dead_files": 3.1,
+      "dead_exports": 6.0,
+      "complexity": 0.0,
+      "p90_complexity": 0.0,
+      "maintainability": 0.0,
+      "hotspots": 0.0,
+      "unused_deps": 10.0,
+      "circular_deps": 4.0
+    }
+  }
+}
+```
+
+Score is reproducible: `100 - sum(penalties) == score`. Penalty fields are absent when the pipeline didn't run. Grades: A (>= 85), B (70-84), C (55-69), D (40-54), F (< 40).
+
 ### Vital Signs Snapshots
 
-`--save-snapshot` persists a `VitalSignsSnapshot` JSON file for trend tracking across runs. The snapshot contains more detail than the inline `vital_signs` object:
+`--save-snapshot` persists a `VitalSignsSnapshot` JSON file for trend tracking across runs. Combine with `--score` to include the health score and grade in the snapshot. The snapshot contains more detail than the inline `vital_signs` object:
 
 ```json
 {
@@ -566,6 +601,10 @@ Available on all commands:
 | `--changed-since` | string | Git-aware incremental analysis |
 | `--baseline` | path | Compare to baseline |
 | `--save-baseline` | path | Save results as baseline |
+| `--fail-on-regression` | bool | Fail if issue count increased beyond tolerance vs a regression baseline |
+| `--tolerance` | string | Allowed increase: `"2%"` (percentage) or `"5"` (absolute). Default: `"0"` |
+| `--regression-baseline` | path | Path to regression baseline file (default: `.fallow/regression-baseline.json`) |
+| `--save-regression-baseline` | path | Save current issue counts as a regression baseline |
 | `--production` | bool | Exclude test/dev files, only start/build scripts |
 | `--performance` | bool | Show pipeline timing breakdown |
 | `-w, --workspace` | string | Scope to single workspace package |
