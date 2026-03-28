@@ -253,7 +253,7 @@ fallow migrate --from knip.json
 
 ## `health`: Function Complexity & File Health Analysis
 
-Analyzes function complexity across the project using cyclomatic and cognitive complexity metrics. By default all sections are included (complexity findings, file scores, hotspots, and refactoring targets). Use `--complexity`, `--file-scores`, `--hotspots`, or `--targets` to show only specific sections.
+Analyzes function complexity across the project using cyclomatic and cognitive complexity metrics. By default all sections are included (health score, complexity findings, file scores, hotspots, and refactoring targets). Use `--complexity`, `--file-scores`, `--hotspots`, `--targets`, or `--score` to show only specific sections.
 
 ### Flags
 
@@ -269,7 +269,7 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 | `--file-scores` | bool | `false` | Show only per-file maintainability index (fan-in, fan-out, dead code ratio, complexity density). Runs the full analysis pipeline. When no section flags are set, all sections are shown by default. |
 | `--hotspots` | bool | `false` | Show only hotspots: files that are both complex and frequently changing. Combines git churn history with complexity data. Requires a git repository. When no section flags are set, all sections are shown by default. |
 | `--targets` | bool | `false` | Show only refactoring targets: ranked recommendations based on complexity, coupling, churn, and dead code signals. Categories: churn+complexity, circular dep, high impact, dead code, complexity, coupling. When no section flags are set, all sections are shown by default. |
-| `--score` | bool | `false` | Show only the project health score (0-100) with letter grade (A/B/C/D/F). Forces full pipeline (file-scores + hotspots) for maximum accuracy. JSON includes `health_score` object with `score`, `grade`, and `penalties` breakdown. |
+| `--score` | bool | `false` | Show only the project health score (0-100) with letter grade (A/B/C/D/F). The score is included by default when no section flags are set. JSON includes `health_score` object with `score`, `grade`, and `penalties` breakdown. |
 | `--min-score` | number | — | Fail if health score is below this threshold (exit code 1). Implies `--score`. CI quality gate. |
 | `--since` | string | `6m` | Git history window for hotspot analysis. Accepts durations (`6m`, `90d`, `1y`, `2w`) or ISO dates (`2025-06-01`). |
 | `--min-commits` | number | `3` | Minimum number of commits for a file to be included in hotspot ranking. |
@@ -522,7 +522,7 @@ Score is reproducible: `100 - sum(penalties) == score`. Penalty fields are absen
 
 ### Vital Signs Snapshots
 
-`--save-snapshot` persists a `VitalSignsSnapshot` JSON file for trend tracking across runs. Combine with `--score` to include the health score and grade in the snapshot. The snapshot contains more detail than the inline `vital_signs` object:
+`--save-snapshot` persists a `VitalSignsSnapshot` JSON file for trend tracking across runs. Snapshots automatically include the health score and grade. The snapshot contains more detail than the inline `vital_signs` object:
 
 ```json
 {
