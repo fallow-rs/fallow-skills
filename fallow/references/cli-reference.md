@@ -698,7 +698,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 
 ## CI Integration
 
-- **GitHub Actions**: `uses: fallow-rs/fallow@v1` — supports SARIF upload to Code Scanning, inline PR annotations (`annotations: true`), PR comments, all commands. Annotations use workflow commands (no Advanced Security required); limit with `max-annotations` (default 50)
+- **GitHub Actions**: `uses: fallow-rs/fallow@v2` — supports SARIF upload to Code Scanning, inline PR annotations (`annotations: true`), PR comments, all commands. Annotations use workflow commands (no Advanced Security required); limit with `max-annotations` (default 50)
 - **GitLab CI**: include `ci/gitlab-ci.yml` template and extend `.fallow` — generates Code Quality reports via `--format codeclimate` (inline MR annotations), rich MR comments, code review comments, all commands. Variables use `FALLOW_` prefix (e.g., `FALLOW_COMMAND`, `FALLOW_FAIL_ON_ISSUES`)
 - **Any CI**: `npx fallow --ci` — equivalent to `--format sarif --fail-on-issues --quiet`
 

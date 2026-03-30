@@ -110,7 +110,7 @@ Parse the JSON to list specific files and exports that became unused.
 ### GitHub Actions: Using the Official Action
 
 ```yaml
-- uses: fallow-rs/fallow@v1
+- uses: fallow-rs/fallow@v2
   with:
     command: dead-code
     fail-on-issues: true
@@ -122,7 +122,7 @@ Parse the JSON to list specific files and exports that became unused.
 The official action supports inline PR annotations via GitHub workflow commands. This does not require Advanced Security (unlike SARIF upload) and works on any GitHub plan.
 
 ```yaml
-- uses: fallow-rs/fallow@v1
+- uses: fallow-rs/fallow@v2
   with:
     command: dead-code
     changed-since: main
