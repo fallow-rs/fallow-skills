@@ -278,6 +278,7 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 | `--baseline` | path | — | Compare against a saved baseline |
 | `--save-baseline` | path | — | Save current results as a baseline |
 | `--save-snapshot` | path (optional) | `.fallow/snapshots/<timestamp>.json` | Save vital signs snapshot for trend tracking. Forces file-scores + hotspot computation. |
+| `--trend` | bool | `false` | Compare current metrics against the most recent saved snapshot. Reads from `.fallow/snapshots/` and shows per-metric deltas with directional indicators (improving/declining/stable). Implies `--score`. |
 
 ### Exit Codes
 
@@ -349,6 +350,9 @@ fallow health --format json --quiet --save-snapshot
 
 # Save snapshot to a custom path
 fallow health --format json --quiet --save-snapshot .fallow/baseline-snapshot.json
+
+# Compare current metrics against the most recent snapshot
+fallow health --format json --quiet --trend
 ```
 
 ### JSON Output Structure
@@ -356,7 +360,7 @@ fallow health --format json --quiet --save-snapshot .fallow/baseline-snapshot.js
 ```json
 {
   "schema_version": 3,
-  "version": "2.5.5",
+  "version": "2.6.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -520,6 +524,49 @@ With `--score`, the JSON output includes a `health_score` object:
 
 Score is reproducible: `100 - sum(penalties) == score`. Penalty fields are absent when the pipeline didn't run. Grades: A (>= 85), B (70-84), C (55-69), D (40-54), F (< 40).
 
+### Health Trend
+
+With `--trend`, the JSON output includes a `health_trend` object comparing current metrics against the most recent saved snapshot:
+
+```json
+{
+  "health_trend": {
+    "compared_to": {
+      "timestamp": "2026-03-25T14:30:00Z",
+      "git_sha": "a1b2c3d",
+      "score": 74.2,
+      "grade": "B"
+    },
+    "metrics": [
+      {
+        "name": "score",
+        "label": "Health Score",
+        "previous": 74.2,
+        "current": 76.9,
+        "delta": 2.7,
+        "direction": "improving",
+        "unit": ""
+      },
+      {
+        "name": "dead_file_pct",
+        "label": "Dead Files",
+        "previous": 5.1,
+        "current": 4.2,
+        "delta": -0.9,
+        "direction": "improving",
+        "unit": "%",
+        "previous_count": { "value": 13, "total": 255 },
+        "current_count": { "value": 11, "total": 262 }
+      }
+    ],
+    "snapshots_loaded": 3,
+    "overall_direction": "improving"
+  }
+}
+```
+
+Metrics tracked: `score`, `dead_file_pct`, `dead_export_pct`, `avg_cyclomatic`, `maintainability_avg`, `unused_dep_count`, `circular_dep_count`, `hotspot_count`. Each metric includes `direction` (`improving`, `declining`, `stable`). Percentage metrics include `previous_count`/`current_count` with raw numerator/denominator. `--trend` requires at least one saved snapshot in `.fallow/snapshots/`.
+
 ### Vital Signs Snapshots
 
 `--save-snapshot` persists a `VitalSignsSnapshot` JSON file for trend tracking across runs. Snapshots automatically include the health score and grade. The snapshot contains more detail than the inline `vital_signs` object:
@@ -680,7 +727,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.5.5",
+  "version": "2.6.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "unused_files": [{ "path": "src/old.ts" }],
@@ -705,7 +752,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.5.5",
+  "version": "2.6.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -744,7 +791,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.5.5",
+    "version": "2.6.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -764,7 +811,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.5.5",
+    "version": "2.6.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -773,7 +820,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.5.5",
+    "version": "2.6.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
