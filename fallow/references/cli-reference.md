@@ -211,12 +211,16 @@ Creates a config file in the project root.
 | Flag | Type | Description |
 |------|------|-------------|
 | `--toml` | bool | Create `fallow.toml` instead of `.fallowrc.json` |
+| `--hooks` | bool | Scaffold a pre-commit git hook that runs `fallow dead-code --changed-since` on staged files |
+| `--base` | string | Base branch for the pre-commit hook (default: `main`). Only used with `--hooks` |
 
 ### Examples
 
 ```bash
-fallow init          # creates .fallowrc.json with $schema
-fallow init --toml   # creates fallow.toml
+fallow init              # creates .fallowrc.json with $schema
+fallow init --toml       # creates fallow.toml
+fallow init --hooks      # scaffold a pre-commit git hook (uses main as base)
+fallow init --hooks --base develop  # hook using custom base branch
 ```
 
 ---
@@ -360,7 +364,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.6.0",
+  "version": "2.7.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -727,11 +731,11 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.6.0",
+  "version": "2.7.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "unused_files": [{ "path": "src/old.ts" }],
-  "unused_exports": [{ "path": "src/utils.ts", "name": "unusedFn", "line": 42 }],
+  "unused_exports": [{ "path": "src/utils.ts", "name": "unusedFn", "line": 42, "actions": [{"type": "remove-export", "auto_fixable": true, "description": "Remove the `export` keyword from the declaration"}, {"type": "suppress-line", "auto_fixable": false, "description": "Suppress with an inline comment above the line", "comment": "// fallow-ignore-next-line unused-export"}] }],
   "unused_types": [{ "path": "src/types.ts", "name": "OldType", "line": 10 }],
   "unused_dependencies": [{ "name": "lodash", "line": 5 }],
   "unused_dev_dependencies": [{ "name": "jest", "line": 8 }],
@@ -747,12 +751,72 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 }
 ```
 
+#### `actions` Array
+
+Every issue in `dead-code` JSON output includes an `actions` array with structured fix suggestions. Each action has:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | yes | Action type in kebab-case (14 types, e.g., `remove-export`, `remove-file`, `remove-dependency`, `suppress-line`, `add-to-config`) |
+| `auto_fixable` | bool | yes | `true` if `fallow fix` handles this action automatically |
+| `description` | string | yes | Human-readable description of the action |
+| `comment` | string | no | Suppression comment text (on `suppress-line` actions) |
+| `note` | string | no | Additional context on non-auto-fixable items |
+| `config_key` | string | no | Config field to update (on `add-to-config` actions) |
+| `value` | string | no | Value to add to the config field (on `add-to-config` actions) |
+
+Example:
+
+```json
+{
+  "path": "src/utils.ts",
+  "name": "helperFn",
+  "line": 10,
+  "actions": [
+    {
+      "type": "remove-export",
+      "auto_fixable": true,
+      "description": "Remove the `export` keyword from the declaration"
+    },
+    {
+      "type": "suppress-line",
+      "auto_fixable": false,
+      "description": "Suppress with an inline comment above the line",
+      "comment": "// fallow-ignore-next-line unused-export"
+    }
+  ]
+}
+```
+
+Dependency issues use `add-to-config` with `config_key` and `value`:
+
+```json
+{
+  "name": "autoprefixer",
+  "line": 5,
+  "actions": [
+    {
+      "type": "remove-dependency",
+      "auto_fixable": true,
+      "description": "Remove from package.json dependencies"
+    },
+    {
+      "type": "add-to-config",
+      "auto_fixable": false,
+      "description": "Add to ignoreDependencies in fallow config",
+      "config_key": "ignoreDependencies",
+      "value": "autoprefixer"
+    }
+  ]
+}
+```
+
 ### `dupes` output
 
 ```json
 {
   "schema_version": 3,
-  "version": "2.6.0",
+  "version": "2.7.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -791,7 +855,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.6.0",
+    "version": "2.7.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -811,7 +875,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.6.0",
+    "version": "2.7.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -820,7 +884,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.6.0",
+    "version": "2.7.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],

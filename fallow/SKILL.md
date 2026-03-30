@@ -63,7 +63,7 @@ cargo install fallow-cli        # build from source
 | `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--production`, `--ci`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `dupes` | Code duplication detection | `--mode`, `--threshold`, `--top`, `--changed-since`, `--skip-local`, `--cross-language`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
-| `init` | Generate config file | `--toml` for TOML format |
+| `init` | Generate config file or pre-commit hook | `--toml`, `--hooks`, `--base` |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
 | `list` | Inspect project structure | `--files`, `--entry-points`, `--plugins` |
 | `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--targets`, `--score`, `--min-score`, `--since`, `--min-commits`, `--save-snapshot`, `--trend`, `--workspace`, `--baseline`, `--save-baseline` |
@@ -99,7 +99,7 @@ cargo install fallow-cli        # build from source
 fallow dead-code --format json --quiet
 ```
 
-Parse the JSON output. It contains arrays for each issue type (`unused_files`, `unused_exports`, `unused_types`, `unused_dependencies`, etc.) plus `total_issues` and `elapsed_ms` metadata.
+Parse the JSON output. It contains arrays for each issue type (`unused_files`, `unused_exports`, `unused_types`, `unused_dependencies`, etc.) plus `total_issues` and `elapsed_ms` metadata. Each issue object includes an `actions` array with structured fix suggestions (action type, `auto_fixable` flag, description, and optional suppression comment).
 
 ### Find only unused exports (smaller output)
 
@@ -195,8 +195,10 @@ Auto-detects `knip.json`, `.knip.json`, `.jscpd.json`, and package.json embedded
 ### Initialize a new config
 
 ```bash
-fallow init          # creates .fallowrc.json
-fallow init --toml   # creates fallow.toml
+fallow init              # creates .fallowrc.json
+fallow init --toml       # creates fallow.toml
+fallow init --hooks      # scaffold a pre-commit git hook
+fallow init --hooks --base develop  # hook using custom base branch
 ```
 
 ## Exit Codes
