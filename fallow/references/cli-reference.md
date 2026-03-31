@@ -263,7 +263,7 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate` | `human` | Output format |
+| `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate\|badge` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars |
 | `--max-cyclomatic` | number | `20` | Fail if any function exceeds this cyclomatic complexity |
 | `--max-cognitive` | number | `15` | Fail if any function exceeds this cognitive complexity |
@@ -364,7 +364,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.7.1",
+  "version": "2.7.2",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -731,7 +731,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.7.1",
+  "version": "2.7.2",
   "elapsed_ms": 45,
   "total_issues": 12,
   "unused_files": [{ "path": "src/old.ts" }],
@@ -816,7 +816,7 @@ Dependency issues use `add-to-config` with `config_key` and `value`:
 ```json
 {
   "schema_version": 3,
-  "version": "2.7.1",
+  "version": "2.7.2",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -855,7 +855,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.7.1",
+    "version": "2.7.2",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -875,7 +875,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.7.1",
+    "version": "2.7.2",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -884,7 +884,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.7.1",
+    "version": "2.7.2",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
