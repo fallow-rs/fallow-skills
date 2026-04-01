@@ -84,6 +84,7 @@ cargo install fallow-cli        # build from source
 | Unlisted dependencies | `--unlisted-deps` | Used packages missing from package.json |
 | Duplicate exports | `--duplicate-exports` | Same symbol exported from multiple modules |
 | Circular dependencies | `--circular-deps` | Import cycles in the module graph |
+| Boundary violations | `--boundary-violations` | Imports crossing user-defined architecture zone boundaries |
 | Test-only dependencies | — | Production deps only imported from test files (should be devDependencies) |
 
 ## References

@@ -60,6 +60,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 | `--unlisted-deps` | Unlisted dependencies |
 | `--duplicate-exports` | Duplicate exports |
 | `--circular-deps` | Circular dependencies |
+| `--boundary-violations` | Boundary violations (imports crossing architecture zone boundaries) |
 
 ### Examples
 
@@ -833,6 +834,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
   "unlisted_dependencies": [{ "name": "chalk", "imported_from": [{ "path": "src/cli.ts", "line": 1, "col": 0 }] }],
   "duplicate_exports": [{ "name": "Config", "locations": ["src/config.ts:5", "src/types.ts:12"] }],
   "circular_dependencies": [{ "cycle": ["src/a.ts", "src/b.ts", "src/a.ts"], "line": 3, "col": 0 }],
+  "boundary_violations": [{ "from_path": "src/ui/Button.ts", "to_path": "src/data/db.ts", "from_zone": "ui", "to_zone": "data", "import_specifier": "../data/db", "line": 5, "col": 0 }],
   "unused_optional_dependencies": [{ "name": "fsevents" }],
   "type_only_dependencies": [{ "name": "zod", "used_in": ["src/schema.ts"], "line": 12 }],
   "test_only_dependencies": [{ "name": "msw", "path": "package.json", "line": 15 }]
@@ -957,6 +959,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
     "unlisted_dependencies": [],
     "duplicate_exports": [],
     "circular_dependencies": [],
+    "boundary_violations": [],
     "unused_optional_dependencies": [],
     "type_only_dependencies": [],
     "test_only_dependencies": []
@@ -1023,6 +1026,7 @@ Config files are searched in priority order: `.fallowrc.json` > `fallow.toml` > 
     "unlisted-dependencies": "error",
     "duplicate-exports": "warn",
     "circular-dependencies": "warn",
+    "boundary-violation": "error",
     "type-only-dependencies": "error",
     "test-only-dependencies": "warn"
   },
@@ -1102,4 +1106,4 @@ unused-exports = "off"
 
 ### Valid Issue Type Tokens
 
-`unused-file`, `unused-export`, `unused-type`, `unused-dependency`, `unused-dev-dependency`, `unused-enum-member`, `unused-class-member`, `unresolved-import`, `unlisted-dependency`, `duplicate-export`, `circular-dependency`, `unused-optional-dependency`, `type-only-dependency`, `test-only-dependency`, `code-duplication`
+`unused-file`, `unused-export`, `unused-type`, `unused-dependency`, `unused-dev-dependency`, `unused-enum-member`, `unused-class-member`, `unresolved-import`, `unlisted-dependency`, `duplicate-export`, `circular-dependency`, `boundary-violation`, `unused-optional-dependency`, `type-only-dependency`, `test-only-dependency`, `code-duplication`
