@@ -1,6 +1,6 @@
 ---
 name: fallow
-description: Analyze JavaScript/TypeScript projects with fallow. Finds dead code (unused files, exports, types, dependencies), code duplication, circular dependencies, and complexity hotspots. Use when asked to find dead code, find unused exports, clean up the codebase, find duplicates, check code health, audit unused code, auto-fix dead code, or run fallow.
+description: Analyze JavaScript/TypeScript projects with fallow. Finds unused code (files, exports, types, dependencies), code duplication, circular dependencies, complexity hotspots, and architecture boundary violations. Use when asked to find dead code, find unused exports, clean up the codebase, find duplicates, check code health, check architecture boundaries, audit unused code, auto-fix dead code, or run fallow.
 license: MIT
 metadata:
   author: Bart Waardenburg
@@ -10,7 +10,7 @@ metadata:
 
 # Fallow: Codebase Analyzer
 
-The codebase analyzer for JavaScript and TypeScript. Finds unused code, circular dependencies, code duplication, and complexity hotspots. 84 framework plugins, zero configuration, sub-second performance.
+The codebase analyzer for JavaScript and TypeScript. Finds unused code, circular dependencies, code duplication, complexity hotspots, and architecture boundary violations. 84 framework plugins, zero configuration, sub-second performance.
 
 ## When to Use
 
@@ -65,7 +65,7 @@ cargo install fallow-cli        # build from source
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
 | `init` | Generate config file or pre-commit hook | `--toml`, `--hooks`, `--base` |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
-| `list` | Inspect project structure | `--files`, `--entry-points`, `--plugins` |
+| `list` | Inspect project structure | `--files`, `--entry-points`, `--plugins`, `--boundaries` |
 | `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--targets`, `--score`, `--min-score`, `--since`, `--min-commits`, `--save-snapshot`, `--trend`, `--workspace`, `--baseline`, `--save-baseline` |
 | `audit` | Combined dead-code + complexity + duplication for changed files | `--base`, `--production`, `--workspace`, `--ci`, `--fail-on-issues`, `--explain` |
 | `schema` | Dump CLI definition as JSON | |
