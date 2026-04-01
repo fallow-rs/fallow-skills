@@ -195,8 +195,8 @@ Auto-detects `knip.json`, `.knip.json`, `.jscpd.json`, and package.json embedded
 ### Initialize a new config
 
 ```bash
-fallow init              # creates .fallowrc.json
-fallow init --toml       # creates fallow.toml
+fallow init              # creates .fallowrc.json, adds .fallow/ to .gitignore
+fallow init --toml       # creates fallow.toml, adds .fallow/ to .gitignore
 fallow init --hooks      # scaffold a pre-commit git hook
 fallow init --hooks --base develop  # hook using custom base branch
 ```
