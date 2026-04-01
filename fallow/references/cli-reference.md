@@ -13,6 +13,7 @@ Complete command and flag specifications for all fallow CLI commands.
 - [`init`: Config Generation](#init-config-generation)
 - [`migrate`: Config Migration](#migrate-config-migration)
 - [`health`: Function Complexity Analysis](#health-function-complexity-analysis)
+- [`audit`: Changed-File Quality Gate](#audit-changed-file-quality-gate)
 - [`schema`: CLI Introspection](#schema-cli-introspection)
 - [`config-schema`: Config JSON Schema](#config-schema-config-json-schema)
 - [`plugin-schema`: Plugin JSON Schema](#plugin-schema-plugin-json-schema)
@@ -364,7 +365,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.7.3",
+  "version": "2.8.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -607,6 +608,93 @@ The snapshot `schema_version` is independent of the report `schema_version`. Def
 
 ---
 
+## `audit`: Changed-File Quality Gate
+
+Audits changed files for dead code, complexity, and duplication. Returns a verdict (pass/warn/fail). Purpose-built for PR quality gates and reviewing AI-generated code. Auto-detects the base branch if `--base` is not set.
+
+### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--base` | string | auto-detect | Git ref to compare against (alias for `--changed-since`) |
+| `--production` | bool | false | Exclude test/story/dev files |
+| `-w, --workspace` | string | — | Scope to a single workspace package |
+| `--explain` | bool | false | Include metric definitions in JSON output |
+| `--ci` | bool | false | Equivalent to `--format sarif --fail-on-issues --quiet` |
+| `--fail-on-issues` | bool | false | Exit with code 1 if issues are found |
+| `--sarif-file` | path | — | Write SARIF output to a file alongside primary format |
+| `--baseline` | path | — | Compare against a saved baseline |
+| `--save-baseline` | path | — | Save current results as a baseline file |
+| `--fail-on-regression` | bool | false | Fail if issues increased beyond tolerance vs regression baseline |
+| `--tolerance` | string | `0` | Allowed increase before regression fails (`N` or `N%`) |
+| `--regression-baseline` | path | `.fallow/regression-baseline.json` | Path to the regression baseline file |
+| `--save-regression-baseline` | path | — | Save current issue counts as a regression baseline |
+
+### Verdicts
+
+| Verdict | Exit code | When |
+|---------|-----------|------|
+| pass | 0 | No issues in changed files |
+| warn | 0 | Issues found, all warn-severity |
+| fail | 1 | Error-severity issues found |
+| error | 2 | Runtime error (invalid ref, not a git repo) |
+
+### Examples
+
+```bash
+# Auto-detect base branch
+fallow audit --format json --quiet
+
+# Explicit base ref
+fallow audit --format json --quiet --base main
+
+# Audit last 3 commits
+fallow audit --format json --quiet --base HEAD~3
+
+# Production code only in a monorepo workspace
+fallow audit --format json --quiet --production --workspace @app/api
+
+# CI mode (SARIF + fail on issues + quiet)
+fallow audit --ci
+```
+
+### JSON Output Structure
+
+```json
+{
+  "schema_version": 3,
+  "version": "2.8.0",
+  "command": "audit",
+  "verdict": "fail",
+  "changed_files_count": 12,
+  "base_ref": "main",
+  "head_sha": "d4a2f91",
+  "elapsed_ms": 2140,
+  "summary": {
+    "dead_code_issues": 2,
+    "dead_code_has_errors": true,
+    "complexity_findings": 1,
+    "max_cyclomatic": 28,
+    "duplication_clone_groups": 0
+  },
+  "dead_code": {
+    "schema_version": 3,
+    "total_issues": 2,
+    "unused_exports": [...]
+  },
+  "complexity": {
+    "findings": [...]
+  },
+  "duplication": {
+    "clone_groups": []
+  }
+}
+```
+
+The `verdict` field is always present and is the primary decision signal. Dead code, complexity, and duplication sections follow their respective schemas from the individual commands. Thresholds for complexity are inherited from `fallow health` config (defaults: cyclomatic 20, cognitive 15).
+
+---
+
 ## `schema`: CLI Introspection
 
 Dumps the full CLI interface definition as machine-readable JSON.
@@ -649,7 +737,7 @@ Available on all commands:
 | `-q, --quiet` | bool | Suppress progress output |
 | `--no-cache` | bool | Disable incremental caching |
 | `--threads` | number | Number of parser threads |
-| `--changed-since` | string | Git-aware incremental analysis |
+| `--changed-since` (alias: `--base`) | string | Git-aware incremental analysis |
 | `--baseline` | path | Compare to baseline |
 | `--save-baseline` | path | Save results as baseline |
 | `--fail-on-regression` | bool | Fail if issue count increased beyond tolerance vs a regression baseline |
@@ -731,7 +819,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.7.3",
+  "version": "2.8.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "unused_files": [{ "path": "src/old.ts" }],
@@ -816,7 +904,7 @@ Dependency issues use `add-to-config` with `config_key` and `value`:
 ```json
 {
   "schema_version": 3,
-  "version": "2.7.3",
+  "version": "2.8.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -855,7 +943,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.7.3",
+    "version": "2.8.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -875,7 +963,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.7.3",
+    "version": "2.8.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -884,7 +972,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.7.3",
+    "version": "2.8.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
