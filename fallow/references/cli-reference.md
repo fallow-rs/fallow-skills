@@ -182,7 +182,7 @@ fallow fix --yes --format json --quiet
 
 ## `list`: Project Introspection
 
-Inspect discovered files, entry points, and detected frameworks.
+Inspect discovered files, entry points, detected frameworks, and architecture boundary zones.
 
 ### Flags
 
@@ -191,6 +191,7 @@ Inspect discovered files, entry points, and detected frameworks.
 | `--files` | bool | List all discovered files |
 | `--entry-points` | bool | List detected entry points |
 | `--plugins` | bool | List active framework plugins |
+| `--boundaries` | bool | Show architecture boundary zones, rules, and per-zone file counts |
 | `--format` | `human\|json` | Output format |
 | `--quiet` | bool | Suppress progress bars |
 
@@ -200,6 +201,7 @@ Inspect discovered files, entry points, and detected frameworks.
 fallow list --files --format json --quiet
 fallow list --entry-points --format json --quiet
 fallow list --plugins --format json --quiet
+fallow list --boundaries --format json --quiet
 ```
 
 ---
