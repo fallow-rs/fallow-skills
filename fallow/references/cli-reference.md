@@ -1051,6 +1051,12 @@ Config files are searched in priority order: `.fallowrc.json` > `fallow.toml` > 
     "ignorePatterns": ["**/*.generated.ts"]
   },
 
+  // Architecture boundaries (preset or custom zones/rules)
+  // Presets: "layered", "hexagonal", "feature-sliced", "bulletproof"
+  "boundaries": {
+    "preset": "bulletproof"
+  },
+
   // Production mode
   "production": false,
 
@@ -1093,6 +1099,9 @@ minLines = 5
 files = ["*.test.ts"]
 [overrides.rules]
 unused-exports = "off"
+
+[boundaries]
+preset = "bulletproof"
 ```
 
 ---
