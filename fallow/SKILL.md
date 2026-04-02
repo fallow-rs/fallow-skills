@@ -87,6 +87,26 @@ cargo install fallow-cli        # build from source
 | Boundary violations | `--boundary-violations` | Imports crossing architecture zone boundaries. Presets: `layered`, `hexagonal`, `feature-sliced`, `bulletproof` |
 | Test-only dependencies | — | Production deps only imported from test files (should be devDependencies) |
 
+## MCP Tools
+
+When using fallow via MCP (`fallow-mcp`), the following tools are available:
+
+| Tool | Description |
+|------|-------------|
+| `analyze` | Full dead code analysis. Set `boundary_violations: true` as a convenience alias for `issue_types: ["boundary-violations"]` |
+| `check_changed` | Incremental analysis of files changed since a git ref |
+| `find_dupes` | Code duplication detection. Set `changed_since` to scope to changed files since a git ref |
+| `fix_preview` | Dry-run auto-fix preview |
+| `fix_apply` | Apply auto-fixes (destructive) |
+| `check_health` | Complexity metrics, health scores, hotspots, and refactoring targets |
+| `audit` | Combined dead-code + complexity + duplication for changed files, returns verdict |
+| `project_info` | Project metadata. Set `entry_points`, `files`, `plugins`, or `boundaries` to `true` to request specific sections |
+| `list_boundaries` | Architecture boundary zones and access rules. Returns `{"configured": false}` if no boundaries configured |
+
+All tools accept `root`, `config`, `no_cache`, and `threads` params. The MCP server subprocess timeout defaults to 120s, configurable via `FALLOW_TIMEOUT_SECS`.
+
+All JSON responses include structured `actions` arrays on every finding (dead code, health, duplication), enabling programmatic fix application or suppression.
+
 ## References
 
 - [CLI Reference](references/cli-reference.md): complete command and flag specifications
