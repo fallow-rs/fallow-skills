@@ -368,7 +368,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.10.1",
+  "version": "2.11.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -666,7 +666,7 @@ fallow audit --ci
 ```json
 {
   "schema_version": 3,
-  "version": "2.10.1",
+  "version": "2.11.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -756,6 +756,7 @@ Available on all commands:
 | `--ci` | bool | CI mode: `--format sarif --fail-on-issues --quiet` |
 | `--fail-on-issues` | bool | Exit 1 if any issues found (promotes `warn` to `error`) |
 | `--sarif-file` | path | Write SARIF output to a file instead of stdout |
+| `--group-by` | `owner\|directory` | Group output by CODEOWNERS ownership (`owner`) or first path component (`directory`). All output formats partition issues into labeled groups |
 
 ---
 
@@ -824,7 +825,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.10.1",
+  "version": "2.11.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "unused_files": [{ "path": "src/old.ts" }],
@@ -910,7 +911,7 @@ Dependency issues use `add-to-config` with `config_key` and `value`:
 ```json
 {
   "schema_version": 3,
-  "version": "2.10.1",
+  "version": "2.11.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -949,7 +950,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.10.1",
+    "version": "2.11.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -970,7 +971,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.10.1",
+    "version": "2.11.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -979,7 +980,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.10.1",
+    "version": "2.11.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
