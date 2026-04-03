@@ -19,7 +19,7 @@ The codebase analyzer for JavaScript and TypeScript. Finds unused code, circular
 - Detecting code duplication and clones
 - Checking code health and complexity hotspots
 - Cleaning up a codebase before a release or refactor
-- Auditing a project for codebase hygiene
+- Auditing a project for structural issues
 - Setting up CI checks for dead code or duplication thresholds
 - Auto-fixing unused exports and dependencies
 - Investigating why a specific export or file appears unused
@@ -59,8 +59,8 @@ cargo install fallow-cli        # build from source
 
 | Command | Purpose | Key Flags |
 |---------|---------|-----------|
-| `fallow` | Run all analyses: dead code + duplication + complexity (default) | `--only`, `--skip`, `--ci`, `--fail-on-issues`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
-| `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--production`, `--ci`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
+| `fallow` | Run all analyses: dead code + duplication + complexity (default) | `--only`, `--skip`, `--ci`, `--fail-on-issues`, `--group-by`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
+| `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--production`, `--ci`, `--group-by`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `dupes` | Code duplication detection | `--mode`, `--threshold`, `--top`, `--changed-since`, `--skip-local`, `--cross-language`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
 | `init` | Generate config file or pre-commit hook | `--toml`, `--hooks`, `--base` |
@@ -93,7 +93,7 @@ When using fallow via MCP (`fallow-mcp`), the following tools are available:
 
 | Tool | Description |
 |------|-------------|
-| `analyze` | Full dead code analysis. Set `boundary_violations: true` as a convenience alias for `issue_types: ["boundary-violations"]` |
+| `analyze` | Full dead code analysis. Set `boundary_violations: true` as a convenience alias for `issue_types: ["boundary-violations"]`. Set `group_by` to `"owner"` or `"directory"` to partition results |
 | `check_changed` | Incremental analysis of files changed since a git ref |
 | `find_dupes` | Code duplication detection. Set `changed_since` to scope to changed files since a git ref |
 | `fix_preview` | Dry-run auto-fix preview |

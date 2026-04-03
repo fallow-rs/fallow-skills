@@ -11,9 +11,9 @@
   <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v2.10.1-orange" alt="fallow v2.10.1"></a>
 </p>
 
-Agent skills for [fallow](https://github.com/fallow-rs/fallow), the Rust-native codebase analyzer for JavaScript and TypeScript. Fallow finds unused code, circular dependencies, code duplication, and complexity hotspots. 84 framework plugins, zero configuration, sub-second performance. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
+Agent skills for [fallow](https://github.com/fallow-rs/fallow), the Rust-native codebase analyzer for JavaScript and TypeScript. Fallow finds unused code, circular dependencies, code duplication, complexity hotspots, and architecture boundary violations. 84 framework plugins, zero configuration, sub-second performance. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
 
-> **Linters enforce style. Formatters enforce consistency. Fallow enforces relevance.** AI agents can generate code but can't perform static analysis: building module graphs, tracing re-export chains, and exhaustively checking every import across thousands of files requires a dedicated tool. Fallow does this in milliseconds. These skills teach agents *how* to use fallow effectively: which commands to run, what flags to use, how to interpret output, and how to avoid common pitfalls.
+> **Linters enforce style. Formatters enforce consistency. Fallow enforces relevance.** Linters work file by file. TypeScript works type by type. Neither builds the full module graph, so neither can see what nothing depends on. Fallow does, in milliseconds. These skills teach agents *how* to use fallow effectively: which commands to run, what flags to use, how to interpret output, and how to avoid common pitfalls.
 
 ## Quick Start
 
@@ -89,7 +89,7 @@ See the [installation guide](https://docs.fallow.tools/installation) for all opt
 
 | Category | What it does |
 |---|---|
-| **Dead Code** | Find unused files, exports, types, dependencies, enum/class members (14 issue types) |
+| **Dead Code** | Find unused files, exports, types, dependencies, enum/class members (15 issue types) |
 | **Duplication** | Find code clones with 4 modes: strict, mild, weak, semantic |
 | **Complexity** | Function complexity analysis, hotspot detection, health scores |
 | **Auto-Fix** | Remove unused exports and dependencies with dry-run preview |
