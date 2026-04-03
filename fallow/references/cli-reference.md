@@ -368,7 +368,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.9.3",
+  "version": "2.10.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -666,7 +666,7 @@ fallow audit --ci
 ```json
 {
   "schema_version": 3,
-  "version": "2.9.3",
+  "version": "2.10.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -767,6 +767,7 @@ Available on all commands:
 | `FALLOW_QUIET` | Set to `1` to suppress progress. CLI `--quiet` overrides. |
 | `FALLOW_BIN` | Path to fallow binary (used by the MCP server). |
 | `FALLOW_TIMEOUT_SECS` | MCP server subprocess timeout in seconds (default: `120`). Increase for very large codebases. |
+| `FALLOW_EXTENDS_TIMEOUT_SECS` | Timeout for fetching remote `extends` URLs in seconds (default: `5`). |
 | `FALLOW_COMMAND` | GitLab CI: command to run (default: `dead-code`). |
 | `FALLOW_FAIL_ON_ISSUES` | GitLab CI: set to `true` to exit 1 if issues found. |
 | `FALLOW_CHANGED_SINCE` | GitLab CI: git ref for incremental analysis. Auto-detected in MR pipelines. |
@@ -823,7 +824,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.9.3",
+  "version": "2.10.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "unused_files": [{ "path": "src/old.ts" }],
@@ -909,7 +910,7 @@ Dependency issues use `add-to-config` with `config_key` and `value`:
 ```json
 {
   "schema_version": 3,
-  "version": "2.9.3",
+  "version": "2.10.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -948,7 +949,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.9.3",
+    "version": "2.10.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -969,7 +970,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.9.3",
+    "version": "2.10.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -978,7 +979,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.9.3",
+    "version": "2.10.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
@@ -1061,8 +1062,8 @@ Config files are searched in priority order: `.fallowrc.json` > `fallow.toml` > 
   // Production mode
   "production": false,
 
-  // Inherit from base config
-  "extends": ["./base-config.json"],
+  // Inherit from base config (relative paths, npm: packages, or https:// URLs)
+  "extends": ["./base-config.json", "npm:@my-org/fallow-config", "https://example.com/shared-config.json"],
 
   // Custom external plugins
   "plugins": ["tools/plugins/"],
