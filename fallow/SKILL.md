@@ -59,14 +59,14 @@ cargo install fallow-cli        # build from source
 
 | Command | Purpose | Key Flags |
 |---------|---------|-----------|
-| `fallow` | Run all analyses: dead code + duplication + complexity (default) | `--only`, `--skip`, `--ci`, `--fail-on-issues`, `--group-by`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
-| `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--production`, `--ci`, `--group-by`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
+| `fallow` | Run all analyses: dead code + duplication + complexity (default) | `--only`, `--skip`, `--ci`, `--fail-on-issues`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
+| `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--production`, `--ci`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `dupes` | Code duplication detection | `--mode`, `--threshold`, `--top`, `--changed-since`, `--skip-local`, `--cross-language`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
 | `init` | Generate config file or pre-commit hook | `--toml`, `--hooks`, `--base` |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
 | `list` | Inspect project structure | `--files`, `--entry-points`, `--plugins`, `--boundaries` |
-| `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--targets`, `--score`, `--min-score`, `--since`, `--min-commits`, `--save-snapshot`, `--trend`, `--workspace`, `--baseline`, `--save-baseline` |
+| `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--targets`, `--effort`, `--score`, `--min-score`, `--since`, `--min-commits`, `--save-snapshot`, `--trend`, `--workspace`, `--baseline`, `--save-baseline` |
 | `audit` | Combined dead-code + complexity + duplication for changed files | `--base`, `--production`, `--workspace`, `--ci`, `--fail-on-issues`, `--explain` |
 | `schema` | Dump CLI definition as JSON | |
 
@@ -246,6 +246,8 @@ Fallow reads config from project root: `.fallowrc.json` > `fallow.toml` > `.fall
   "entry": ["src/index.ts"],
   "ignorePatterns": ["**/*.generated.ts"],
   "ignoreDependencies": ["autoprefixer"],
+  "publicPackages": ["@myorg/shared-lib"],
+  "dynamicallyLoaded": ["plugins/**/*.ts"],
   "rules": {
     "unused-files": "error",
     "unused-exports": "warn",
@@ -255,6 +257,10 @@ Fallow reads config from project root: `.fallowrc.json` > `fallow.toml` > `.fall
 ```
 
 Rules: `"error"` (fail CI), `"warn"` (report only), `"off"` (skip detection).
+
+Config fields:
+- `publicPackages`: workspace packages that are public libraries; exports from these packages are not flagged as unused
+- `dynamicallyLoaded`: glob patterns for files loaded at runtime (plugin dirs, locale files); treated as always-used
 
 ### Inline suppression
 

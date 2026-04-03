@@ -277,6 +277,7 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 | `--file-scores` | bool | `false` | Show only per-file maintainability index (fan-in, fan-out, dead code ratio, complexity density). Runs the full analysis pipeline. When no section flags are set, all sections are shown by default. |
 | `--hotspots` | bool | `false` | Show only hotspots: files that are both complex and frequently changing. Combines git churn history with complexity data. Requires a git repository. When no section flags are set, all sections are shown by default. |
 | `--targets` | bool | `false` | Show only refactoring targets: ranked recommendations based on complexity, coupling, churn, and dead code signals. Categories: churn+complexity, circular dep, high impact, dead code, complexity, coupling. When no section flags are set, all sections are shown by default. |
+| `--effort` | `low\|medium\|high` | — | Filter refactoring targets by effort level. Implies `--targets`. |
 | `--score` | bool | `false` | Show only the project health score (0-100) with letter grade (A/B/C/D/F). The score is included by default when no section flags are set. JSON includes `health_score` object with `score`, `grade`, and `penalties` breakdown. |
 | `--min-score` | number | — | Fail if health score is below this threshold (exit code 1). Implies `--score`. CI quality gate. |
 | `--since` | string | `6m` | Git history window for hotspot analysis. Accepts durations (`6m`, `90d`, `1y`, `2w`) or ISO dates (`2025-06-01`). |
@@ -353,6 +354,9 @@ fallow health --format json --quiet --targets
 # Top 5 refactoring targets
 fallow health --format json --quiet --targets --top 5
 
+# Only low-effort refactoring targets (quick wins)
+fallow health --format json --quiet --effort low
+
 # Save a vital signs snapshot for trend tracking
 fallow health --format json --quiet --save-snapshot
 
@@ -368,7 +372,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.11.0",
+  "version": "2.12.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -666,7 +670,7 @@ fallow audit --ci
 ```json
 {
   "schema_version": 3,
-  "version": "2.11.0",
+  "version": "2.12.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -756,7 +760,8 @@ Available on all commands:
 | `--ci` | bool | CI mode: `--format sarif --fail-on-issues --quiet` |
 | `--fail-on-issues` | bool | Exit 1 if any issues found (promotes `warn` to `error`) |
 | `--sarif-file` | path | Write SARIF output to a file instead of stdout |
-| `--group-by` | `owner\|directory` | Group output by CODEOWNERS ownership (`owner`) or first path component (`directory`). All output formats partition issues into labeled groups |
+| `--summary` | bool | Show only category counts without individual items. Useful for dashboards and quick overviews |
+| `--group-by` | `owner\|directory\|package` | Group output by CODEOWNERS ownership (`owner`), first path component (`directory`), or workspace package (`package`, aliases: `workspace`, `pkg`). All output formats partition issues into labeled groups |
 
 ---
 
@@ -825,9 +830,29 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.11.0",
+  "version": "2.12.0",
   "elapsed_ms": 45,
   "total_issues": 12,
+  "entry_points": {
+    "total": 5,
+    "sources": { "package_json_scripts": 2, "next_js": 3 }
+  },
+  "summary": {
+    "total_issues": 12,
+    "unused_files": 1,
+    "unused_exports": 1,
+    "unused_types": 1,
+    "unused_dependencies": 1,
+    "unused_enum_members": 0,
+    "unused_class_members": 0,
+    "unresolved_imports": 0,
+    "unlisted_dependencies": 0,
+    "duplicate_exports": 0,
+    "type_only_dependencies": 0,
+    "test_only_dependencies": 0,
+    "circular_dependencies": 0,
+    "boundary_violations": 0
+  },
   "unused_files": [{ "path": "src/old.ts" }],
   "unused_exports": [{ "path": "src/utils.ts", "name": "unusedFn", "line": 42, "actions": [{"type": "remove-export", "auto_fixable": true, "description": "Remove the `export` keyword from the declaration"}, {"type": "suppress-line", "auto_fixable": false, "description": "Suppress with an inline comment above the line", "comment": "// fallow-ignore-next-line unused-export"}] }],
   "unused_types": [{ "path": "src/types.ts", "name": "OldType", "line": 10 }],
@@ -838,7 +863,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
   "unresolved_imports": [{ "path": "src/index.ts", "specifier": "./missing", "line": 3 }],
   "unlisted_dependencies": [{ "name": "chalk", "imported_from": [{ "path": "src/cli.ts", "line": 1, "col": 0 }] }],
   "duplicate_exports": [{ "name": "Config", "locations": ["src/config.ts:5", "src/types.ts:12"] }],
-  "circular_dependencies": [{ "cycle": ["src/a.ts", "src/b.ts", "src/a.ts"], "line": 3, "col": 0 }],
+  "circular_dependencies": [{ "cycle": ["src/a.ts", "src/b.ts", "src/a.ts"], "line": 3, "col": 0, "is_cross_package": false }],
   "boundary_violations": [{ "from_path": "src/ui/Button.ts", "to_path": "src/data/db.ts", "from_zone": "ui", "to_zone": "data", "import_specifier": "../data/db", "line": 5, "col": 0 }],
   "unused_optional_dependencies": [{ "name": "fsevents" }],
   "type_only_dependencies": [{ "name": "zod", "used_in": ["src/schema.ts"], "line": 12 }],
@@ -906,12 +931,28 @@ Dependency issues use `add-to-config` with `config_key` and `value`:
 }
 ```
 
+#### `baseline_deltas` Object
+
+When `--baseline` is used in combined output, the JSON includes a `baseline_deltas` object showing per-category changes since the baseline:
+
+```json
+{
+  "baseline_deltas": {
+    "total_delta": -3,
+    "per_category": {
+      "unused_files": { "current": 5, "baseline": 7, "delta": -2 },
+      "unused_exports": { "current": 10, "baseline": 11, "delta": -1 }
+    }
+  }
+}
+```
+
 ### `dupes` output
 
 ```json
 {
   "schema_version": 3,
-  "version": "2.11.0",
+  "version": "2.12.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -926,9 +967,14 @@ Dependency issues use `add-to-config` with `config_key` and `value`:
       "lines": 16,
       "family": { "suggestion": "extract_function", "shared_files": ["src/a.ts", "src/b.ts"] }
     }
+  ],
+  "mirrored_directories": [
+    { "dir_a": "src/components", "dir_b": "src/legacy/components", "shared_clones": 4 }
   ]
 }
 ```
+
+The `mirrored_directories` array identifies directory pairs that share many clone groups, suggesting structural duplication (e.g., a copy-pasted module that was never cleaned up).
 
 ### `fix` output (dry-run)
 
@@ -950,7 +996,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.11.0",
+    "version": "2.12.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -971,7 +1017,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.11.0",
+    "version": "2.12.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -980,7 +1026,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.11.0",
+    "version": "2.12.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
@@ -1063,6 +1109,14 @@ Config files are searched in priority order: `.fallowrc.json` > `fallow.toml` > 
   // Production mode
   "production": false,
 
+  // Workspace packages that are public libraries.
+  // Exports from these packages are not flagged as unused.
+  "publicPackages": ["@myorg/shared-lib", "@myorg/utils"],
+
+  // Glob patterns for files that are dynamically loaded at runtime.
+  // These files are treated as always-used and never flagged as unused.
+  "dynamicallyLoaded": ["plugins/**/*.ts", "locales/**/*.json"],
+
   // Inherit from base config (relative paths, npm: packages, or https:// URLs)
   "extends": ["./base-config.json", "npm:@my-org/fallow-config", "https://example.com/shared-config.json"],
 
@@ -1087,6 +1141,8 @@ entry = ["src/index.ts", "scripts/*.ts"]
 ignorePatterns = ["**/*.generated.ts"]
 ignoreDependencies = ["autoprefixer"]
 production = false
+publicPackages = ["@myorg/shared-lib", "@myorg/utils"]
+dynamicallyLoaded = ["plugins/**/*.ts", "locales/**/*.json"]
 
 [rules]
 unused-files = "error"

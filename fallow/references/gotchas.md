@@ -334,6 +334,42 @@ Only `/** */` JSDoc block comments are recognized. Line comments (`// @public`) 
 
 ---
 
+## Library Packages: Use `publicPackages` Instead of `@public`
+
+In monorepos, shared library packages have exports consumed by external consumers not visible to fallow. Instead of annotating every export with `/** @public */`, use the `publicPackages` config to mark entire workspace packages as public libraries. All exports from these packages are excluded from unused export detection.
+
+```jsonc
+{
+  "publicPackages": ["@myorg/shared-lib", "@myorg/ui-kit"]
+}
+```
+
+This is the correct solution for library false positives in monorepos. Only use `/** @public */` for individual exports in application packages.
+
+---
+
+## Dynamically Loaded Files: Use `dynamicallyLoaded`
+
+Files loaded at runtime via plugin systems, locale directories, or lazy module patterns are not statically reachable from entry points. Use `dynamicallyLoaded` to mark these files as always-used.
+
+```jsonc
+{
+  "dynamicallyLoaded": ["plugins/**/*.ts", "locales/**/*.json"]
+}
+```
+
+```bash
+# WRONG: suppressing individual files
+# fallow-ignore-file unused-file  (in each plugin file)
+
+# CORRECT: declare the pattern in config
+# { "dynamicallyLoaded": ["plugins/**/*.ts"] }
+```
+
+This is preferable to adding inline suppression comments to every dynamically loaded file.
+
+---
+
 ## Class Instance Members Are Tracked
 
 Fallow tracks class member usage through instance variables. If you instantiate a class and call methods on the instance, those members are correctly marked as used.
