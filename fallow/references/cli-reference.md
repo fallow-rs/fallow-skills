@@ -372,7 +372,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.12.1",
+  "version": "2.13.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -670,7 +670,7 @@ fallow audit --ci
 ```json
 {
   "schema_version": 3,
-  "version": "2.12.1",
+  "version": "2.13.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -830,7 +830,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.12.1",
+  "version": "2.13.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "entry_points": {
@@ -952,7 +952,7 @@ When `--baseline` is used in combined output, the JSON includes a `baseline_delt
 ```json
 {
   "schema_version": 3,
-  "version": "2.12.1",
+  "version": "2.13.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -996,7 +996,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.12.1",
+    "version": "2.13.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -1017,7 +1017,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.12.1",
+    "version": "2.13.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -1026,7 +1026,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.12.1",
+    "version": "2.13.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
