@@ -63,7 +63,7 @@ cargo install fallow-cli        # build from source
 | `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--production`, `--ci`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `dupes` | Code duplication detection | `--mode`, `--threshold`, `--top`, `--changed-since`, `--skip-local`, `--cross-language`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
-| `init` | Generate config file or pre-commit hook | `--toml`, `--hooks`, `--base` |
+| `init` | Generate config file or pre-commit hook | `--toml`, `--hooks`, `--branch` |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
 | `list` | Inspect project structure | `--files`, `--entry-points`, `--plugins`, `--boundaries` |
 | `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--targets`, `--effort`, `--score`, `--min-score`, `--since`, `--min-commits`, `--save-snapshot`, `--trend`, `--workspace`, `--baseline`, `--save-baseline` |
@@ -220,7 +220,7 @@ Auto-detects `knip.json`, `.knip.json`, `.jscpd.json`, and package.json embedded
 fallow init              # creates .fallowrc.json, adds .fallow/ to .gitignore
 fallow init --toml       # creates fallow.toml, adds .fallow/ to .gitignore
 fallow init --hooks      # scaffold a pre-commit git hook
-fallow init --hooks --base develop  # hook using custom base branch
+fallow init --hooks --branch develop  # hook using custom base branch
 ```
 
 ## Exit Codes

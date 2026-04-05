@@ -216,15 +216,15 @@ Creates a config file in the project root.
 |------|------|-------------|
 | `--toml` | bool | Create `fallow.toml` instead of `.fallowrc.json` |
 | `--hooks` | bool | Scaffold a pre-commit git hook that runs `fallow dead-code --changed-since` on staged files |
-| `--base` | string | Base branch for the pre-commit hook (default: `main`). Only used with `--hooks` |
+| `--branch` | string | Base branch for the pre-commit hook (default: auto-detected or `main`). Only used with `--hooks` |
 
 ### Examples
 
 ```bash
 fallow init              # creates .fallowrc.json with $schema
 fallow init --toml       # creates fallow.toml
-fallow init --hooks      # scaffold a pre-commit git hook (uses main as base)
-fallow init --hooks --base develop  # hook using custom base branch
+fallow init --hooks      # scaffold a pre-commit git hook (auto-detects base branch)
+fallow init --hooks --branch develop  # hook using custom base branch
 ```
 
 ---
