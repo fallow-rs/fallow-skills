@@ -10,7 +10,7 @@ metadata:
 
 # Fallow: Codebase Analyzer
 
-The codebase analyzer for JavaScript and TypeScript. Finds unused code, circular dependencies, code duplication, complexity hotspots, and architecture boundary violations. 85 framework plugins, zero configuration, sub-second performance.
+The codebase analyzer for JavaScript and TypeScript. Finds unused code, circular dependencies, code duplication, complexity hotspots, and architecture boundary violations. 84 framework plugins, zero configuration, sub-second performance.
 
 ## When to Use
 
@@ -168,7 +168,7 @@ fallow list --entry-points --format json --quiet
 fallow list --plugins --format json --quiet
 ```
 
-Shows detected entry points and active framework plugins (85 built-in: Next.js, Vite, Jest, Storybook, Tailwind, etc.).
+Shows detected entry points and active framework plugins (84 built-in: Next.js, Vite, Jest, Storybook, Tailwind, etc.).
 
 ### Production-only analysis
 
@@ -238,7 +238,7 @@ When `--format json` is active and exit code is 2, errors are emitted as JSON on
 
 ## Configuration
 
-Fallow reads config from project root: `.fallowrc.json` > `fallow.toml` > `.fallow.toml`. Most projects work with zero configuration thanks to 85 auto-detecting framework plugins.
+Fallow reads config from project root: `.fallowrc.json` > `fallow.toml` > `.fallow.toml`. Most projects work with zero configuration thanks to 84 auto-detecting framework plugins.
 
 ```jsonc
 {
@@ -278,7 +278,7 @@ export const keepThisToo = 2;
 ## Key Gotchas
 
 - **`fix --yes` is required** in non-TTY (agent) environments. Without it, `fix` exits with code 2
-- **Zero config by default.** 85 framework plugins auto-detect. Don't create config unless customization is needed
+- **Zero config by default.** 84 framework plugins auto-detect. Don't create config unless customization is needed
 - **Syntactic analysis only.** No TypeScript compiler, so fully dynamic `import(variable)` is not resolved
 - **Function overloads are deduplicated.** TypeScript function overload signatures are merged into a single export (not reported as separate unused exports)
 - **Re-export chains are resolved.** Exports through barrel files are tracked, not falsely flagged
