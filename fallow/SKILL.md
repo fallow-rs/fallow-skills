@@ -66,7 +66,7 @@ cargo install fallow-cli        # build from source
 | `init` | Generate config file or pre-commit hook | `--toml`, `--hooks`, `--branch` |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
 | `list` | Inspect project structure | `--files`, `--entry-points`, `--plugins`, `--boundaries` |
-| `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--targets`, `--effort`, `--score`, `--min-score`, `--since`, `--min-commits`, `--save-snapshot`, `--trend`, `--workspace`, `--baseline`, `--save-baseline` |
+| `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--targets`, `--effort`, `--score`, `--min-score`, `--since`, `--min-commits`, `--save-snapshot`, `--trend`, `--coverage-gaps`, `--workspace`, `--baseline`, `--save-baseline` |
 | `audit` | Combined dead-code + complexity + duplication for changed files | `--base`, `--production`, `--workspace`, `--ci`, `--fail-on-issues`, `--explain` |
 | `schema` | Dump CLI definition as JSON | |
 

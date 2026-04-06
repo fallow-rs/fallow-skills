@@ -288,6 +288,7 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 | `--save-baseline` | path | — | Save current results as a baseline |
 | `--save-snapshot` | path (optional) | `.fallow/snapshots/<timestamp>.json` | Save vital signs snapshot for trend tracking. Forces file-scores + hotspot computation. |
 | `--trend` | bool | `false` | Compare current metrics against the most recent saved snapshot. Reads from `.fallow/snapshots/` and shows per-metric deltas with directional indicators (improving/declining/stable). Implies `--score`. |
+| `--coverage-gaps` | bool | `false` | Show runtime files and exports that no test dependency path reaches. Opt-in (default off). Configure severity via the `coverage-gaps` rule (`error`/`warn`/`off`). |
 
 ### Exit Codes
 
@@ -372,7 +373,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.13.4",
+  "version": "2.14.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -670,7 +671,7 @@ fallow audit --ci
 ```json
 {
   "schema_version": 3,
-  "version": "2.13.4",
+  "version": "2.14.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -830,7 +831,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.13.4",
+  "version": "2.14.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "entry_points": {
@@ -952,7 +953,7 @@ When `--baseline` is used in combined output, the JSON includes a `baseline_delt
 ```json
 {
   "schema_version": 3,
-  "version": "2.13.4",
+  "version": "2.14.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -996,7 +997,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.13.4",
+    "version": "2.14.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -1017,7 +1018,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.13.4",
+    "version": "2.14.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -1026,7 +1027,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.13.4",
+    "version": "2.14.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
