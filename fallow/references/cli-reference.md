@@ -373,7 +373,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.15.0",
+  "version": "2.16.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -403,7 +403,8 @@ With `--file-scores`, the JSON output also includes `file_scores` array and `sum
 {
   "summary": {
     "files_scored": 482,
-    "average_maintainability": 88.5
+    "average_maintainability": 88.5,
+    "coverage_model": "static_binary"
   },
   "file_scores": [
     {
@@ -416,11 +417,15 @@ With `--file-scores`, the JSON output also includes `file_scores` array and `sum
       "total_cyclomatic": 42,
       "total_cognitive": 35,
       "function_count": 12,
-      "lines": 190
+      "lines": 190,
+      "crap_max": 42.0,
+      "crap_above_threshold": 2
     }
   ]
 }
 ```
+
+The `crap_max` field is the highest CRAP (Change Risk Anti-Patterns) score among functions in the file, using a static binary model: test-reachable files get `CRAP = CC`, untested files get `CRAP = CC^2 + CC`. The `crap_above_threshold` field counts functions with CRAP >= 30 (equivalent to CC >= 5 without a test dependency path). When `--file-scores` is active, the summary also includes a `coverage_model` field indicating the model used (currently `"static_binary"`).
 
 Maintainability index formula: `100 - (complexity_density × 30) - (dead_code_ratio × 20) - min(ln(fan_out+1) × 4, 15)`, clamped to 0–100. Higher is better. Type-only exports are excluded from dead_code_ratio. Zero-function files (barrels) are excluded by default.
 
@@ -491,7 +496,9 @@ With `--targets`, the JSON output includes a `targets` array with ranked refacto
 }
 ```
 
-Targets are sorted by `efficiency` (priority / effort_numeric) descending, surfacing quick wins first. The `target_thresholds` object exposes the adaptive percentile-based thresholds used for scoring. Priority formula: `min(complexity_density, 1) × 30 + hotspot_boost × 25 + dead_code_ratio × 20 + fan_in_norm × 15 + fan_out_norm × 10`, clamped to 0–100. Fan-in and fan-out normalization uses the project's p95 values (with floors). Categories: `urgent_churn_complexity`, `break_circular_dependency`, `split_high_impact`, `remove_dead_code`, `extract_complex_functions`, `extract_dependencies`. Each target includes `efficiency`, `effort` (low/medium/high), `confidence` (high/medium/low — data source reliability), and contributing `factors`.
+Targets are sorted by `efficiency` (priority / effort_numeric) descending, surfacing quick wins first. The `target_thresholds` object exposes the adaptive percentile-based thresholds used for scoring. Priority formula: `min(complexity_density, 1) x 30 + hotspot_boost x 25 + dead_code_ratio x 20 + fan_in_norm x 15 + fan_out_norm x 10`, clamped to 0-100. Fan-in and fan-out normalization uses the project's p95 values (with floors). Categories: `urgent_churn_complexity`, `break_circular_dependency`, `split_high_impact`, `remove_dead_code`, `extract_complex_functions`, `extract_dependencies`, `add_test_coverage`. Each target includes `efficiency`, `effort` (low/medium/high), `confidence` (high/medium/low, data source reliability), and contributing `factors`.
+
+The `add_test_coverage` category fires when a file has 2+ functions with CRAP scores >= 30 and complexity density > 0.3. The `crap_max` metric appears in contributing factors for these targets.
 
 ### Vital Signs
 
@@ -671,7 +678,7 @@ fallow audit --ci
 ```json
 {
   "schema_version": 3,
-  "version": "2.15.0",
+  "version": "2.16.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -831,7 +838,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.15.0",
+  "version": "2.16.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "entry_points": {
@@ -953,7 +960,7 @@ When `--baseline` is used in combined output, the JSON includes a `baseline_delt
 ```json
 {
   "schema_version": 3,
-  "version": "2.15.0",
+  "version": "2.16.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -997,7 +1004,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.15.0",
+    "version": "2.16.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -1018,7 +1025,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.15.0",
+    "version": "2.16.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -1027,7 +1034,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.15.0",
+    "version": "2.16.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
