@@ -1,6 +1,6 @@
 ---
 name: fallow
-description: Analyze JavaScript/TypeScript projects with fallow. Finds unused code (files, exports, types, dependencies), code duplication, circular dependencies, complexity hotspots, and architecture boundary violations. Use when asked to find dead code, find unused exports, clean up the codebase, find duplicates, check code health, check architecture boundaries, audit unused code, auto-fix dead code, or run fallow.
+description: Codebase analyzer for JavaScript/TypeScript projects. Finds unused code (files, exports, types, dependencies), code duplication, circular dependencies, complexity hotspots, and architecture boundary violations. 84 framework plugins, zero configuration, sub-second performance. Use when asked to analyze code health, find unused code, detect duplicates, check circular dependencies, audit complexity, check architecture boundaries, clean up the codebase, auto-fix issues, or run fallow.
 license: MIT
 metadata:
   author: Bart Waardenburg
