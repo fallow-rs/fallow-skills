@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.1] - 2026-04-07
+
+### Changed
+
+- Updated for fallow v2.19.0 (was v2.18.3)
+- Version badge updated to v2.19.0
+
 ## [1.3.0] - 2026-03-27
 
 ### Changed
@@ -49,6 +56,7 @@ All notable changes to this project will be documented in this file.
 - CI validation pipeline (JSON, frontmatter, hardcoded paths, version sync)
 - Plugin metadata for Claude Code marketplace (`.claude-plugin/`)
 
+[1.3.1]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.3.1
 [1.3.0]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.3.0
 [1.2.0]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.2.0
 [1.1.0]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.1.0
