@@ -117,6 +117,17 @@ Parse the JSON to list specific files and exports that became unused.
     changed-since: main
 ```
 
+### GitHub Actions: With Health Score
+
+```yaml
+- uses: fallow-rs/fallow@v2
+  with:
+    score: true
+    changed-since: main
+```
+
+Computes a health score (0-100 with letter grade) in combined mode and enables the health delta header in PR comments.
+
 ### GitHub Actions: Inline PR Annotations (No Advanced Security)
 
 The official action supports inline PR annotations via GitHub workflow commands. This does not require Advanced Security (unlike SARIF upload) and works on any GitHub plan.
@@ -215,6 +226,22 @@ fallow:
 ```
 
 Posts both a summary comment and inline review comments on the MR. The template auto-detects the package manager (npm/pnpm/yarn) from lockfiles, so review comments show the correct commands for the project (e.g., `pnpm remove` instead of `npm uninstall`).
+
+### GitLab CI: With Health Score and Trend
+
+```yaml
+include:
+  - remote: 'https://raw.githubusercontent.com/fallow-rs/fallow/main/ci/gitlab-ci.yml'
+
+fallow:
+  extends: .fallow
+  variables:
+    FALLOW_SCORE: "true"
+    FALLOW_TREND: "true"
+    FALLOW_COMMENT: "true"
+```
+
+Computes the health score and compares against saved snapshots. The MR comment includes a health delta header showing score changes. `FALLOW_TREND` implies `FALLOW_SCORE`.
 
 ### GitLab CI: Manual (Without Template)
 
