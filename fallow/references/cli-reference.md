@@ -374,7 +374,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.19.3",
+  "version": "2.20.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -405,7 +405,7 @@ With `--file-scores`, the JSON output also includes `file_scores` array and `sum
   "summary": {
     "files_scored": 482,
     "average_maintainability": 88.5,
-    "coverage_model": "static_binary"
+    "coverage_model": "static_estimated"
   },
   "file_scores": [
     {
@@ -426,7 +426,7 @@ With `--file-scores`, the JSON output also includes `file_scores` array and `sum
 }
 ```
 
-The `crap_max` field is the highest CRAP (Change Risk Anti-Patterns) score among functions in the file, using a static binary model: test-reachable files get `CRAP = CC`, untested files get `CRAP = CC^2 + CC`. The `crap_above_threshold` field counts functions with CRAP >= 30 (equivalent to CC >= 5 without a test dependency path). When `--file-scores` is active, the summary also includes a `coverage_model` field indicating the model used (currently `"static_binary"`).
+The `crap_max` field is the highest CRAP (Change Risk Anti-Patterns) score among functions in the file, using the canonical formula `CC^2 * (1 - cov/100)^3 + CC`. The default model (`static_estimated`) estimates per-function coverage from export references: directly test-referenced = 85%, indirectly test-reachable = 40%, untested = 0%. Provide `--coverage <path>` with Istanbul-format `coverage-final.json` for exact scores (`istanbul` model). The `crap_above_threshold` field counts functions with CRAP >= 30. When `--file-scores` is active, `summary.coverage_model` indicates the model used (`"static_estimated"` or `"istanbul"`).
 
 Maintainability index formula: `100 - (complexity_density × 30) - (dead_code_ratio × 20) - min(ln(fan_out+1) × 4, 15)`, clamped to 0–100. Higher is better. Type-only exports are excluded from dead_code_ratio. Zero-function files (barrels) are excluded by default.
 
@@ -679,7 +679,7 @@ fallow audit --ci
 ```json
 {
   "schema_version": 3,
-  "version": "2.19.3",
+  "version": "2.20.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -846,7 +846,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.19.3",
+  "version": "2.20.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "entry_points": {
@@ -968,7 +968,7 @@ When `--baseline` is used in combined output, the JSON includes a `baseline_delt
 ```json
 {
   "schema_version": 3,
-  "version": "2.19.3",
+  "version": "2.20.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -1012,7 +1012,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.19.3",
+    "version": "2.20.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -1033,7 +1033,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.19.3",
+    "version": "2.20.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -1042,7 +1042,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.19.3",
+    "version": "2.20.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
