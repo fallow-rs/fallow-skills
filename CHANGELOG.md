@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-04-09
+
+### Changed
+
+- Updated for fallow v2.25.0 (was v2.24.0)
+- Added `large_functions` JSON output documentation for health command (drill-down for unit size penalty)
+- Version badge updated to v2.25.0
+- All JSON example version strings updated to v2.25.0
+
 ## [1.3.1] - 2026-04-07
 
 ### Changed
@@ -56,6 +65,7 @@ All notable changes to this project will be documented in this file.
 - CI validation pipeline (JSON, frontmatter, hardcoded paths, version sync)
 - Plugin metadata for Claude Code marketplace (`.claude-plugin/`)
 
+[1.4.0]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.4.0
 [1.3.1]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.3.1
 [1.3.0]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.3.0
 [1.2.0]: https://github.com/fallow-rs/fallow-skills/releases/tag/v1.2.0
