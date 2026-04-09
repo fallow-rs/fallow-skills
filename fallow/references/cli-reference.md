@@ -554,13 +554,14 @@ With `--score`, the JSON output includes a `health_score` object:
       "unused_deps": 10.0,
       "circular_deps": 4.0,
       "unit_size": 0.0,
-      "coupling": 0.0
+      "coupling": 0.0,
+      "duplication": 4.0
     }
   }
 }
 ```
 
-Score is reproducible: `100 - sum(penalties) == score`. Penalty fields are absent when the pipeline didn't run. Grades: A (>= 85), B (70-84), C (55-69), D (40-54), F (< 40).
+Score is reproducible: `100 - sum(penalties) == score`. Penalty fields are absent when the pipeline didn't run. `--score` automatically runs duplication analysis. Grades: A (>= 85), B (70-84), C (55-69), D (40-54), F (< 40).
 
 ### Health Trend
 
@@ -603,7 +604,7 @@ With `--trend`, the JSON output includes a `health_trend` object comparing curre
 }
 ```
 
-Metrics tracked: `score`, `dead_file_pct`, `dead_export_pct`, `avg_cyclomatic`, `maintainability_avg`, `unused_dep_count`, `circular_dep_count`, `hotspot_count`, `unit_size_very_high_pct`, `p95_fan_in`. Each metric includes `direction` (`improving`, `declining`, `stable`). Percentage metrics include `previous_count`/`current_count` with raw numerator/denominator. `--trend` requires at least one saved snapshot in `.fallow/snapshots/`. When comparing against a snapshot from an older schema version, the trend output warns that score deltas may reflect formula changes.
+Metrics tracked: `score`, `dead_file_pct`, `dead_export_pct`, `avg_cyclomatic`, `maintainability_avg`, `unused_dep_count`, `circular_dep_count`, `hotspot_count`, `unit_size_very_high_pct`, `p95_fan_in`, `duplication_pct`. Each metric includes `direction` (`improving`, `declining`, `stable`). Percentage metrics include `previous_count`/`current_count` with raw numerator/denominator. `--trend` requires at least one saved snapshot in `.fallow/snapshots/`. When comparing against a snapshot from an older schema version (current: v5), the trend output warns that score deltas may reflect formula changes.
 
 ### Vital Signs Snapshots
 
@@ -611,7 +612,7 @@ Metrics tracked: `score`, `dead_file_pct`, `dead_export_pct`, `avg_cyclomatic`, 
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 5,
   "timestamp": "2025-12-01T10:30:00Z",
   "vital_signs": {
     "dead_file_pct": 3.2,
