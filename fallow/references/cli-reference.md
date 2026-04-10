@@ -14,6 +14,7 @@ Complete command and flag specifications for all fallow CLI commands.
 - [`migrate`: Config Migration](#migrate-config-migration)
 - [`health`: Function Complexity Analysis](#health-function-complexity-analysis)
 - [`audit`: Changed-File Quality Gate](#audit-changed-file-quality-gate)
+- [`flags`: Feature Flag Detection](#flags-feature-flag-detection)
 - [`schema`: CLI Introspection](#schema-cli-introspection)
 - [`config-schema`: Config JSON Schema](#config-schema-config-json-schema)
 - [`plugin-schema`: Plugin JSON Schema](#plugin-schema-plugin-json-schema)
@@ -375,7 +376,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.26.1",
+  "version": "2.27.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -714,7 +715,7 @@ fallow audit --ci
 ```json
 {
   "schema_version": 3,
-  "version": "2.26.1",
+  "version": "2.27.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -743,6 +744,45 @@ fallow audit --ci
 ```
 
 The `verdict` field is always present and is the primary decision signal. Dead code, complexity, and duplication sections follow their respective schemas from the individual commands. Thresholds for complexity are inherited from `fallow health` config (defaults: cyclomatic 20, cognitive 15).
+
+---
+
+## `flags`: Feature Flag Detection
+
+Detects feature flag patterns in the codebase. Identifies environment variable flags (`process.env.FEATURE_*`), SDK calls (LaunchDarkly, Statsig, Unleash, GrowthBook), and config object patterns (opt-in). Reports flag locations, detection confidence, and cross-references with dead code findings.
+
+### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate` | `human` | Output format |
+| `--quiet` | bool | `false` | Suppress progress bars |
+| `--top` | number | — | Show only the top N flags |
+
+### Examples
+
+```bash
+# Detect all feature flags with JSON output
+fallow flags --format json --quiet
+
+# Top 10 flags
+fallow flags --format json --quiet --top 10
+
+# Single workspace package
+fallow flags --format json --quiet --workspace my-package
+```
+
+### JSON Output Structure
+
+```json
+{
+  "schema_version": 3,
+  "version": "2.27.0",
+  "elapsed_ms": 116,
+  "feature_flags": [],
+  "total_flags": 0
+}
+```
 
 ---
 
@@ -881,7 +921,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.26.1",
+  "version": "2.27.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "entry_points": {
@@ -1003,7 +1043,7 @@ When `--baseline` is used in combined output, the JSON includes a `baseline_delt
 ```json
 {
   "schema_version": 3,
-  "version": "2.26.1",
+  "version": "2.27.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -1047,7 +1087,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.26.1",
+    "version": "2.27.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -1068,7 +1108,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.26.1",
+    "version": "2.27.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -1077,7 +1117,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.26.1",
+    "version": "2.27.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
