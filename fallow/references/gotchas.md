@@ -334,6 +334,48 @@ Only `/** */` JSDoc block comments are recognized. Line comments (`// @public`) 
 
 ---
 
+## JSDoc `import()` Types Count as References
+
+Types referenced only from JSDoc `import()` annotations are tracked as type-only imports, so the referenced exports are not flagged as unused. This works for plain JavaScript files that want TypeScript types without converting to `.ts`.
+
+```js
+// src/app.js
+
+/**
+ * @param cfg {import('./types.ts').Config}
+ * @returns {import('./types.ts').Result}
+ */
+function boot(cfg) {
+  return { ok: true };
+}
+```
+
+Fallow treats `Config` and `Result` in `./types.ts` as used. Works with `@param`, `@returns`, `@type`, `@typedef`, `@callback`, union annotations (`{import('./a').A | import('./b').B}`), nested member access, bare package specifiers, and parent-relative paths. Only `/** */` blocks are scanned.
+
+---
+
+## JSX `<script src>` and `<link href>` Are Asset References
+
+Inside JSX/TSX files, lowercase intrinsic `<script src="...">` and `<link rel="stylesheet|modulepreload" href="...">` are tracked as asset references, same as in plain HTML files. This is needed for SSR frameworks like Hono where layout components emit HTML via JSX.
+
+```tsx
+// src/layout.tsx
+
+export const Layout = () => (
+  <html>
+    <head>
+      <link rel="stylesheet" href="/static/style.css" />
+      <script src="/static/app.js"></script>
+    </head>
+    <body><h1>Hello</h1></body>
+  </html>
+);
+```
+
+Fallow marks `static/style.css` and `static/app.js` as reachable. Root-relative paths (starting with `/`) resolve from the source file's parent directory first, then the project root, matching how Vite/Parcel/Hono serve static assets. Only `StringLiteral` attribute values are captured: expression containers (`href={someVar}`) and capitalized React-style components (`<Script>`, `<Link>`) are intentionally ignored because they have component-specific semantics.
+
+---
+
 ## Library Packages: Use `publicPackages` Instead of `@public`
 
 In monorepos, shared library packages have exports consumed by external consumers not visible to fallow. Instead of annotating every export with `/** @public */`, use the `publicPackages` config to mark entire workspace packages as public libraries. All exports from these packages are excluded from unused export detection.
