@@ -264,6 +264,7 @@ Rules: `"error"` (fail CI), `"warn"` (report only), `"off"` (skip detection).
 Config fields:
 - `publicPackages`: workspace packages that are public libraries; exports from these packages are not flagged as unused
 - `dynamicallyLoaded`: glob patterns for files loaded at runtime (plugin dirs, locale files); treated as always-used
+- `usedClassMembers`: class method/property names that extend the built-in Angular/React lifecycle allowlist with framework-invoked names (ag-Grid `agInit`/`refresh`, TypeORM `up`/`down`, Web Components `connectedCallback`, etc.). Use plugin-level `usedClassMembers` in a `.fallow/plugins/*.jsonc` file for library-specific allowlists
 
 ### Inline suppression
 
