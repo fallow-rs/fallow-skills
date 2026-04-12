@@ -61,7 +61,7 @@ cargo install fallow-cli        # build from source
 | Command | Purpose | Key Flags |
 |---------|---------|-----------|
 | `fallow` | Run all analyses: dead code + duplication + complexity (default) | `--only`, `--skip`, `--ci`, `--fail-on-issues`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline`, `--score`, `--trend`, `--save-snapshot` |
-| `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--production`, `--ci`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
+| `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--production`, `--file`, `--include-entry-exports`, `--ci`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `dupes` | Code duplication detection | `--mode`, `--threshold`, `--top`, `--changed-since`, `--skip-local`, `--cross-language`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
 | `init` | Generate config file or pre-commit hook | `--toml`, `--hooks`, `--branch` |
@@ -188,6 +188,22 @@ fallow dead-code --format json --quiet --workspace my-package
 ```
 
 Scopes output to one package while keeping the full cross-workspace graph.
+
+### Scope to specific files (lint-staged)
+
+```bash
+fallow dead-code --format json --quiet --file src/utils.ts --file src/helpers.ts
+```
+
+Only reports issues in the specified files. Project-wide dependency issues are suppressed. Warns on non-existent paths.
+
+### Catch typos in entry file exports
+
+```bash
+fallow dead-code --format json --quiet --include-entry-exports
+```
+
+Reports unused exports in entry files (package.json `main`/`exports`, framework pages). By default, exports in entry files are assumed externally consumed. This flag catches typos like `meatdata` instead of `metadata`.
 
 ### Debug why something is flagged
 

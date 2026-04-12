@@ -312,14 +312,26 @@ This is handled automatically. No suppression needed.
 
 ---
 
-## JSDoc `@public` Keeps Exports Alive
+## JSDoc Visibility Tags Keep Exports Alive
 
-Exports annotated with `/** @public */` or `/** @api public */` are never reported as unused. This is designed for library authors whose exports are consumed by external projects not visible to fallow.
+Exports annotated with `/** @public */`, `/** @internal */`, `/** @beta */`, `/** @alpha */`, or `/** @api public */` are never reported as unused. This is designed for library authors whose exports are consumed by external projects not visible to fallow.
 
 ```typescript
 // NOT flagged: @public annotation
 /** @public */
 export const createWidget = () => {};
+
+// NOT flagged: @internal annotation
+/** @internal */
+export const resetState = () => {};
+
+// NOT flagged: @beta annotation
+/** @beta */
+export const experimentalFeature = () => {};
+
+// NOT flagged: @alpha annotation
+/** @alpha */
+export const unstableApi = () => {};
 
 // NOT flagged: @api public variant
 /** @api public */
@@ -376,9 +388,9 @@ Fallow marks `static/style.css` and `static/app.js` as reachable. Root-relative 
 
 ---
 
-## Library Packages: Use `publicPackages` Instead of `@public`
+## Library Packages: Use `publicPackages` Instead of Visibility Tags
 
-In monorepos, shared library packages have exports consumed by external consumers not visible to fallow. Instead of annotating every export with `/** @public */`, use the `publicPackages` config to mark entire workspace packages as public libraries. All exports from these packages are excluded from unused export detection.
+In monorepos, shared library packages have exports consumed by external consumers not visible to fallow. Instead of annotating every export with `/** @public */` (or `@internal`, `@beta`, `@alpha`), use the `publicPackages` config to mark entire workspace packages as public libraries. All exports from these packages are excluded from unused export detection.
 
 ```jsonc
 {
@@ -386,7 +398,7 @@ In monorepos, shared library packages have exports consumed by external consumer
 }
 ```
 
-This is the correct solution for library false positives in monorepos. Only use `/** @public */` for individual exports in application packages.
+This is the correct solution for library false positives in monorepos. Only use JSDoc visibility tags (`/** @public */`, `/** @internal */`, etc.) for individual exports in application packages.
 
 ---
 
