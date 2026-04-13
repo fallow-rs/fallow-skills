@@ -124,6 +124,7 @@ Finds code duplication and clones across the project.
 | `--threshold` | number | `0` | Fail if duplication exceeds this percentage |
 | `--skip-local` | bool | `false` | Only report cross-directory duplicates |
 | `--cross-language` | bool | `false` | Strip type annotations for TS↔JS matching |
+| `--ignore-imports` | bool | `false` | Exclude import declarations from clone detection |
 | `--trace` | `FILE:LINE` | — | Trace all clones at a specific location |
 | `--changed-since` | string | — | Only report duplication in files changed since a git ref |
 | `--baseline` | path | — | Compare against baseline |
@@ -385,7 +386,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.32.1",
+  "version": "2.33.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -724,7 +725,7 @@ fallow audit --ci
 ```json
 {
   "schema_version": 3,
-  "version": "2.32.1",
+  "version": "2.33.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -786,7 +787,7 @@ fallow flags --format json --quiet --workspace my-package
 ```json
 {
   "schema_version": 3,
-  "version": "2.32.1",
+  "version": "2.33.0",
   "elapsed_ms": 116,
   "feature_flags": [],
   "total_flags": 0
@@ -930,7 +931,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.32.1",
+  "version": "2.33.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "entry_points": {
@@ -1054,7 +1055,7 @@ When `--baseline` is used in combined output, the JSON includes a `baseline_delt
 ```json
 {
   "schema_version": 3,
-  "version": "2.32.1",
+  "version": "2.33.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -1098,7 +1099,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.32.1",
+    "version": "2.33.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -1120,7 +1121,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.32.1",
+    "version": "2.33.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -1129,7 +1130,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.32.1",
+    "version": "2.33.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
