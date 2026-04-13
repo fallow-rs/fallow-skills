@@ -346,6 +346,47 @@ Only `/** */` JSDoc block comments are recognized. Line comments (`// @public`) 
 
 ---
 
+## `@expected-unused` JSDoc Tag for Intentional Dead Code
+
+Exports annotated with `/** @expected-unused */` are treated as intentionally unused. They are excluded from unused export detection AND tracked for staleness. If the export later becomes used (imported by another module), fallow reports the `@expected-unused` tag as stale via the `stale-suppressions` rule.
+
+```typescript
+// NOT flagged as unused: @expected-unused annotation
+/** @expected-unused */
+export const deprecatedHelper = () => {};
+
+// If something starts importing deprecatedHelper,
+// fallow reports the @expected-unused tag as stale
+```
+
+Use `@expected-unused` instead of `// fallow-ignore-next-line` when you want fallow to notify you if the export becomes referenced again. The `stale-suppressions` rule (default: `warn`) controls severity.
+
+Only `/** */` JSDoc block comments are recognized. The tag works on all export types.
+
+---
+
+## Stale Suppression Detection
+
+Fallow detects `// fallow-ignore` comments and `@expected-unused` JSDoc tags that no longer match any issue. This prevents suppression comments from silently hiding issues that have been resolved or moved.
+
+```typescript
+// STALE: the export below is actually used now
+// fallow-ignore-next-line unused-export
+export const helper = () => {};  // imported in app.ts
+```
+
+Use `--stale-suppressions` to filter for only stale suppression findings. The `stale-suppressions` rule defaults to `warn`. Set to `error` in CI to enforce suppression hygiene:
+
+```jsonc
+{
+  "rules": {
+    "stale-suppressions": "error"
+  }
+}
+```
+
+---
+
 ## JSDoc `import()` Types Count as References
 
 Types referenced only from JSDoc `import()` annotations are tracked as type-only imports, so the referenced exports are not flagged as unused. This works for plain JavaScript files that want TypeScript types without converting to `.ts`.

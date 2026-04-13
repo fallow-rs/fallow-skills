@@ -64,6 +64,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 | `--duplicate-exports` | Duplicate exports |
 | `--circular-deps` | Circular dependencies |
 | `--boundary-violations` | Boundary violations (imports crossing architecture zone boundaries) |
+| `--stale-suppressions` | Stale suppression comments or `@expected-unused` JSDoc tags |
 
 ### Examples
 
@@ -384,7 +385,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.31.0",
+  "version": "2.32.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -723,7 +724,7 @@ fallow audit --ci
 ```json
 {
   "schema_version": 3,
-  "version": "2.31.0",
+  "version": "2.32.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -785,7 +786,7 @@ fallow flags --format json --quiet --workspace my-package
 ```json
 {
   "schema_version": 3,
-  "version": "2.31.0",
+  "version": "2.32.0",
   "elapsed_ms": 116,
   "feature_flags": [],
   "total_flags": 0
@@ -929,7 +930,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.31.0",
+  "version": "2.32.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "entry_points": {
@@ -950,7 +951,8 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
     "type_only_dependencies": 0,
     "test_only_dependencies": 0,
     "circular_dependencies": 0,
-    "boundary_violations": 0
+    "boundary_violations": 0,
+    "stale_suppressions": 0
   },
   "unused_files": [{ "path": "src/old.ts" }],
   "unused_exports": [{ "path": "src/utils.ts", "name": "unusedFn", "line": 42, "actions": [{"type": "remove-export", "auto_fixable": true, "description": "Remove the `export` keyword from the declaration"}, {"type": "suppress-line", "auto_fixable": false, "description": "Suppress with an inline comment above the line", "comment": "// fallow-ignore-next-line unused-export"}] }],
@@ -966,7 +968,8 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
   "boundary_violations": [{ "from_path": "src/ui/Button.ts", "to_path": "src/data/db.ts", "from_zone": "ui", "to_zone": "data", "import_specifier": "../data/db", "line": 5, "col": 0 }],
   "unused_optional_dependencies": [{ "name": "fsevents" }],
   "type_only_dependencies": [{ "name": "zod", "used_in": ["src/schema.ts"], "line": 12 }],
-  "test_only_dependencies": [{ "name": "msw", "path": "package.json", "line": 15 }]
+  "test_only_dependencies": [{ "name": "msw", "path": "package.json", "line": 15 }],
+  "stale_suppressions": [{ "path": "src/utils.ts", "line": 5, "col": 0, "origin": { "type": "inline_comment", "issue_type": "unused-export", "is_file_level": false } }]
 }
 ```
 
@@ -1051,7 +1054,7 @@ When `--baseline` is used in combined output, the JSON includes a `baseline_delt
 ```json
 {
   "schema_version": 3,
-  "version": "2.31.0",
+  "version": "2.32.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -1095,7 +1098,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.31.0",
+    "version": "2.32.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -1112,11 +1115,12 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
     "boundary_violations": [],
     "unused_optional_dependencies": [],
     "type_only_dependencies": [],
-    "test_only_dependencies": []
+    "test_only_dependencies": [],
+    "stale_suppressions": []
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.31.0",
+    "version": "2.32.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -1125,7 +1129,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.31.0",
+    "version": "2.32.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
@@ -1180,7 +1184,8 @@ Config files are searched in priority order: `.fallowrc.json` > `fallow.toml` > 
     "circular-dependencies": "warn",
     "boundary-violation": "error",
     "type-only-dependencies": "error",
-    "test-only-dependencies": "warn"
+    "test-only-dependencies": "warn",
+    "stale-suppressions": "warn"
   },
 
   // Per-path rule overrides

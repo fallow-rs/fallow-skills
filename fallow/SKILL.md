@@ -61,7 +61,7 @@ cargo install fallow-cli        # build from source
 | Command | Purpose | Key Flags |
 |---------|---------|-----------|
 | `fallow` | Run all analyses: dead code + duplication + complexity (default) | `--only`, `--skip`, `--ci`, `--fail-on-issues`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline`, `--score`, `--trend`, `--save-snapshot` |
-| `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--production`, `--file`, `--include-entry-exports`, `--ci`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
+| `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--production`, `--file`, `--include-entry-exports`, `--stale-suppressions`, `--ci`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `dupes` | Code duplication detection | `--mode`, `--threshold`, `--top`, `--changed-since`, `--skip-local`, `--cross-language`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
 | `init` | Generate config file or pre-commit hook | `--toml`, `--hooks`, `--branch` |
@@ -87,6 +87,7 @@ cargo install fallow-cli        # build from source
 | Duplicate exports | `--duplicate-exports` | Same symbol exported from multiple modules |
 | Circular dependencies | `--circular-deps` | Import cycles in the module graph |
 | Boundary violations | `--boundary-violations` | Imports crossing architecture zone boundaries. Presets: `layered`, `hexagonal`, `feature-sliced`, `bulletproof` |
+| Stale suppressions | `--stale-suppressions` | `fallow-ignore` comments or `@expected-unused` JSDoc tags that no longer match any issue |
 | Test-only dependencies | — | Production deps only imported from test files (should be devDependencies) |
 
 ## MCP Tools
@@ -293,6 +294,10 @@ export const keepThisToo = 2;
 
 // fallow-ignore-file
 // fallow-ignore-file unused-export
+
+// Mark as intentionally unused (tracked for staleness)
+/** @expected-unused */
+export const deprecatedHelper = () => {};
 ```
 
 ## Key Gotchas
