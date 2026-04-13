@@ -1,6 +1,6 @@
 ---
 name: fallow
-description: Codebase analyzer for JavaScript/TypeScript projects. Finds unused code (files, exports, types, dependencies), code duplication, circular dependencies, complexity hotspots, architecture boundary violations, and feature flag patterns. 85 framework plugins, zero configuration, sub-second performance. Use when asked to analyze code health, find unused code, detect duplicates, check circular dependencies, audit complexity, check architecture boundaries, detect feature flags, clean up the codebase, auto-fix issues, or run fallow.
+description: Codebase analyzer for JavaScript/TypeScript projects. Finds unused code (files, exports, types, dependencies), code duplication, circular dependencies, complexity hotspots, architecture boundary violations, and feature flag patterns. 90 framework plugins, zero configuration, sub-second performance. Use when asked to analyze code health, find unused code, detect duplicates, check circular dependencies, audit complexity, check architecture boundaries, detect feature flags, clean up the codebase, auto-fix issues, or run fallow.
 license: MIT
 metadata:
   author: Bart Waardenburg
@@ -10,7 +10,7 @@ metadata:
 
 # Fallow: Codebase Analyzer
 
-The codebase analyzer for JavaScript and TypeScript. Finds unused code, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, and feature flag patterns. 85 framework plugins, zero configuration, sub-second performance.
+The codebase analyzer for JavaScript and TypeScript. Finds unused code, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, and feature flag patterns. 90 framework plugins, zero configuration, sub-second performance.
 
 ## When to Use
 
@@ -171,7 +171,7 @@ fallow list --entry-points --format json --quiet
 fallow list --plugins --format json --quiet
 ```
 
-Shows detected entry points and active framework plugins (85 built-in: Next.js, Vite, Jest, Storybook, Tailwind, etc.).
+Shows detected entry points and active framework plugins (90 built-in: Next.js, Vite, Jest, Storybook, Tailwind, etc.).
 
 ### Production-only analysis
 
@@ -257,7 +257,7 @@ When `--format json` is active and exit code is 2, errors are emitted as JSON on
 
 ## Configuration
 
-Fallow reads config from project root: `.fallowrc.json` > `fallow.toml` > `.fallow.toml`. Most projects work with zero configuration thanks to 85 auto-detecting framework plugins.
+Fallow reads config from project root: `.fallowrc.json` > `fallow.toml` > `.fallow.toml`. Most projects work with zero configuration thanks to 90 auto-detecting framework plugins.
 
 ```jsonc
 {
@@ -298,7 +298,7 @@ export const keepThisToo = 2;
 ## Key Gotchas
 
 - **`fix --yes` is required** in non-TTY (agent) environments. Without it, `fix` exits with code 2
-- **Zero config by default.** 85 framework plugins auto-detect. Don't create config unless customization is needed
+- **Zero config by default.** 90 framework plugins auto-detect. Don't create config unless customization is needed
 - **Syntactic analysis only.** No TypeScript compiler, so fully dynamic `import(variable)` is not resolved
 - **Function overloads are deduplicated.** TypeScript function overload signatures are merged into a single export (not reported as separate unused exports)
 - **Re-export chains are resolved.** Exports through barrel files are tracked, not falsely flagged
