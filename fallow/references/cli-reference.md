@@ -285,7 +285,7 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 | `--top` | number | — | Only show the top N most complex functions (and file scores/hotspots/targets) |
 | `--sort` | `cyclomatic\|cognitive\|lines` | `cyclomatic` | Sort order for complexity findings |
 | `--complexity` | bool | `false` | Show only function complexity findings. When no section flags are set, all sections are shown by default. |
-| `--file-scores` | bool | `false` | Show only per-file maintainability index (fan-in, fan-out, dead code ratio, complexity density). Runs the full analysis pipeline. When no section flags are set, all sections are shown by default. |
+| `--file-scores` | bool | `false` | Show only per-file maintainability index (LOC, fan-in, fan-out, dead code ratio, complexity density). Runs the full analysis pipeline. When no section flags are set, all sections are shown by default. |
 | `--hotspots` | bool | `false` | Show only hotspots: files that are both complex and frequently changing. Combines git churn history with complexity data. Requires a git repository. When no section flags are set, all sections are shown by default. |
 | `--targets` | bool | `false` | Show only refactoring targets: ranked recommendations based on complexity, coupling, churn, and dead code signals. Categories: churn+complexity, circular dep, high impact, dead code, complexity, coupling. When no section flags are set, all sections are shown by default. |
 | `--effort` | `low\|medium\|high` | — | Filter refactoring targets by effort level. Implies `--targets`. |
