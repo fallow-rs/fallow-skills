@@ -71,6 +71,7 @@ cargo install fallow-cli        # build from source
 | `audit` | Combined dead-code + complexity + duplication for changed files | `--base`, `--production`, `--workspace`, `--ci`, `--fail-on-issues`, `--explain` |
 | `flags` | Detect feature flag patterns (env vars, SDK calls, config objects) | `--top` |
 | `schema` | Dump CLI definition as JSON | |
+| `config` | Show the loaded config path and resolved config (verifies which `.fallowrc.json` is in effect) | `--path` |
 
 ## Issue Types
 
