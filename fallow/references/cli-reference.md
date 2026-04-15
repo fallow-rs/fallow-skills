@@ -294,6 +294,8 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 | `--min-score` | number | — | Fail if health score is below this threshold (exit code 1). Implies `--score`. CI quality gate. |
 | `--since` | string | `6m` | Git history window for hotspot analysis. Accepts durations (`6m`, `90d`, `1y`, `2w`) or ISO dates (`2025-06-01`). |
 | `--min-commits` | number | `3` | Minimum number of commits for a file to be included in hotspot ranking. |
+| `--ownership` | bool | `false` | Attach ownership signals to hotspot entries: bus factor (Avelino truck factor), contributor count, top contributor with stale-days, recent contributors (top-3), `suggested_reviewers`, declared CODEOWNERS owner, ownership drift, unowned-hotspot detection. Human output gains a project-level summary line. JSON adds `low-bus-factor`, `unowned-hotspot`, `ownership-drift` action types. Test files get a `[test]` tag. Implies `--hotspots`. Requires git. |
+| `--ownership-emails` | `raw\|handle\|hash` | `handle` | Privacy mode for author emails. `handle` shows the local-part only (default, with GitHub noreply unwrap). `hash` emits stable `xxh3:` pseudonyms. `raw` shows full addresses. Use `hash` in regulated environments. Implies `--ownership`. Configure default via `health.ownership.emailMode`. |
 | `--changed-since` | string | — | Only analyze files changed since a git ref |
 | `--workspace` | string | — | Scope to a single workspace package |
 | `--baseline` | path | — | Compare against a saved baseline |
