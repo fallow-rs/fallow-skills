@@ -305,6 +305,8 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 | `--coverage-gaps` | bool | `false` | Show runtime files and exports that no test dependency path reaches. Opt-in (default off). Configure severity via the `coverage-gaps` rule (`error`/`warn`/`off`). |
 | `--coverage` | path | none | Path to Istanbul-format coverage data (`coverage-final.json`) for accurate per-function CRAP scores. Uses `CC^2 * (1-cov/100)^3 + CC` instead of static binary model. |
 | `--coverage-root` | path | none | Rebase file paths in coverage data by stripping this prefix and prepending the project root. For CI/Docker environments where coverage was generated with different absolute paths. |
+| `--production-coverage` | path | none | Merge runtime production-coverage input into the health report (paid feature). Accepts a V8 coverage directory (`NODE_V8_COVERAGE=...`), a single V8 coverage JSON file, or an Istanbul `coverage-final.json`. Requires an active license; start one with `fallow license activate --trial --email <addr>`. JSON output gains a `production_coverage` object with a verdict, summary, findings, and hot paths. |
+| `--min-invocations-hot` | number | `100` | Invocation threshold for hot-path classification. Takes effect only when `--production-coverage` is set. |
 
 ### Exit Codes
 
@@ -826,6 +828,109 @@ Prints the JSON Schema for external plugin definition files.
 ```bash
 fallow plugin-schema > plugin-schema.json
 ```
+
+---
+
+## `license`: Manage Paid-Feature License
+
+Manage the local JWT used to unlock paid features (Phase 2 production coverage). Verification is fully offline against an Ed25519 public key compiled into the binary. Only `--trial` and `refresh` hit the network (`api.fallow.cloud`, 5s connect / 10s total timeout).
+
+```bash
+fallow license activate --trial --email you@company.com
+fallow license activate eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...
+fallow license activate --from-file ./license.jwt
+cat ./license.jwt | fallow license activate --stdin
+fallow license status
+fallow license refresh
+fallow license deactivate
+```
+
+### Subcommands
+
+| Subcommand | Purpose |
+|------------|---------|
+| `activate` | Install a JWT or start a 30-day trial. JWT input precedence: positional arg > `--from-file` > `--stdin`. |
+| `status`   | Print tier, seats, features, days-until-expiry, and (when `refresh_after` has passed) a proactive refresh hint. |
+| `refresh`  | Fetch a fresh JWT using the currently stored one as identity proof. Exit 7 on network failure. |
+| `deactivate` | Remove the local license file. |
+
+### `activate` flags
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--trial` | bool | Start a 30-day email-gated trial. Requires `--email`. **Rate-limited to 5 requests per hour per IP** — in CI or behind a shared NAT, start the trial locally and set `FALLOW_LICENSE` on the runner. |
+| `--email <ADDR>` | string | Email for the trial flow. On success, `trialEndsAt` is printed to stdout so you can see the trial window without decoding the JWT. |
+| `--from-file <PATH>` | path | Read a JWT from a file. |
+| `--stdin` | bool | Read a JWT from stdin. Conflicts with `--from-file` and positional JWT. |
+
+### Storage precedence
+
+1. `FALLOW_LICENSE` (env var holding the full JWT string)
+2. `FALLOW_LICENSE_PATH` (env var pointing at a file)
+3. `~/.fallow/license.jwt` (default; written `chmod 0600` on Unix)
+
+### Grace ladder
+
+| Days past `exp` | State | Behavior |
+|-----------------|-------|----------|
+| `<= 7` | ExpiredWarning | Analysis runs; CLI prints a refresh hint |
+| `> 7, <= 30` | ExpiredWatermark | Analysis runs; output gains a visible watermark until refreshed |
+| `> 30` | HardFail | Paid features blocked; run `fallow license refresh` or start a new trial |
+
+### Actionable error messages
+
+On HTTP error from `api.fallow.cloud`, fallow parses the `{error, message, code}` envelope and maps known codes to targeted hints:
+
+| Operation + code | CLI message |
+|------------------|-------------|
+| `refresh` + `token_stale` | `your stored license is too stale to refresh. Reactivate with: fallow license activate --trial --email <addr>` |
+| `refresh` + `invalid_token` | `your stored license token is missing required claims. Reactivate with: fallow license activate --trial --email <addr>` |
+| `refresh` or `trial` + `unauthorized` | `authentication failed. Reactivate with: fallow license activate --trial --email <addr>` |
+| `trial` + `rate_limit_exceeded` | `trial creation is rate-limited to 5 per hour per IP. Wait an hour or retry from a different network (in CI, start the trial locally and set FALLOW_LICENSE on the runner).` |
+
+Unknown codes fall back to the backend's `message` field, or the raw body.
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0`  | Valid license (or trial/refresh succeeded) |
+| `2`  | Bad invocation (missing email for `--trial`, unreadable file) |
+| `3`  | License missing, hard-fail expired, or malformed JWT |
+| `7`  | Network failure or non-success HTTP status from `api.fallow.cloud` |
+
+---
+
+## `coverage`: Production-Coverage Workflow
+
+Helper subcommand for the paid production-coverage analyzer. Today it only surfaces `setup`, a resumable state machine that wires license activation, sidecar installation, framework-aware coverage recipe writing, and automatic handoff into `fallow health --production-coverage`.
+
+```bash
+fallow coverage setup                         # interactive
+fallow coverage setup --yes                   # accept all prompts
+fallow coverage setup --non-interactive       # print instructions, do not prompt
+```
+
+### Setup flow
+
+1. **License check** — if missing or hard-fail, offers to start a trial.
+2. **Sidecar discovery** — resolves `FALLOW_COV_BIN`, project-local `node_modules/.bin/fallow-cov`, package-manager bin, `~/.fallow/bin/fallow-cov`, and `PATH`. When `FALLOW_COV_BIN` is set but points to a non-existent file, setup errors fast instead of falling through.
+3. **Coverage recipe** — detects framework (Next.js, Nuxt, Astro, SvelteKit, Remix, NestJS, plain Node) and package manager (npm, pnpm, yarn, bun), then writes `docs/collect-coverage.md` with the correct commands.
+4. **Handoff** — if `./coverage/coverage-final.json` or a V8 coverage directory already exists, setup runs `fallow health --production-coverage <path>` directly.
+
+### Environment
+
+- `FALLOW_COV_BIN` — explicit override for the sidecar binary. Wins over all other discovery paths. Must point to an existing file.
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0`  | Setup complete, or ran with `--non-interactive` and instructions printed |
+| `2`  | Bad invocation, unable to resolve sidecar via env override |
+| `4`  | Sidecar install failed |
+| `5`  | Coverage input could not be pre-processed |
+| `7`  | Trial activation network failure |
 
 ---
 
