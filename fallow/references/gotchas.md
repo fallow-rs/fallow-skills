@@ -558,6 +558,35 @@ Both require a `GITLAB_TOKEN` CI/CD variable (project access token with `api` sc
 
 ---
 
+## License Errors Include a Machine-Readable Code Suffix
+
+`fallow license refresh` and `fallow license activate --trial` can fail with a backend error. The CLI always appends the raw HTTP status and the backend error code after the human hint, so scripts can grep for the code without parsing prose:
+
+```
+fallow license refresh: your stored license is too stale to refresh. Reactivate with: fallow license activate --trial --email <addr> (HTTP 401, code token_stale)
+```
+
+Stable codes the CLI surfaces today:
+
+| Code | Operation | Meaning |
+|------|-----------|---------|
+| `token_stale` | `refresh` | Stored JWT is more than 45 days past its `exp`. Reactivate. |
+| `invalid_token` | `refresh` | Stored JWT is missing required claims (e.g. `sub`). Reactivate. |
+| `unauthorized` | `refresh` or `trial` | Auth failed. Reactivate. |
+| `rate_limit_exceeded` | `trial` | Trial endpoint is capped at 5 per hour per IP. Wait or use a different network. |
+
+To detect a rate-limited trial signup in CI:
+
+```bash
+if fallow license activate --trial --email "$EMAIL" 2>&1 | grep -q "code rate_limit_exceeded"; then
+  echo "Trial rate-limited; fallback to cached FALLOW_LICENSE" >&2
+fi
+```
+
+Unknown codes fall back to the backend `message` field when present, otherwise the raw body, so existing scripts that match on HTTP status alone still work.
+
+---
+
 ## GitLab CI: Auto `--changed-since` in MR Pipelines
 
 The official GitLab CI template automatically sets `--changed-since origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME` in merge request pipelines. You do not need to set `FALLOW_CHANGED_SINCE` manually unless you want a different ref.
