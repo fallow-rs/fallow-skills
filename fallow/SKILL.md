@@ -284,7 +284,7 @@ Rules: `"error"` (fail CI), `"warn"` (report only), `"off"` (skip detection).
 Config fields:
 - `publicPackages`: workspace packages that are public libraries; exports from these packages are not flagged as unused
 - `dynamicallyLoaded`: glob patterns for files loaded at runtime (plugin dirs, locale files); treated as always-used
-- `usedClassMembers`: class method/property names that extend the built-in Angular/React lifecycle allowlist with framework-invoked names (ag-Grid `agInit`/`refresh`, TypeORM `up`/`down`, Web Components `connectedCallback`, etc.). Use plugin-level `usedClassMembers` in a `.fallow/plugins/*.jsonc` file for library-specific allowlists
+- `usedClassMembers`: class method/property names that extend the built-in Angular/React lifecycle allowlist with framework-invoked names. Each entry is a plain string (global suppression) or a scoped object `{ extends?, implements?, members }` matching only classes with the given heritage. Use scoped rules for common names like `refresh` or `execute` to avoid false negatives on unrelated classes; global strings for unique names like `agInit`. Example: `["agInit", { "implements": "ICellRendererAngularComp", "members": ["refresh"] }, { "extends": "BaseCommand", "members": ["execute"] }]`. An unconstrained scoped rule (no `extends` or `implements`) is rejected at load time. Use plugin-level `usedClassMembers` in a `.fallow/plugins/*.jsonc` file for library-specific allowlists
 
 ### Inline suppression
 
