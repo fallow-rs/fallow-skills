@@ -144,6 +144,7 @@ Finds code duplication and clones across the project.
 | `--baseline` | path | — | Compare against baseline |
 | `--save-baseline` | path | — | Save results as baseline |
 | `--workspace` | string | — | Scope to one or more workspaces. Comma-separated values, globs (`apps/*`, `@scope/*`), and `!`-prefixed negation (`!apps/legacy`) supported. Matched against package name AND workspace path relative to repo root. |
+| `--changed-workspaces` | string (git ref) | — | Git-derived monorepo CI scoping: scope to workspaces containing any file changed since `REF`. Mutually exclusive with `--workspace`. Missing ref is a hard error. |
 
 ### Detection Modes
 

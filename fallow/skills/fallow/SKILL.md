@@ -62,7 +62,7 @@ cargo install fallow-cli        # build from source
 |---------|---------|-----------|
 | `fallow` | Run all analyses: dead code + duplication + complexity (default) | `--only`, `--skip`, `--ci`, `--fail-on-issues`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline`, `--score`, `--trend`, `--save-snapshot` |
 | `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--changed-workspaces`, `--production`, `--file`, `--include-entry-exports`, `--stale-suppressions`, `--ci`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
-| `dupes` | Code duplication detection | `--mode`, `--threshold`, `--top`, `--changed-since`, `--skip-local`, `--cross-language`, `--ignore-imports`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
+| `dupes` | Code duplication detection | `--mode`, `--threshold`, `--top`, `--changed-since`, `--workspace`, `--changed-workspaces`, `--skip-local`, `--cross-language`, `--ignore-imports`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
 | `init` | Generate config file or pre-commit hook | `--toml`, `--hooks`, `--branch` |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
