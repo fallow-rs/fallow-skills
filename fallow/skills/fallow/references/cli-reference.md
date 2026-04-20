@@ -1009,7 +1009,7 @@ Available on all commands:
 | `--fail-on-issues` | bool | Exit 1 if any issues found (promotes `warn` to `error`) |
 | `--sarif-file` | path | Write SARIF output to a file instead of stdout |
 | `--summary` | bool | Show only category counts without individual items. Useful for dashboards and quick overviews |
-| `--group-by` | `owner\|directory\|package` | Group output by CODEOWNERS ownership (`owner`), first path component (`directory`), or workspace package (`package`, aliases: `workspace`, `pkg`). All output formats partition issues into labeled groups |
+| `--group-by` | `owner\|directory\|package\|section` | Group output by CODEOWNERS ownership (`owner`), first path component (`directory`), workspace package (`package`, aliases: `workspace`, `pkg`), or GitLab CODEOWNERS `[Section]` headers (`section`, alias: `gl-section`). All output formats partition issues into labeled groups. `section` mode attaches an `owners` array to each group in JSON output |
 | `--score` | bool | Compute health score (0-100 with letter grade) in combined mode. Enables the health delta header in PR comments. JSON includes `health_score` object with `score`, `grade`, and `penalties` breakdown |
 | `--trend` | bool | Compare current health metrics against saved snapshot. Implies `--score`. Shows per-metric deltas with directional indicators. Requires at least one saved snapshot in `.fallow/snapshots/` |
 | `--save-snapshot` | path (optional) | Save vital signs snapshot for trend tracking. Default path: `.fallow/snapshots/<timestamp>.json`. Forces file-scores + hotspot computation |

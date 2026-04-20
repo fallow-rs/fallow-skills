@@ -99,7 +99,7 @@ When using fallow via MCP (`fallow-mcp`), the following tools are available:
 
 | Tool | Description |
 |------|-------------|
-| `analyze` | Full dead code analysis. Set `boundary_violations: true` as a convenience alias for `issue_types: ["boundary-violations"]`. Set `group_by` to `"owner"` or `"directory"` to partition results |
+| `analyze` | Full dead code analysis. Set `boundary_violations: true` as a convenience alias for `issue_types: ["boundary-violations"]`. Set `group_by` to `"owner"`, `"directory"`, `"package"`, or `"section"` (GitLab CODEOWNERS `[Section]` headers, with `owners` metadata per group) to partition results |
 | `check_changed` | Incremental analysis of files changed since a git ref |
 | `find_dupes` | Code duplication detection. Set `changed_since` to scope to changed files since a git ref |
 | `fix_preview` | Dry-run auto-fix preview |
