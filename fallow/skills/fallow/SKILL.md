@@ -61,14 +61,14 @@ cargo install fallow-cli        # build from source
 | Command | Purpose | Key Flags |
 |---------|---------|-----------|
 | `fallow` | Run all analyses: dead code + duplication + complexity (default) | `--only`, `--skip`, `--ci`, `--fail-on-issues`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline`, `--score`, `--trend`, `--save-snapshot` |
-| `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--production`, `--file`, `--include-entry-exports`, `--stale-suppressions`, `--ci`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
+| `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--changed-workspaces`, `--production`, `--file`, `--include-entry-exports`, `--stale-suppressions`, `--ci`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `dupes` | Code duplication detection | `--mode`, `--threshold`, `--top`, `--changed-since`, `--skip-local`, `--cross-language`, `--ignore-imports`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
 | `init` | Generate config file or pre-commit hook | `--toml`, `--hooks`, `--branch` |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
 | `list` | Inspect project structure | `--files`, `--entry-points`, `--plugins`, `--boundaries` |
-| `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--ownership`, `--ownership-emails`, `--targets`, `--effort`, `--score`, `--min-score`, `--since`, `--min-commits`, `--save-snapshot`, `--trend`, `--coverage-gaps`, `--coverage`, `--coverage-root`, `--production-coverage`, `--min-invocations-hot`, `--min-observation-volume`, `--low-traffic-threshold`, `--workspace`, `--baseline`, `--save-baseline` |
-| `audit` | Combined dead-code + complexity + duplication for changed files | `--base`, `--production`, `--workspace`, `--ci`, `--fail-on-issues`, `--explain` |
+| `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--ownership`, `--ownership-emails`, `--targets`, `--effort`, `--score`, `--min-score`, `--since`, `--min-commits`, `--save-snapshot`, `--trend`, `--coverage-gaps`, `--coverage`, `--coverage-root`, `--production-coverage`, `--min-invocations-hot`, `--min-observation-volume`, `--low-traffic-threshold`, `--workspace`, `--changed-workspaces`, `--baseline`, `--save-baseline` |
+| `audit` | Combined dead-code + complexity + duplication for changed files | `--base`, `--production`, `--workspace`, `--changed-workspaces`, `--ci`, `--fail-on-issues`, `--explain` |
 | `flags` | Detect feature flag patterns (env vars, SDK calls, config objects) | `--top` |
 | `license` | Manage the local license JWT for paid features (activate, status, refresh, deactivate) | `activate --trial --email <addr>`, `activate --from-file`, `activate --stdin`, `status`, `refresh`, `deactivate` |
 | `coverage` | Production-coverage workflow helper (paid) | `setup`, `setup --yes`, `setup --non-interactive` |
@@ -199,9 +199,15 @@ fallow dead-code --format json --quiet --workspace 'apps/*'
 
 # Exclude one workspace from a set
 fallow dead-code --format json --quiet --workspace 'apps/*,!apps/legacy'
+
+# Monorepo CI: auto-scope to workspaces containing any file changed since origin/main
+# (replaces hand-written --workspace lists that drift as the repo evolves)
+fallow dead-code --format json --quiet --changed-workspaces origin/main
 ```
 
 Scopes output while keeping the full cross-workspace graph. Patterns are tested against BOTH the package name (from `package.json`) AND the workspace path relative to the repo root; either match counts. Use `!`-prefixed patterns to exclude.
+
+`--changed-workspaces <REF>` auto-derives the set from `git diff`. It's the CI primitive: point it at the PR base branch (e.g. `origin/main`) and fallow reports only on workspaces touched by the change. Mutually exclusive with `--workspace`. A missing ref or non-git directory is a hard error (exit 2) rather than a silent full-scope fallback, so CI never quietly widens back to the whole monorepo.
 
 ### Scope to specific files (lint-staged)
 

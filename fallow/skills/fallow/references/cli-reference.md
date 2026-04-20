@@ -43,6 +43,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 | `--baseline` | path | — | Compare against a saved baseline |
 | `--save-baseline` | path | — | Save current results as a baseline |
 | `--workspace` | string | — | Scope to one or more workspaces. Comma-separated values, globs (`apps/*`, `@scope/*`), and `!`-prefixed negation (`!apps/legacy`) supported. Matched against package name AND workspace path relative to repo root. |
+| `--changed-workspaces` | string (git ref) | — | Git-derived monorepo CI scoping: scope to workspaces containing any file changed since `REF` (e.g. `origin/main`). Auto-derives the workspace set from `git diff`. Mutually exclusive with `--workspace`. Missing ref is a hard error (exit 2), not silent full-scope fallback. |
 | `--include-dupes` | bool | `false` | Cross-reference with duplication findings |
 | `--file` | path (multiple) | — | Scope output to specific files. Only issues in the specified files are reported. Project-wide dependency issues are suppressed. Warns on non-existent paths. Useful for lint-staged |
 | `--include-entry-exports` | bool | `false` | Report unused exports in entry files (package.json `main`/`exports`, framework pages). Catches typos like `meatdata` vs `metadata` |
@@ -96,6 +97,9 @@ fallow dead-code --format json --quiet --workspace 'apps/*'
 
 # Exclude a workspace from the set
 fallow dead-code --format json --quiet --workspace 'apps/*,!apps/legacy'
+
+# Monorepo CI: auto-scope to workspaces containing any file changed since origin/main
+fallow dead-code --format json --quiet --changed-workspaces origin/main
 
 # Debug: trace an export
 fallow dead-code --format json --quiet --trace src/utils.ts:myFunction
@@ -996,6 +1000,7 @@ Available on all commands:
 | `--production` | bool | Exclude test/dev files, only start/build scripts |
 | `--performance` | bool | Show pipeline timing breakdown |
 | `-w, --workspace` | string | Scope to one or more workspaces (comma-separated, globs, `!` negation) |
+| `--changed-workspaces` | string (git ref) | Git-derived monorepo CI scoping: scope to workspaces containing any file changed since `REF`. Mutually exclusive with `--workspace`. Missing ref is a hard error. |
 | `--explain` | bool | Include metric definitions in JSON output (`_meta` object). Always on for MCP |
 | `--only` | string | Run only specific analyses (e.g., `--only dead-code,dupes`). Values: `dead-code` (alias: `check`), `dupes`, `health` |
 | `--skip` | string | Skip specific analyses (e.g., `--skip health`). Values: `dead-code` (alias: `check`), `dupes`, `health` |
