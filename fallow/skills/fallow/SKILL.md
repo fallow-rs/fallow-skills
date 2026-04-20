@@ -185,13 +185,23 @@ fallow dead-code --format json --quiet --production
 
 Excludes test/dev files (`*.test.*`, `*.spec.*`, `*.stories.*`) and only analyzes production scripts.
 
-### Analyze a single workspace package
+### Analyze specific workspaces
 
 ```bash
+# Single package
 fallow dead-code --format json --quiet --workspace my-package
+
+# Multiple packages
+fallow dead-code --format json --quiet --workspace web,admin
+
+# Glob (matched against package name AND workspace path)
+fallow dead-code --format json --quiet --workspace 'apps/*'
+
+# Exclude one workspace from a set
+fallow dead-code --format json --quiet --workspace 'apps/*,!apps/legacy'
 ```
 
-Scopes output to one package while keeping the full cross-workspace graph.
+Scopes output while keeping the full cross-workspace graph. Patterns are tested against BOTH the package name (from `package.json`) AND the workspace path relative to the repo root; either match counts. Use `!`-prefixed patterns to exclude.
 
 ### Scope to specific files (lint-staged)
 

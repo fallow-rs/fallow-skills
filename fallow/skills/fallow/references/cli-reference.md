@@ -42,7 +42,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 | `--production` | bool | `false` | Exclude test/dev files, only start/build scripts |
 | `--baseline` | path | — | Compare against a saved baseline |
 | `--save-baseline` | path | — | Save current results as a baseline |
-| `--workspace` | string | — | Scope to a single workspace package |
+| `--workspace` | string | — | Scope to one or more workspaces. Comma-separated values, globs (`apps/*`, `@scope/*`), and `!`-prefixed negation (`!apps/legacy`) supported. Matched against package name AND workspace path relative to repo root. |
 | `--include-dupes` | bool | `false` | Cross-reference with duplication findings |
 | `--file` | path (multiple) | — | Scope output to specific files. Only issues in the specified files are reported. Project-wide dependency issues are suppressed. Warns on non-existent paths. Useful for lint-staged |
 | `--include-entry-exports` | bool | `false` | Report unused exports in entry files (package.json `main`/`exports`, framework pages). Catches typos like `meatdata` vs `metadata` |
@@ -88,6 +88,15 @@ fallow dead-code --format json --quiet --production
 # Single workspace package
 fallow dead-code --format json --quiet --workspace my-package
 
+# Multiple workspaces: comma-separated
+fallow dead-code --format json --quiet --workspace web,admin
+
+# Glob (matches package name OR relative path)
+fallow dead-code --format json --quiet --workspace 'apps/*'
+
+# Exclude a workspace from the set
+fallow dead-code --format json --quiet --workspace 'apps/*,!apps/legacy'
+
 # Debug: trace an export
 fallow dead-code --format json --quiet --trace src/utils.ts:myFunction
 
@@ -130,7 +139,7 @@ Finds code duplication and clones across the project.
 | `--changed-since` | string | — | Only report duplication in files changed since a git ref |
 | `--baseline` | path | — | Compare against baseline |
 | `--save-baseline` | path | — | Save results as baseline |
-| `--workspace` | string | — | Scope to a single workspace package |
+| `--workspace` | string | — | Scope to one or more workspaces. Comma-separated values, globs (`apps/*`, `@scope/*`), and `!`-prefixed negation (`!apps/legacy`) supported. Matched against package name AND workspace path relative to repo root. |
 
 ### Detection Modes
 
@@ -297,7 +306,7 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 | `--ownership` | bool | `false` | Attach ownership signals to hotspot entries: bus factor (Avelino truck factor), contributor count, top contributor with stale-days, recent contributors (top-3), `suggested_reviewers`, declared CODEOWNERS owner, ownership drift, unowned-hotspot detection. Human output gains a project-level summary line. JSON adds `low-bus-factor`, `unowned-hotspot`, `ownership-drift` action types. Test files get a `[test]` tag. Implies `--hotspots`. Requires git. |
 | `--ownership-emails` | `raw\|handle\|hash` | `handle` | Privacy mode for author emails. `handle` shows the local-part only (default, with GitHub noreply unwrap). `hash` emits stable `xxh3:` pseudonyms. `raw` shows full addresses. Use `hash` in regulated environments. Implies `--ownership`. Configure default via `health.ownership.emailMode`. |
 | `--changed-since` | string | — | Only analyze files changed since a git ref |
-| `--workspace` | string | — | Scope to a single workspace package |
+| `--workspace` | string | — | Scope to one or more workspaces. Comma-separated values, globs (`apps/*`, `@scope/*`), and `!`-prefixed negation (`!apps/legacy`) supported. Matched against package name AND workspace path relative to repo root. |
 | `--baseline` | path | — | Compare against a saved baseline |
 | `--save-baseline` | path | — | Save current results as a baseline |
 | `--save-snapshot` | path (optional) | `.fallow/snapshots/<timestamp>.json` | Save vital signs snapshot for trend tracking. Forces file-scores + hotspot computation. |
@@ -687,7 +696,7 @@ Audits changed files for dead code, complexity, and duplication. Returns a verdi
 |------|------|---------|-------------|
 | `--base` | string | auto-detect | Git ref to compare against (alias for `--changed-since`) |
 | `--production` | bool | false | Exclude test/story/dev files |
-| `-w, --workspace` | string | — | Scope to a single workspace package |
+| `-w, --workspace` | string | — | Scope to one or more workspaces. Comma-separated, globs, `!` negation. |
 | `--explain` | bool | false | Include metric definitions in JSON output |
 | `--ci` | bool | false | Equivalent to `--format sarif --fail-on-issues --quiet` |
 | `--fail-on-issues` | bool | false | Exit with code 1 if issues are found |
@@ -986,7 +995,7 @@ Available on all commands:
 | `--save-regression-baseline` | path | Save current issue counts as a regression baseline |
 | `--production` | bool | Exclude test/dev files, only start/build scripts |
 | `--performance` | bool | Show pipeline timing breakdown |
-| `-w, --workspace` | string | Scope to single workspace package |
+| `-w, --workspace` | string | Scope to one or more workspaces (comma-separated, globs, `!` negation) |
 | `--explain` | bool | Include metric definitions in JSON output (`_meta` object). Always on for MCP |
 | `--only` | string | Run only specific analyses (e.g., `--only dead-code,dupes`). Values: `dead-code` (alias: `check`), `dupes`, `health` |
 | `--skip` | string | Skip specific analyses (e.g., `--skip health`). Values: `dead-code` (alias: `check`), `dupes`, `health` |
