@@ -4,14 +4,14 @@
     <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/fallow-rs/fallow/main/assets/logo.svg">
     <img src="https://raw.githubusercontent.com/fallow-rs/fallow/main/assets/logo.svg" alt="fallow" width="290">
   </picture><br>
-  <strong>Agent skills for the JavaScript and TypeScript codebase analyzer.</strong><br><br>
+  <strong>Agent skills for the JavaScript and TypeScript codebase intelligence layer.</strong><br><br>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
   <a href="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml"><img src="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
   <a href="https://agentskills.io"><img src="https://img.shields.io/badge/Agent_Skills-compatible-8A2BE2" alt="Agent Skills"></a>
   <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v2.41.0-orange" alt="fallow v2.41.0"></a>
 </p>
 
-Agent skills for [fallow](https://github.com/fallow-rs/fallow), the Rust-native codebase analyzer for JavaScript and TypeScript. Fallow finds unused code, circular dependencies, code duplication, complexity hotspots, and architecture boundary violations. 90 framework plugins, zero configuration, sub-second performance. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
+Agent skills for [fallow](https://github.com/fallow-rs/fallow), Rust-native codebase intelligence for JavaScript and TypeScript. The free static layer finds unused code, circular dependencies, code duplication, complexity hotspots, and architecture boundary violations in milliseconds. The optional paid runtime layer (Fallow Runtime) adds production execution evidence so agents can delete cold code, flag hot-path changes, and retire stale flags with proof. 90 framework plugins, zero configuration. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
 
 > **Linters enforce style. Formatters enforce consistency. Fallow enforces relevance.** Linters work file by file. TypeScript works type by type. Neither builds the full module graph, so neither can see what nothing depends on. Fallow does, in milliseconds. These skills teach agents *how* to use fallow effectively: which commands to run, what flags to use, how to interpret output, and how to avoid common pitfalls.
 
@@ -81,7 +81,7 @@ See the [installation guide](https://docs.fallow.tools/installation) for all opt
 
 | Skill | Description | Trigger phrases |
 |---|---|---|
-| [fallow](fallow/) | Codebase analysis for JS/TS: unused code, circular deps, duplication, complexity | "find dead code", "unused exports", "find duplicates", "check code health" |
+| [fallow](fallow/) | Codebase intelligence for JS/TS: unused code, circular deps, duplication, complexity, and (with Runtime) hot-path and cold-path evidence | "find dead code", "unused exports", "find duplicates", "check code health", "what code actually runs" |
 
 ## What's Included
 
@@ -144,7 +144,7 @@ See [CLAUDE.md](CLAUDE.md) for repository structure, skill creation guidelines, 
 
 ## Related
 
-- [fallow](https://github.com/fallow-rs/fallow): The Rust-native codebase analyzer for JavaScript (3-36x faster than knip)
+- [fallow](https://github.com/fallow-rs/fallow): Rust-native codebase intelligence for JavaScript and TypeScript (3-36x faster than knip)
 - [fallow-docs](https://docs.fallow.tools): Official documentation
 - [VS Code extension](https://marketplace.visualstudio.com/items?itemName=fallow-rs.fallow-vscode): Real-time diagnostics in your editor
 - [Agent Skills specification](https://agentskills.io): The open standard this skill follows

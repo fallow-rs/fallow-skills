@@ -1,6 +1,6 @@
 ---
 name: fallow
-description: Codebase analyzer for JavaScript/TypeScript projects. Finds unused code (files, exports, types, dependencies), code duplication, circular dependencies, complexity hotspots, architecture boundary violations, and feature flag patterns. 90 framework plugins, zero configuration, sub-second performance. Use when asked to analyze code health, find unused code, detect duplicates, check circular dependencies, audit complexity, check architecture boundaries, detect feature flags, clean up the codebase, auto-fix issues, or run fallow.
+description: Codebase intelligence for JavaScript and TypeScript. Free static layer finds unused code (files, exports, types, dependencies), code duplication, circular dependencies, complexity hotspots, architecture boundary violations, and feature flag patterns. Optional paid runtime layer (Fallow Runtime) merges production execution data into the same health report for hot-path review, cold-path deletion confidence, and stale-flag evidence. 90 framework plugins, zero configuration, sub-second static analysis. Use when asked to analyze code health, find unused code, detect duplicates, check circular dependencies, audit complexity, check architecture boundaries, detect feature flags, clean up the codebase, auto-fix issues, merge production coverage, or run fallow.
 license: MIT
 metadata:
   author: Bart Waardenburg
@@ -8,9 +8,9 @@ metadata:
   homepage: https://docs.fallow.tools
 ---
 
-# Fallow: Codebase Analyzer
+# Fallow: codebase intelligence for JavaScript and TypeScript
 
-The codebase analyzer for JavaScript and TypeScript. Finds unused code, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, and feature flag patterns. 90 framework plugins, zero configuration, sub-second performance.
+Codebase intelligence for JavaScript and TypeScript. The free static layer finds unused code, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, and feature flag patterns. The optional paid runtime layer (Fallow Runtime) merges production execution data into the same `fallow health` report for hot-path review, cold-path deletion confidence, and stale-flag evidence. 90 framework plugins, zero configuration, sub-second static analysis.
 
 ## When to Use
 
@@ -91,7 +91,7 @@ cargo install fallow-cli        # build from source
 | Circular dependencies | `--circular-deps` | Import cycles in the module graph |
 | Boundary violations | `--boundary-violations` | Imports crossing architecture zone boundaries. Presets: `layered`, `hexagonal`, `feature-sliced`, `bulletproof` |
 | Stale suppressions | `--stale-suppressions` | `fallow-ignore` comments or `@expected-unused` JSDoc tags that no longer match any issue |
-| Test-only dependencies | — | Production deps only imported from test files (should be devDependencies) |
+| Test-only dependencies | n/a | Production deps only imported from test files (should be devDependencies) |
 
 ## MCP Tools
 
