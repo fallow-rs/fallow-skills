@@ -68,7 +68,7 @@ cargo install fallow-cli        # build from source
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
 | `list` | Inspect project structure | `--files`, `--entry-points`, `--plugins`, `--boundaries` |
 | `health` | Function complexity analysis | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--ownership`, `--ownership-emails`, `--targets`, `--effort`, `--score`, `--min-score`, `--since`, `--min-commits`, `--save-snapshot`, `--trend`, `--coverage-gaps`, `--coverage`, `--coverage-root`, `--production-coverage`, `--min-invocations-hot`, `--min-observation-volume`, `--low-traffic-threshold`, `--workspace`, `--changed-workspaces`, `--baseline`, `--save-baseline` |
-| `audit` | Combined dead-code + complexity + duplication for changed files | `--base`, `--production`, `--workspace`, `--changed-workspaces`, `--ci`, `--fail-on-issues`, `--explain` |
+| `audit` | Combined dead-code + complexity + duplication for changed files | `--base`, `--production`, `--workspace`, `--changed-workspaces`, `--ci`, `--fail-on-issues`, `--explain`, `--dead-code-baseline`, `--health-baseline`, `--dupes-baseline` |
 | `flags` | Detect feature flag patterns (env vars, SDK calls, config objects) | `--top` |
 | `license` | Manage the local license JWT for paid features (activate, status, refresh, deactivate) | `activate --trial --email <addr>`, `activate --from-file`, `activate --stdin`, `status`, `refresh`, `deactivate` |
 | `coverage` | Production-coverage workflow helper (paid) | `setup`, `setup --yes`, `setup --non-interactive` |

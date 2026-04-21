@@ -706,8 +706,9 @@ Audits changed files for dead code, complexity, and duplication. Returns a verdi
 | `--ci` | bool | false | Equivalent to `--format sarif --fail-on-issues --quiet` |
 | `--fail-on-issues` | bool | false | Exit with code 1 if issues are found |
 | `--sarif-file` | path | — | Write SARIF output to a file alongside primary format |
-| `--baseline` | path | — | Compare against a saved baseline |
-| `--save-baseline` | path | — | Save current results as a baseline file |
+| `--dead-code-baseline` | path | — | Baseline file (produced by `fallow dead-code --save-baseline`). Pre-existing dead-code issues are excluded from the verdict. |
+| `--health-baseline` | path | — | Baseline file (produced by `fallow health --save-baseline`). Pre-existing complexity findings are excluded from the verdict. |
+| `--dupes-baseline` | path | — | Baseline file (produced by `fallow dupes --save-baseline`). Pre-existing clone groups are excluded from the verdict. |
 | `--fail-on-regression` | bool | false | Fail if issues increased beyond tolerance vs regression baseline |
 | `--tolerance` | string | `0` | Allowed increase before regression fails (`N` or `N%`) |
 | `--regression-baseline` | path | `.fallow/regression-baseline.json` | Path to the regression baseline file |
@@ -739,6 +740,14 @@ fallow audit --format json --quiet --production --workspace @app/api
 
 # CI mode (SARIF + fail on issues + quiet)
 fallow audit --ci
+
+# Per-analysis baselines: only fail on genuinely new issues
+fallow audit \
+  --dead-code-baseline .fallow/dead-code-baseline.json \
+  --health-baseline    .fallow/health-baseline.json \
+  --dupes-baseline     .fallow/dupes-baseline.json
+# Or set these under `audit.*Baseline` in .fallowrc.json so `fallow audit` picks them up with no flags.
+# The global --baseline / --save-baseline flags are REJECTED on audit (exit 2) because each sub-analysis uses a different baseline format.
 ```
 
 ### JSON Output Structure
