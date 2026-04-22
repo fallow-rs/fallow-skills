@@ -955,7 +955,7 @@ fallow coverage upload-inventory --dry-run    # print what would be uploaded, ex
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--api-key <KEY>` | string | `$FALLOW_API_KEY` | Fallow cloud bearer token. Generate at `https://fallow.cloud/settings#api-keys`. |
+| `--api-key <KEY>` | string | `$FALLOW_API_KEY` | Fallow cloud bearer token. Generate at `https://fallow.cloud/settings#api-keys`. **Prefer `$FALLOW_API_KEY` on shared CI runners**: `--api-key` on the command line may be visible to other processes via `ps`. |
 | `--api-endpoint <URL>` | string | `$FALLOW_API_URL` or `https://api.fallow.cloud` | Override for staging / on-prem. |
 | `--project-id <OWNER/REPO>` | string | `$GITHUB_REPOSITORY` → `$CI_PROJECT_PATH` → `git remote get-url origin` | Project identifier. |
 | `--git-sha <SHA>` | string | `git rev-parse HEAD` | Commit SHA this inventory is keyed to. Max 64 chars; `[A-Za-z0-9._-]` only. |
