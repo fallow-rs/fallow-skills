@@ -930,34 +930,61 @@ Unknown codes fall back to the backend's `message` field, or the raw body.
 
 ## `coverage`: Production-Coverage Workflow
 
-Helper subcommand for the paid production-coverage analyzer. Today it only surfaces `setup`, a resumable state machine that wires license activation, sidecar installation, framework-aware coverage recipe writing, and automatic handoff into `fallow health --production-coverage`.
+Helper subcommand for the paid production-coverage analyzer. Two subcommands today:
+
+- `coverage setup` — resumable state machine that wires license activation, sidecar installation, framework-aware coverage recipe writing, and automatic handoff into `fallow health --production-coverage`.
+- `coverage upload-inventory` — push a static function inventory to fallow cloud so the dashboard can surface `untracked` functions (those in the codebase but never called at runtime).
 
 ```bash
 fallow coverage setup                         # interactive
 fallow coverage setup --yes                   # accept all prompts
 fallow coverage setup --non-interactive       # print instructions, do not prompt
+
+fallow coverage upload-inventory              # infers project-id, git-sha, API key
+fallow coverage upload-inventory --dry-run    # print what would be uploaded, exit 0
 ```
 
-### Setup flow
+### `setup` flow
 
 1. **License check** — if missing or hard-fail, offers to start a trial.
 2. **Sidecar discovery** — resolves `FALLOW_COV_BIN`, project-local `node_modules/.bin/fallow-cov`, package-manager bin, `~/.fallow/bin/fallow-cov`, and `PATH`. When `FALLOW_COV_BIN` is set but points to a non-existent file, setup errors fast instead of falling through.
 3. **Coverage recipe** — detects framework (Next.js, Nuxt, Astro, SvelteKit, Remix, NestJS, plain Node) and package manager (npm, pnpm, yarn, bun), then writes `docs/collect-coverage.md` with the correct commands.
 4. **Handoff** — if `./coverage/coverage-final.json` or a V8 coverage directory already exists, setup runs `fallow health --production-coverage <path>` directly.
 
+### `upload-inventory` flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--api-key <KEY>` | string | `$FALLOW_API_KEY` | Fallow cloud bearer token. Generate at `https://fallow.cloud/settings#api-keys`. |
+| `--api-endpoint <URL>` | string | `$FALLOW_API_URL` or `https://api.fallow.cloud` | Override for staging / on-prem. |
+| `--project-id <OWNER/REPO>` | string | `$GITHUB_REPOSITORY` → `$CI_PROJECT_PATH` → `git remote get-url origin` | Project identifier. |
+| `--git-sha <SHA>` | string | `git rev-parse HEAD` | Commit SHA this inventory is keyed to. Max 64 chars; `[A-Za-z0-9._-]` only. |
+| `--allow-dirty` | bool | `false` | Silence the warning when the working tree has uncommitted changes. |
+| `--exclude-paths <GLOB>` | glob | none | Additional globs to skip (repeatable), applied after the configured fallow ignore rules. |
+| `--dry-run` | bool | `false` | Print what would be uploaded and exit. No network call. |
+| `--ignore-upload-errors` | bool | `false` | Treat upload failures as warnings (exit 0). Validation errors still fail hard. |
+
+Only plain JS/TS/JSX/TSX sources are walked. Declaration files (`*.d.ts`, `*.d.mts`, `*.d.cts`, `*.d.tsx`) and bodyless function signatures (TS overloads, `abstract` methods, `declare function`) are intentionally skipped; they have no runtime footprint. Function names match `oxc-coverage-instrument` byte-for-byte so the join with runtime coverage succeeds.
+
 ### Environment
 
-- `FALLOW_COV_BIN` — explicit override for the sidecar binary. Wins over all other discovery paths. Must point to an existing file.
+- `FALLOW_COV_BIN` — explicit override for the sidecar binary (for `setup`). Wins over all other discovery paths. Must point to an existing file.
+- `FALLOW_API_KEY` — fallow cloud bearer token (for `upload-inventory`). Overridden by `--api-key`.
+- `FALLOW_API_URL` — base URL for cloud calls. Overridden by `--api-endpoint`.
 
 ### Exit Codes
 
 | Code | Meaning |
 |------|---------|
-| `0`  | Setup complete, or ran with `--non-interactive` and instructions printed |
-| `2`  | Bad invocation, unable to resolve sidecar via env override |
-| `4`  | Sidecar install failed |
-| `5`  | Coverage input could not be pre-processed |
-| `7`  | Trial activation network failure |
+| `0`  | Setup complete / upload succeeded / dry-run printed |
+| `2`  | Bad invocation, unable to resolve sidecar via env override (`setup`) |
+| `4`  | Sidecar install failed (`setup`) |
+| `5`  | Coverage input could not be pre-processed (`setup`) |
+| `7`  | Network failure (trial activation for `setup`; upload DNS/TLS/connect for `upload-inventory`) |
+| `10` | Validation error: missing API key, unresolvable project-id, zero functions (`upload-inventory`) |
+| `11` | Payload too large: inventory exceeds the 200,000-function server cap (`upload-inventory`) |
+| `12` | Auth rejected: 401 / 403 from the server (`upload-inventory`) |
+| `13` | Server error: 5xx or other non-2xx status (`upload-inventory`) |
 
 ---
 
