@@ -191,10 +191,10 @@ Baselines track issues by identity (file + issue type + name), not by count. Add
 
 ```bash
 # Save current state as baseline
-fallow dead-code --format json --quiet --save-baseline .fallow-baseline.json
+fallow dead-code --format json --quiet --save-baseline fallow-baselines/dead-code.json
 
 # Later: only fail on NEW issues not in the baseline
-fallow dead-code --format json --quiet --baseline .fallow-baseline.json --fail-on-issues
+fallow dead-code --format json --quiet --baseline fallow-baselines/dead-code.json --fail-on-issues
 ```
 
 Commit the baseline file to your repo. Update it periodically as you fix existing issues.

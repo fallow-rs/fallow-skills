@@ -105,8 +105,8 @@ fallow dead-code --format json --quiet --changed-workspaces origin/main
 fallow dead-code --format json --quiet --trace src/utils.ts:myFunction
 
 # Incremental adoption with baseline
-fallow dead-code --format json --quiet --save-baseline .fallow-baseline.json
-fallow dead-code --format json --quiet --baseline .fallow-baseline.json --fail-on-issues
+fallow dead-code --format json --quiet --save-baseline fallow-baselines/dead-code.json
+fallow dead-code --format json --quiet --baseline fallow-baselines/dead-code.json --fail-on-issues
 
 # Regression detection: save baseline on main, compare on PRs
 fallow dead-code --format json --quiet --save-regression-baseline
@@ -174,8 +174,8 @@ fallow dupes --format json --quiet --trace src/utils.ts:42
 fallow dupes --format json --quiet --changed-since main
 
 # Incremental CI
-fallow dupes --format json --quiet --save-baseline .fallow-dupes-baseline.json
-fallow dupes --format json --quiet --baseline .fallow-dupes-baseline.json --threshold 5
+fallow dupes --format json --quiet --save-baseline fallow-baselines/dupes.json
+fallow dupes --format json --quiet --baseline fallow-baselines/dupes.json --threshold 5
 ```
 
 ---
@@ -366,8 +366,8 @@ fallow health --format json --quiet --changed-since main
 fallow health --format json --quiet --workspace my-package
 
 # Incremental adoption with baseline
-fallow health --format json --quiet --save-baseline .fallow-health-baseline.json
-fallow health --format json --quiet --baseline .fallow-health-baseline.json
+fallow health --format json --quiet --save-baseline fallow-baselines/health.json
+fallow health --format json --quiet --baseline fallow-baselines/health.json
 
 # CI: fail if any function is too complex
 fallow health --max-cyclomatic 25 --max-cognitive 20 --quiet
@@ -745,9 +745,9 @@ fallow audit --ci
 
 # Per-analysis baselines: only fail on genuinely new issues
 fallow audit \
-  --dead-code-baseline .fallow/dead-code-baseline.json \
-  --health-baseline    .fallow/health-baseline.json \
-  --dupes-baseline     .fallow/dupes-baseline.json
+  --dead-code-baseline fallow-baselines/dead-code.json \
+  --health-baseline    fallow-baselines/health.json \
+  --dupes-baseline     fallow-baselines/dupes.json
 # Or set these under `audit.*Baseline` in .fallowrc.json so `fallow audit` picks them up with no flags.
 # The global --baseline / --save-baseline flags are REJECTED on audit (exit 2) because each sub-analysis uses a different baseline format.
 ```
