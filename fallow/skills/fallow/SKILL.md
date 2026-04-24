@@ -105,7 +105,7 @@ When using fallow via MCP (`fallow-mcp`), the following tools are available:
 | `fix_preview` | Dry-run auto-fix preview |
 | `fix_apply` | Apply auto-fixes (destructive) |
 | `check_health` | Complexity metrics, health scores, hotspots, and refactoring targets |
-| `health_production_coverage` | Merge V8 or Istanbul production-coverage data into the health report (paid). Required `coverage` param. Long dumps may exceed the 120s MCP timeout; raise `FALLOW_TIMEOUT_SECS`. |
+| `check_production_coverage` | Merge V8 or Istanbul production-coverage data into the health report (paid). Required `coverage` param (V8 dir, V8 JSON, or Istanbul `coverage-final.json`). Tuning knobs: `min_invocations_hot` (default 100), `min_observation_volume` (default 5000), `low_traffic_threshold` (default 0.001), `max_crap` (default 30.0), `group_by`. Long dumps may exceed the 120s MCP timeout; raise `FALLOW_TIMEOUT_SECS`. Pick this over `check_health` when you have a coverage dump. |
 | `audit` | Combined dead-code + complexity + duplication for changed files, returns verdict |
 | `project_info` | Project metadata. Set `entry_points`, `files`, `plugins`, or `boundaries` to `true` to request specific sections |
 | `list_boundaries` | Architecture boundary zones and access rules. Returns `{"configured": false}` if no boundaries configured |
