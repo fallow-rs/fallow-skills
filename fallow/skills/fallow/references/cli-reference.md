@@ -39,7 +39,10 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 | `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars and timing on stderr |
 | `--changed-since` | string | — | Only analyze files changed since a git ref (e.g., `main`, `HEAD~3`) |
-| `--production` | bool | `false` | Exclude test/dev files, only start/build scripts |
+| `--production` | bool | `false` | Exclude test/dev files, only start/build scripts (applies to every analysis) |
+| `--production-dead-code` | bool | `false` | Per-analysis production mode for dead-code. Bare combined runs and `fallow audit` only. |
+| `--production-health` | bool | `false` | Per-analysis production mode for health. Bare combined runs and `fallow audit` only. |
+| `--production-dupes` | bool | `false` | Per-analysis production mode for duplication. Bare combined runs and `fallow audit` only. |
 | `--baseline` | path | — | Compare against a saved baseline |
 | `--save-baseline` | path | — | Save current results as a baseline |
 | `--workspace` | string | — | Scope to one or more workspaces. Comma-separated values, globs (`apps/*`, `@scope/*`), and `!`-prefixed negation (`!apps/legacy`) supported. Matched against package name AND workspace path relative to repo root. |
@@ -701,7 +704,10 @@ Audits changed files for dead code, complexity, and duplication. Returns a verdi
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--base` | string | auto-detect | Git ref to compare against (alias for `--changed-since`) |
-| `--production` | bool | false | Exclude test/story/dev files |
+| `--production` | bool | false | Exclude test/story/dev files (applies to dead-code, health, and dupes) |
+| `--production-dead-code` | bool | false | Per-analysis production mode for the dead-code sub-analysis only |
+| `--production-health` | bool | false | Per-analysis production mode for the health sub-analysis only |
+| `--production-dupes` | bool | false | Per-analysis production mode for the duplication sub-analysis only |
 | `-w, --workspace` | string | — | Scope to one or more workspaces. Comma-separated, globs, `!` negation. |
 | `--explain` | bool | false | Include metric definitions in JSON output |
 | `--ci` | bool | false | Equivalent to `--format sarif --fail-on-issues --quiet` |
@@ -739,6 +745,9 @@ fallow audit --format json --quiet --base HEAD~3
 
 # Production code only in a monorepo workspace
 fallow audit --format json --quiet --production --workspace @app/api
+
+# Production-only health, full-tree dead-code and dupes
+fallow audit --format json --quiet --production-health --workspace @app/api
 
 # CI mode (SARIF + fail on issues + quiet)
 fallow audit --ci
@@ -1037,7 +1046,8 @@ Available on all commands:
 | `--tolerance` | string | Allowed increase: `"2%"` (percentage) or `"5"` (absolute). Default: `"0"` |
 | `--regression-baseline` | path | Path to regression baseline file (default: `.fallow/regression-baseline.json`) |
 | `--save-regression-baseline` | path | Save current issue counts as a regression baseline |
-| `--production` | bool | Exclude test/dev files, only start/build scripts |
+| `--production` | bool | Exclude test/dev files, only start/build scripts (applies to every analysis) |
+| `--production-dead-code` / `--production-health` / `--production-dupes` | bool | Per-analysis production mode for bare combined runs and `fallow audit`. Per-analysis env vars `FALLOW_PRODUCTION_DEAD_CODE`/`HEALTH`/`DUPES` mirror these flags. Per-analysis env beats global `FALLOW_PRODUCTION`. |
 | `--performance` | bool | Show pipeline timing breakdown |
 | `-w, --workspace` | string | Scope to one or more workspaces (comma-separated, globs, `!` negation) |
 | `--changed-workspaces` | string (git ref) | Git-derived monorepo CI scoping: scope to workspaces containing any file changed since `REF`. Mutually exclusive with `--workspace`. Missing ref is a hard error. |
