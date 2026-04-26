@@ -317,8 +317,8 @@ Analyzes function complexity across the project using cyclomatic and cognitive c
 | `--changed-since` | string | — | Only analyze files changed since a git ref |
 | `--workspace` | string | — | Scope to one or more workspaces. Comma-separated values, globs (`apps/*`, `@scope/*`), and `!`-prefixed negation (`!apps/legacy`) supported. Matched against package name AND workspace path relative to repo root. Vital signs, health score, hotspots, file scores, findings, and `summary.files_analyzed` are all recomputed against the scoped subset. |
 | `--group-by` | `owner\|directory\|package\|section` | — | Partition the report into per-group sections. JSON adds `grouped_by` plus a `groups` array; each group contains its own `vital_signs`, `health_score`, `findings`, `file_scores`, `hotspots`, `large_functions`, and `targets` recomputed against the group's files. The top-level metrics stay project-wide so consumers that ignore grouping still see the project headline. Human output adds a per-group score / files / hot / p90 summary block (sorted worst-first when `--score`). SARIF results carry `properties.group` and CodeClimate issues carry a top-level `group` field so GitHub Code Scanning / GitLab Code Quality can partition per team / package. Compact, markdown, and badge fall back to ungrouped output with a stderr note. |
-| `--baseline` | path | — | Compare against a saved baseline |
-| `--save-baseline` | path | — | Save current results as a baseline |
+| `--baseline` | path | — | Compare against a saved baseline. When set, the JSON `actions` array on each finding omits `suppress-line` (the baseline already suppresses) and the report root carries an `actions_meta: { suppression_hints_omitted: true, reason: "baseline-active" }` breadcrumb. |
+| `--save-baseline` | path | — | Save current results as a baseline. Same `suppress-line` omission as `--baseline`. |
 | `--save-snapshot` | path (optional) | `.fallow/snapshots/<timestamp>.json` | Save vital signs snapshot for trend tracking. Forces file-scores + hotspot computation. |
 | `--trend` | bool | `false` | Compare current metrics against the most recent saved snapshot. Reads from `.fallow/snapshots/` and shows per-metric deltas with directional indicators (improving/declining/stable). Implies `--score`. |
 | `--coverage-gaps` | bool | `false` | Show runtime files and exports that no test dependency path reaches. Opt-in (default off). Configure severity via the `coverage-gaps` rule (`error`/`warn`/`off`). |
@@ -1237,6 +1237,20 @@ Dependency issues use `add-to-config` with `config_key` and `value`:
   ]
 }
 ```
+
+#### Health `actions` array (CRAP findings)
+
+Health findings (`fallow health` JSON output) include an `actions` array driven by a `coverage_tier` field on the finding:
+
+| `coverage_tier` | Meaning | Primary action |
+|-----------------|---------|----------------|
+| `none` | File not test-reachable, or Istanbul reports 0% | `add-tests` |
+| `partial` | Some coverage exists (Istanbul `(0, 70]`, or estimated 40% band) | `increase-coverage` |
+| `high` | Coverage above the high watermark (default `> 70`, or estimated 85% band) AND finding is CRAP-only | `refactor-function` (more coverage cannot lower CRAP at this level) |
+
+When CRAP-only with cyclomatic count within 5 of the threshold, a secondary `refactor-function` is appended. A single finding can carry multiple action types: e.g. a finding that exceeds both cyclomatic and CRAP at `coverage_tier`: partial gets `increase-coverage` AND `refactor-function`. Treat the first non-`suppress-line` action as primary.
+
+The `suppress-line` action is auto-omitted when `--baseline`/`--save-baseline` is set, OR when `health.suggestInlineSuppression: false` in config. The report root carries an `actions_meta: { suppression_hints_omitted: true, reason: "baseline-active" | "config-disabled" }` breadcrumb in that case.
 
 #### `baseline_deltas` Object
 
