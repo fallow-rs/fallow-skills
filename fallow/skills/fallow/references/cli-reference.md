@@ -148,6 +148,7 @@ Finds code duplication and clones across the project.
 | `--save-baseline` | path | — | Save results as baseline |
 | `--workspace` | string | — | Scope to one or more workspaces. Comma-separated values, globs (`apps/*`, `@scope/*`), and `!`-prefixed negation (`!apps/legacy`) supported. Matched against package name AND workspace path relative to repo root. |
 | `--changed-workspaces` | string (git ref) | — | Git-derived monorepo CI scoping: scope to workspaces containing any file changed since `REF`. Mutually exclusive with `--workspace`. Missing ref is a hard error. |
+| `--group-by` | `owner\|directory\|package\|section` | — | Partition the report into per-group sections. Each clone group is attributed to its **largest owner** (most instances; alphabetical tiebreak): a group split 2 src / 1 lib appears under `src`. JSON adds `grouped_by` plus a `groups` array; each bucket carries dedup-aware `stats`, `clone_groups` (every group tagged with `primary_owner` and per-instance `owner`), and `clone_families`. SARIF results carry `properties.group`, CodeClimate issues a top-level `group` field. Compact and markdown fall back to ungrouped with a stderr note. |
 
 ### Detection Modes
 
