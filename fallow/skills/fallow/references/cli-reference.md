@@ -292,6 +292,8 @@ fallow migrate --from knip.json
 
 Analyzes function complexity across the project using cyclomatic and cognitive complexity metrics. By default all sections are included (health score, complexity findings, file scores, hotspots, and refactoring targets). Use `--complexity`, `--file-scores`, `--hotspots`, `--targets`, or `--score` to show only specific sections.
 
+Standalone Angular `.html` templates contribute synthetic `<template>` complexity findings whenever they use `@if`/`@for`/`@switch`/`@case`/`@defer (when ...)`/`@let` blocks, legacy structural directives (`*ngIf`, `*ngFor`), bound attributes (`[x]`, `(x)`, `bind-x`, `on-x`), or `{{ }}` interpolations. Suppress per-template with `<!-- fallow-ignore-file complexity -->` at the top of the file (the `suppress-file` action emitted on the JSON finding spells this out for agents).
+
 ### Flags
 
 | Flag | Type | Default | Description |
