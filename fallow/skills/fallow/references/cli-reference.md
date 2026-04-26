@@ -1240,15 +1240,18 @@ Dependency issues use `add-to-config` with `config_key` and `value`:
 
 #### Health `actions` array (CRAP findings)
 
-Health findings (`fallow health` JSON output) include an `actions` array driven by a `coverage_tier` field on the finding:
+Health findings (`fallow health` JSON output) include an `actions` array. Primary action selection is formula-aware: the rule first checks whether full coverage CAN bring CRAP under threshold (CRAP bottoms out at `cyclomatic` at 100% coverage, so `cyclomatic < maxCrap` means coverage is a viable remediation), then uses `coverage_tier` to choose the description.
 
-| `coverage_tier` | Meaning | Primary action |
-|-----------------|---------|----------------|
-| `none` | File not test-reachable, or Istanbul reports 0% | `add-tests` |
-| `partial` | Some coverage exists (Istanbul `(0, 70)`, or estimated 40% band) | `increase-coverage` |
-| `high` | Coverage at or above the high watermark (default `>= 70`, or estimated 85% band) AND finding is CRAP-only | `refactor-function` (more coverage cannot lower CRAP at this level) |
+| Condition | Primary action |
+|-----------|----------------|
+| `cyclomatic >= maxCrap` (coverage cannot remediate, regardless of tier) | `refactor-function` |
+| `cyclomatic < maxCrap` and `coverage_tier=none` | `add-tests` ("start from scratch") |
+| `cyclomatic < maxCrap` and `coverage_tier=partial` or `high` | `increase-coverage` ("targeted branch coverage") |
+| Cyclomatic/cognitive triggered (no CRAP) | `refactor-function` |
 
-When CRAP-only with cyclomatic count within 5 of the threshold, a secondary `refactor-function` is appended. A single finding can carry multiple action types: e.g. a finding that exceeds both cyclomatic and CRAP at `coverage_tier`: partial gets `increase-coverage` AND `refactor-function`. Treat the first non-`suppress-line` action as primary.
+The `coverage_tier` field is `"none"` (file not test-reachable / Istanbul 0%), `"partial"` (Istanbul `(0, 70)` / estimated 40%), or `"high"` (Istanbul `>= 70` / estimated 85%).
+
+When CRAP-only with cyclomatic count within 5 of `maxCyclomatic` AND cognitive at or above `maxCognitive / 2`, a secondary `refactor-function` is appended. The cognitive floor suppresses false positives on flat type-tag dispatchers and JSX render maps (high CC, near-zero cog). A single finding can carry multiple action types: e.g. a finding that exceeds both cyclomatic and CRAP at `coverage_tier=partial` gets `increase-coverage` AND `refactor-function`. Treat the first non-`suppress-line` action as primary.
 
 The `suppress-line` action is auto-omitted when `--baseline`/`--save-baseline` is set, OR when `health.suggestInlineSuppression: false` in config. The report root carries an `actions_meta: { suppression_hints_omitted: true, reason: "baseline-active" | "config-disabled" }` breadcrumb in that case.
 
