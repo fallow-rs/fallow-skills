@@ -1245,8 +1245,8 @@ Health findings (`fallow health` JSON output) include an `actions` array driven 
 | `coverage_tier` | Meaning | Primary action |
 |-----------------|---------|----------------|
 | `none` | File not test-reachable, or Istanbul reports 0% | `add-tests` |
-| `partial` | Some coverage exists (Istanbul `(0, 70]`, or estimated 40% band) | `increase-coverage` |
-| `high` | Coverage above the high watermark (default `> 70`, or estimated 85% band) AND finding is CRAP-only | `refactor-function` (more coverage cannot lower CRAP at this level) |
+| `partial` | Some coverage exists (Istanbul `(0, 70)`, or estimated 40% band) | `increase-coverage` |
+| `high` | Coverage at or above the high watermark (default `>= 70`, or estimated 85% band) AND finding is CRAP-only | `refactor-function` (more coverage cannot lower CRAP at this level) |
 
 When CRAP-only with cyclomatic count within 5 of the threshold, a secondary `refactor-function` is appended. A single finding can carry multiple action types: e.g. a finding that exceeds both cyclomatic and CRAP at `coverage_tier`: partial gets `increase-coverage` AND `refactor-function`. Treat the first non-`suppress-line` action as primary.
 
