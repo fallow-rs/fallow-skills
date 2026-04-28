@@ -305,7 +305,7 @@ Angular templates contribute synthetic `<template>` complexity findings whenever
 | `--max-cognitive` | number | `15` | Fail if any function exceeds this cognitive complexity |
 | `--max-crap` | number | `30.0` | Fail if any function has CRAP score >= threshold. CRAP combines complexity with coverage (`CC^2 * (1 - cov/100)^3 + CC`). Pair with `--coverage` for accurate per-function CRAP; without Istanbul data fallow estimates coverage from the module graph. |
 | `--top` | number | — | Only show the top N most complex functions (and file scores/hotspots/targets) |
-| `--sort` | `cyclomatic\|cognitive\|lines` | `cyclomatic` | Sort order for complexity findings |
+| `--sort` | `cyclomatic\|cognitive\|lines\|severity` | `cyclomatic` | Sort order for complexity findings |
 | `--complexity` | bool | `false` | Show only function complexity findings. When no section flags are set, all sections are shown by default. |
 | `--file-scores` | bool | `false` | Show only per-file maintainability index (LOC, fan-in, fan-out, dead code ratio, complexity density). Runs the full analysis pipeline. When no section flags are set, all sections are shown by default. |
 | `--hotspots` | bool | `false` | Show only hotspots: files that are both complex and frequently changing. Combines git churn history with complexity data. Requires a git repository. When no section flags are set, all sections are shown by default. |
