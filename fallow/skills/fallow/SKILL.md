@@ -155,7 +155,7 @@ See <https://docs.fallow.tools/integrations/node-bindings> for the full field re
 fallow dead-code --format json --quiet
 ```
 
-Parse the JSON output. It contains arrays for each issue type (`unused_files`, `unused_exports`, `unused_types`, `unused_dependencies`, etc.) plus `total_issues` and `elapsed_ms` metadata. Each issue object includes an `actions` array with structured fix suggestions (action type, `auto_fixable` flag, description, and optional suppression comment).
+Parse the JSON output. It contains arrays for each issue type (`unused_files`, `unused_exports`, `unused_types`, `unused_dependencies`, etc.) plus `total_issues` and `elapsed_ms` metadata. Each issue object includes an `actions` array with structured fix suggestions (action type, `auto_fixable` flag, description, and optional suppression comment). For dependency findings, a non-empty `used_in_workspaces` array means the package is imported elsewhere in the monorepo; treat it as a workspace placement issue and do not auto-remove it.
 
 ### Find only unused exports (smaller output)
 

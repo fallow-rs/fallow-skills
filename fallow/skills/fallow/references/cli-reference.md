@@ -1165,7 +1165,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
   "unused_files": [{ "path": "src/old.ts" }],
   "unused_exports": [{ "path": "src/utils.ts", "name": "unusedFn", "line": 42, "actions": [{"type": "remove-export", "auto_fixable": true, "description": "Remove the `export` keyword from the declaration"}, {"type": "suppress-line", "auto_fixable": false, "description": "Suppress with an inline comment above the line", "comment": "// fallow-ignore-next-line unused-export"}] }],
   "unused_types": [{ "path": "src/types.ts", "name": "OldType", "line": 10 }],
-  "unused_dependencies": [{ "name": "lodash", "line": 5 }],
+  "unused_dependencies": [{ "name": "lodash", "line": 5, "used_in_workspaces": ["packages/web"] }],
   "unused_dev_dependencies": [{ "name": "jest", "line": 8 }],
   "unused_enum_members": [{ "path": "src/enums.ts", "enum_name": "Status", "member": "Archived", "line": 5 }],
   "unused_class_members": [{ "path": "src/service.ts", "class_name": "Service", "member": "oldMethod", "line": 20 }],
@@ -1181,13 +1181,15 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 }
 ```
 
+For dependency findings, `used_in_workspaces` means the package is imported by another workspace even though the declaring workspace does not import it. Move the dependency to the consuming workspace instead of auto-removing it.
+
 #### `actions` Array
 
 Every issue in `dead-code` JSON output includes an `actions` array with structured fix suggestions. Each action has:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `type` | string | yes | Action type in kebab-case (14 types, e.g., `remove-export`, `remove-file`, `remove-dependency`, `suppress-line`, `add-to-config`) |
+| `type` | string | yes | Action type in kebab-case (for example `remove-export`, `remove-file`, `remove-dependency`, `move-dependency`, `suppress-line`, `add-to-config`) |
 | `auto_fixable` | bool | yes | `true` if `fallow fix` handles this action automatically |
 | `description` | string | yes | Human-readable description of the action |
 | `comment` | string | no | Suppression comment text (on `suppress-line` actions) |
@@ -1240,6 +1242,8 @@ Dependency issues use `add-to-config` with `config_key` and `value`:
   ]
 }
 ```
+
+When a dependency action is `move-dependency`, `auto_fixable` is `false`; the package is imported from another workspace and needs a package.json ownership move rather than removal.
 
 #### Health `actions` array (CRAP findings)
 
