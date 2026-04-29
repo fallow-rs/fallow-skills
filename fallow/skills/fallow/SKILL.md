@@ -313,6 +313,7 @@ Fallow reads config from project root: `.fallowrc.json` > `fallow.toml` > `.fall
   "entry": ["src/index.ts"],
   "ignorePatterns": ["**/*.generated.ts"],
   "ignoreDependencies": ["autoprefixer"],
+  "ignoreExportsUsedInFile": true,
   "publicPackages": ["@myorg/shared-lib"],
   "dynamicallyLoaded": ["plugins/**/*.ts"],
   "rules": {
@@ -327,6 +328,7 @@ Fallow reads config from project root: `.fallowrc.json` > `fallow.toml` > `.fall
 Rules: `"error"` (fail CI), `"warn"` (report only), `"off"` (skip detection).
 
 Config fields:
+- `ignoreExportsUsedInFile`: knip-compatible; suppress unused-export findings when the exported symbol is referenced inside the file that declares it. Boolean (`true` covers all kinds) or `{ "type": true, "interface": true }` object form for knip parity. Fallow groups type aliases and interfaces under the same `unused-types` issue, so both type-kind fields behave identically. References inside the export specifier itself (`export { foo }`, `export default foo`) do not count as same-file uses; those exports are still reported when no other in-file expression references the binding
 - `publicPackages`: workspace packages that are public libraries; exports from these packages are not flagged as unused
 - `dynamicallyLoaded`: glob patterns for files loaded at runtime (plugin dirs, locale files); treated as always-used
 - `usedClassMembers`: class method/property names that extend the built-in Angular/React lifecycle allowlist with framework-invoked names. Each entry is a plain string (global suppression) or a scoped object `{ extends?, implements?, members }` matching only classes with the given heritage. Use scoped rules for common names like `refresh` or `execute` to avoid false negatives on unrelated classes; global strings for unique names like `agInit`. Example: `["agInit", { "implements": "ICellRendererAngularComp", "members": ["refresh"] }, { "extends": "BaseCommand", "members": ["execute"] }]`. An unconstrained scoped rule (no `extends` or `implements`) is rejected at load time. Use plugin-level `usedClassMembers` in a `.fallow/plugins/*.jsonc` file for library-specific allowlists

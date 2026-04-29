@@ -1399,6 +1399,10 @@ Config files are searched in priority order: `.fallowrc.json` > `fallow.toml` > 
   // Dependencies to ignore
   "ignoreDependencies": ["autoprefixer"],
 
+  // Suppress unused-export findings when the symbol is referenced inside its
+  // declaring file (knip parity). Boolean or { type, interface } object form.
+  "ignoreExportsUsedInFile": true,
+
   // Per-issue-type severity
   "rules": {
     "unused-files": "error",
@@ -1476,6 +1480,7 @@ Config files are searched in priority order: `.fallowrc.json` > `fallow.toml` > 
 entry = ["src/index.ts", "scripts/*.ts"]
 ignorePatterns = ["**/*.generated.ts"]
 ignoreDependencies = ["autoprefixer"]
+ignoreExportsUsedInFile = true
 production = false
 publicPackages = ["@myorg/shared-lib", "@myorg/utils"]
 dynamicallyLoaded = ["plugins/**/*.ts", "locales/**/*.json"]
