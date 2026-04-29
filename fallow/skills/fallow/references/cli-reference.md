@@ -608,7 +608,6 @@ With `--score`, the JSON output includes a `health_score` object:
       "complexity": 0.0,
       "p90_complexity": 0.0,
       "maintainability": 0.0,
-      "hotspots": 0.0,
       "unused_deps": 10.0,
       "circular_deps": 4.0,
       "unit_size": 0.0,
@@ -619,7 +618,7 @@ With `--score`, the JSON output includes a `health_score` object:
 }
 ```
 
-Score is reproducible: `100 - sum(penalties) == score`. Penalty fields are absent when the pipeline didn't run. `--score` automatically runs duplication analysis. Grades: A (>= 85), B (70-84), C (55-69), D (40-54), F (< 40).
+Score is reproducible: `100 - sum(penalties) == score`. Penalty fields are absent when the pipeline didn't run. `--score` automatically runs duplication analysis; add `--hotspots` (or combine `--score --targets`) when the score should include the churn-backed hotspot penalty. Grades: A (>= 85), B (70-84), C (55-69), D (40-54), F (< 40).
 
 ### Health Trend
 
