@@ -83,11 +83,11 @@ cargo install fallow-cli        # build from source
 | Unused exports | `--unused-exports` | Symbols never imported elsewhere |
 | Unused types | `--unused-types` | Type aliases and interfaces |
 | Private type leaks | `--private-type-leaks` | Opt-in API hygiene check (default `off`) for exported signatures whose type references a same-file private type |
-| Unused dependencies | `--unused-deps` | Packages in `dependencies`, `devDependencies`, `optionalDependencies`, type-only production deps, and test-only production deps |
+| Unused dependencies | `--unused-deps` | Packages in `dependencies`, `devDependencies`, `optionalDependencies`, type-only production deps, and test-only production deps. In monorepos, internal workspace package names (e.g., `@repo/ui`) declared in another workspace's `package.json` but never imported are reported here too. |
 | Unused enum members | `--unused-enum-members` | Enum values never referenced |
 | Unused class members | `--unused-class-members` | Methods and properties |
 | Unresolved imports | `--unresolved-imports` | Imports that can't be resolved |
-| Unlisted dependencies | `--unlisted-deps` | Used packages missing from package.json |
+| Unlisted dependencies | `--unlisted-deps` | Used packages missing from package.json. In monorepos, importing a workspace package from a workspace whose own `package.json` does not list it is reported here too; self-references stay allowed without requiring a package to depend on itself. |
 | Duplicate exports | `--duplicate-exports` | Same symbol exported from multiple modules |
 | Circular dependencies | `--circular-deps` | Import cycles in the module graph |
 | Boundary violations | `--boundary-violations` | Imports crossing architecture zone boundaries. Presets: `layered`, `hexagonal`, `feature-sliced`, `bulletproof` |
