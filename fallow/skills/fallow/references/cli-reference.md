@@ -1164,7 +1164,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
     "stale_suppressions": 0
   },
   "unused_files": [{ "path": "src/old.ts" }],
-  "unused_exports": [{ "path": "src/utils.ts", "name": "unusedFn", "line": 42, "actions": [{"type": "remove-export", "auto_fixable": true, "description": "Remove the `export` keyword from the declaration"}, {"type": "suppress-line", "auto_fixable": false, "description": "Suppress with an inline comment above the line", "comment": "// fallow-ignore-next-line unused-export"}] }],
+  "unused_exports": [{ "path": "src/utils.ts", "name": "unusedFn", "line": 42, "actions": [{"type": "remove-export", "auto_fixable": true, "description": "Remove the unused export from the public API"}, {"type": "suppress-line", "auto_fixable": false, "description": "Suppress with an inline comment above the line", "comment": "// fallow-ignore-next-line unused-export"}] }],
   "unused_types": [{ "path": "src/types.ts", "name": "OldType", "line": 10 }],
   "unused_dependencies": [{ "name": "lodash", "line": 5, "used_in_workspaces": ["packages/web"] }],
   "unused_dev_dependencies": [{ "name": "jest", "line": 8 }],
@@ -1209,7 +1209,7 @@ Example:
     {
       "type": "remove-export",
       "auto_fixable": true,
-      "description": "Remove the `export` keyword from the declaration"
+      "description": "Remove the unused export from the public API"
     },
     {
       "type": "suppress-line",
