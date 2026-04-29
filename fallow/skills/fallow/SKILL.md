@@ -82,6 +82,7 @@ cargo install fallow-cli        # build from source
 | Unused files | `--unused-files` | Files unreachable from entry points |
 | Unused exports | `--unused-exports` | Symbols never imported elsewhere |
 | Unused types | `--unused-types` | Type aliases and interfaces |
+| Private type leaks | `--private-type-leaks` | Exported signatures whose type references a same-file private type |
 | Unused dependencies | `--unused-deps` | Packages in `dependencies`, `devDependencies`, `optionalDependencies`, type-only production deps, and test-only production deps |
 | Unused enum members | `--unused-enum-members` | Enum values never referenced |
 | Unused class members | `--unused-class-members` | Methods and properties |
@@ -99,7 +100,7 @@ When using fallow via MCP (`fallow-mcp`), the following tools are available:
 
 | Tool | Description |
 |------|-------------|
-| `analyze` | Full dead code analysis. Set `boundary_violations: true` as a convenience alias for `issue_types: ["boundary-violations"]`. Set `group_by` to `"owner"`, `"directory"`, `"package"`, or `"section"` (GitLab CODEOWNERS `[Section]` headers, with `owners` metadata per group) to partition results |
+| `analyze` | Full dead code analysis (unused files/exports/types/dependencies/members + private type leaks + circular dependencies + boundary violations + stale suppressions). Set `boundary_violations: true` as a convenience alias for `issue_types: ["boundary-violations"]`. Set `group_by` to `"owner"`, `"directory"`, `"package"`, or `"section"` (GitLab CODEOWNERS `[Section]` headers, with `owners` metadata per group) to partition results |
 | `check_changed` | Incremental analysis of files changed since a git ref |
 | `find_dupes` | Code duplication detection. Set `changed_since` to scope to changed files since a git ref |
 | `fix_preview` | Dry-run auto-fix preview |
@@ -317,7 +318,8 @@ Fallow reads config from project root: `.fallowrc.json` > `fallow.toml` > `.fall
   "rules": {
     "unused-files": "error",
     "unused-exports": "warn",
-    "unused-types": "off"
+    "unused-types": "off",
+    "private-type-leaks": "warn"
   }
 }
 ```
