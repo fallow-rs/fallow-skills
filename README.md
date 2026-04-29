@@ -8,7 +8,7 @@
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
   <a href="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml"><img src="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
   <a href="https://agentskills.io"><img src="https://img.shields.io/badge/Agent_Skills-compatible-8A2BE2" alt="Agent Skills"></a>
-  <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v2.54.3-orange" alt="fallow v2.54.3"></a>
+  <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v2.55.0-orange" alt="fallow v2.55.0"></a>
 </p>
 
 Agent skills for [fallow](https://github.com/fallow-rs/fallow), Rust-native codebase intelligence for JavaScript and TypeScript. The free static layer finds unused code, circular dependencies, code duplication, complexity hotspots, and architecture boundary violations in milliseconds. The optional paid runtime layer (Fallow Runtime) adds production execution evidence so agents can delete cold code, flag hot-path changes, and retire stale flags with proof. 90 framework plugins, zero configuration. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
