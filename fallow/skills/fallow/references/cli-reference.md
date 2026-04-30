@@ -958,11 +958,13 @@ fallow coverage upload-inventory              # infers project-id, git-sha, API 
 fallow coverage upload-inventory --dry-run    # print what would be uploaded, exit 0
 ```
 
+`--json` is the agent-driven entry point: implies `--non-interactive`, never writes files, never installs the sidecar, never makes network calls, and produces a stable JSON payload with these top-level keys: `schema_version` (string `"1"`), `framework_detected`, `package_manager`, `runtime_targets`, `members`, `config_written`, `commands`, `files_to_edit`, `snippets`, `dockerfile_snippet`, `next_steps`, `warnings`. `framework_detected` uses canonical ids (`nextjs`, `nestjs`, `nuxt`, `sveltekit`, `astro`, `remix`, `vite`, `plain_node`, `unknown`). When both a Node-server framework (Elysia, Hono, Fastify, Express, Koa, `@trpc/server`) and Vite appear in the same `package.json`, the Node-server framework wins. Workspace projects emit one `members[]` entry per runtime-bearing workspace (each with its own `framework_detected`, `runtime_targets`, `files_to_edit`, `snippets`, `dockerfile_snippet`); the top-level fields mirror the root member, and `runtime_targets` at top level is the union (`["node"]`, `["browser"]`, or `["node", "browser"]`) across all members. Single-app projects emit a `members[]` array of length 1 (path `"."`) so consumers can treat it uniformly. Library-only workspaces (no `start`/`preview`/`dev` script and no Node-server dependency) are skipped.
+
 ### `setup` flow
 
 1. **License check** — if missing or hard-fail, offers to start a trial.
 2. **Sidecar discovery** — resolves `FALLOW_COV_BIN`, project-local `node_modules/.bin/fallow-cov`, package-manager bin, `~/.fallow/bin/fallow-cov`, and `PATH`. When `FALLOW_COV_BIN` is set but points to a non-existent file, setup errors fast instead of falling through.
-3. **Coverage recipe** — detects framework (Next.js, Nuxt, Astro, SvelteKit, Remix, NestJS, plain Node) and package manager (npm, pnpm, yarn, bun), then writes `docs/collect-coverage.md` with the correct commands.
+3. **Coverage recipe** — detects framework (Next.js, Nuxt, Astro, SvelteKit, Remix, NestJS, Vite browser apps, plain Node) and package manager (npm, pnpm, yarn, bun), then writes `docs/collect-coverage.md` with the correct commands.
 4. **Handoff** — if `./coverage/coverage-final.json` or a V8 coverage directory already exists, setup runs `fallow health --runtime-coverage <path>` directly.
 
 ### `upload-inventory` flags
