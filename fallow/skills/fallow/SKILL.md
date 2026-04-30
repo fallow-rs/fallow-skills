@@ -73,6 +73,7 @@ cargo install fallow-cli        # build from source
 | `explain` | Explain one issue type without running analysis | `<issue-type>`, `--format json` |
 | `license` | Manage the local license JWT for continuous/cloud runtime monitoring (activate, status, refresh, deactivate) | `activate --trial --email <addr>`, `activate --from-file`, `activate --stdin`, `status`, `refresh`, `deactivate` |
 | `coverage` | Runtime coverage setup, focused analysis, and cloud inventory workflow helper | `setup`, `setup --yes`, `setup --non-interactive`, `analyze --runtime-coverage <path>`, `analyze --cloud --repo owner/repo`, `upload-inventory` |
+| `coverage upload-source-maps` | Upload build source maps from CI so bundled runtime coverage resolves to original source paths | `--dir dist`, `--git-sha <sha>`, `--repo <name>`, `--strip-path=false`, `--dry-run` |
 | `schema` | Dump CLI definition as JSON | |
 | `config` | Show the loaded config path and resolved config (verifies which `.fallowrc.json` is in effect) | `--path` |
 

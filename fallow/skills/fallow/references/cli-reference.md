@@ -1014,6 +1014,9 @@ fallow coverage analyze --cloud --repo owner/repo --format json
 
 fallow coverage upload-inventory              # infers project-id, git-sha, API key
 fallow coverage upload-inventory --dry-run    # print what would be uploaded, exit 0
+
+fallow coverage upload-source-maps --dir dist           # upload build source maps from CI
+fallow coverage upload-source-maps --dry-run            # print maps and fileName values, no network
 ```
 
 `--json` is the agent-driven entry point: implies `--non-interactive`, never writes files, never installs the sidecar, never makes network calls, and produces a stable JSON payload with these top-level keys: `schema_version` (string `"1"`), `framework_detected`, `package_manager`, `runtime_targets`, `members`, `config_written`, `commands`, `files_to_edit`, `snippets`, `dockerfile_snippet`, `next_steps`, `warnings`. Add `--explain` to inject an opt-in `_meta` block with field definitions, enum values, warning semantics, and the docs URL; `schema_version` stays `"1"`. `framework_detected` uses canonical ids (`nextjs`, `nestjs`, `nuxt`, `sveltekit`, `astro`, `remix`, `vite`, `plain_node`, `unknown`). When both a Node-server framework (Elysia, Hono, Fastify, Express, Koa, `@trpc/server`) and Vite appear in the same `package.json`, the Node-server framework wins. Workspace projects emit one `members[]` entry per runtime-bearing workspace (each with its own `framework_detected`, `package_manager`, `runtime_targets`, `files_to_edit`, `snippets`, `dockerfile_snippet`, `warnings`); top-level fields mirror the first emitted runtime member, and `runtime_targets` at top level is the union (`[]`, `["node"]`, `["browser"]`, or `["node", "browser"]`) across all members. Single-app projects emit a `members[]` array of length 1 (path `"."`) so consumers can treat it uniformly. Library-only workspaces (no `start`/`preview`/`dev` script and no Node-server dependency) are skipped, as are aggregator roots whose only `dev` / `preview` script delegates to a tool other than vite (e.g., `turbo dev`, `nx run-many`); when no runtime members are found, the payload reports `framework_detected: "unknown"`, `runtime_targets: []`, `members: []`, and a `warnings` entry of `"No runtime workspace members were detected; emitted install commands only."`. A Vite browser app is recognized when `vite` is a dependency AND either a `dev`/`preview` script invokes `vite` (or `vite-preview` / `vite-plus` / `vp`) OR the workspace contains an `index.html` or `src/main.{ts,tsx,js,jsx,mts,mjs}` entry.
@@ -1068,8 +1071,25 @@ Only plain JS/TS/JSX/TSX sources are walked. Declaration files (`*.d.ts`, `*.d.m
 ### Environment
 
 - `FALLOW_COV_BIN` — explicit override for the sidecar binary (for `setup`). Wins over all other discovery paths. Must point to an existing file.
-- `FALLOW_API_KEY` — fallow cloud bearer token (for `upload-inventory`). Overridden by `--api-key`.
+- `FALLOW_API_KEY` — fallow cloud bearer token (for `upload-inventory` and `upload-source-maps`). Overridden by `--api-key` for `upload-inventory`; `upload-source-maps` reads only the env var so secrets stay out of argv.
 - `FALLOW_API_URL` — base URL for cloud calls. Overridden by `--api-endpoint`.
+
+### `coverage upload-source-maps` flags
+
+Coverage CI helper for bundled/minified runtime coverage. It scans a build directory for `.map` files and uploads them to `/v1/coverage/:repo/source-maps` keyed by the commit SHA the beacon reports.
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--dir <PATH>` | path | `dist` | Directory scanned recursively. |
+| `--include <GLOB>` | glob | `**/*.map` | Include glob relative to `--dir`. |
+| `--exclude <GLOB>` | glob | `**/node_modules/**` | Exclude glob, repeatable. |
+| `--repo <NAME>` | string | `package.json` `repository.url`, then `git remote get-url origin` | Repo name used in the source-map API path. |
+| `--git-sha <SHA>` | string | `$GITHUB_SHA` -> `$CI_COMMIT_SHA` -> `$COMMIT_SHA` -> `git rev-parse HEAD` | Commit SHA, 7-40 hex chars. |
+| `--endpoint <URL>` | string | `$FALLOW_API_URL` or `https://api.fallow.cloud` | Override for staging / on-prem. |
+| `--strip-path <BOOL>` | bool | `true` | Upload basename-only `fileName` values. Use `--strip-path=false` when runtime coverage reports paths like `assets/app.js`. |
+| `--dry-run` | bool | `false` | Print what would upload; no API key or network call. |
+| `--concurrency <N>` | integer | `4` | Parallel upload fanout. |
+| `--fail-fast` | bool | `false` | Stop on the first upload failure. |
 
 ### Exit Codes
 
