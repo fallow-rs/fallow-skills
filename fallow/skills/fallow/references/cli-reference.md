@@ -881,13 +881,12 @@ fallow explain fallow/code-duplication --format json --quiet
 ```json
 {
   "id": "fallow/unused-export",
-  "title": "Unused export",
-  "category": "dead-code",
-  "default_severity": "error",
-  "why_it_matters": "Exported code that is not imported by any reachable file increases maintenance cost and can hide obsolete APIs.",
-  "example": "export const legacyHelper = () => 1;",
-  "how_to_fix": ["Remove the export when it is truly unused."],
-  "docs_url": "https://docs.fallow.tools/explanations/dead-code#unused-exports"
+  "name": "Unused Exports",
+  "summary": "Export is never imported",
+  "rationale": "Named exports that are never imported by any other module in the project. Includes both direct exports and re-exports through barrel files. The export may still be used locally within the same file.",
+  "example": "export const formatPrice = ... exists in src/money.ts, but no module imports formatPrice.",
+  "how_to_fix": "Remove the export or make it file-local. If it is public API, import it from an entry point or add an intentional suppression with context.",
+  "docs": "https://docs.fallow.tools/explanations/dead-code#unused-exports"
 }
 ```
 
