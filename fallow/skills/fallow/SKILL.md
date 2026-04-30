@@ -68,10 +68,11 @@ cargo install fallow-cli        # build from source
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
 | `list` | Inspect project structure | `--files`, `--entry-points`, `--plugins`, `--boundaries` |
 | `health` | Function complexity analysis (also covers Angular templates as synthetic `<template>` findings: external `.html` files via `templateUrl` AND inline `@Component({ template: \`...\` })` literals; suppress external with `<!-- fallow-ignore-file complexity -->` at the top of the `.html` file, suppress inline with `// fallow-ignore-next-line complexity` directly above the `@Component` decorator) | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--max-crap`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--ownership`, `--ownership-emails`, `--targets`, `--effort`, `--score`, `--min-score`, `--since`, `--min-commits`, `--save-snapshot`, `--trend`, `--coverage-gaps`, `--coverage`, `--coverage-root`, `--runtime-coverage`, `--min-invocations-hot`, `--min-observation-volume`, `--low-traffic-threshold`, `--workspace`, `--changed-workspaces`, `--baseline`, `--save-baseline` |
-| `audit` | Combined dead-code + complexity + duplication for changed files | `--base`, `--production`, `--production-dead-code`, `--production-health`, `--production-dupes`, `--workspace`, `--changed-workspaces`, `--ci`, `--fail-on-issues`, `--explain`, `--dead-code-baseline`, `--health-baseline`, `--dupes-baseline`, `--max-crap` |
+| `audit` | Combined dead-code + complexity + duplication for changed files | `--base`, `--gate`, `--production`, `--production-dead-code`, `--production-health`, `--production-dupes`, `--workspace`, `--changed-workspaces`, `--ci`, `--fail-on-issues`, `--explain`, `--dead-code-baseline`, `--health-baseline`, `--dupes-baseline`, `--max-crap` |
 | `flags` | Detect feature flag patterns (env vars, SDK calls, config objects) | `--top` |
+| `explain` | Explain one issue type without running analysis | `<issue-type>`, `--format json` |
 | `license` | Manage the local license JWT for continuous/cloud runtime monitoring (activate, status, refresh, deactivate) | `activate --trial --email <addr>`, `activate --from-file`, `activate --stdin`, `status`, `refresh`, `deactivate` |
-| `coverage` | Runtime coverage setup and cloud inventory workflow helper | `setup`, `setup --yes`, `setup --non-interactive` |
+| `coverage` | Runtime coverage setup, focused analysis, and cloud inventory workflow helper | `setup`, `setup --yes`, `setup --non-interactive`, `analyze --runtime-coverage <path>`, `analyze --cloud --repo owner/repo`, `upload-inventory` |
 | `schema` | Dump CLI definition as JSON | |
 | `config` | Show the loaded config path and resolved config (verifies which `.fallowrc.json` is in effect) | `--path` |
 
@@ -111,7 +112,8 @@ When using fallow via MCP (`fallow-mcp`), the following tools are available:
 | `get_blast_radius` | Runtime-context slice for blast-radius review. Same params as `check_runtime_coverage`; until `runtime_coverage.blast_radius` ships, combine `file_scores[].fan_in`, `runtime_coverage.hot_paths`, and `runtime_coverage.findings`. |
 | `get_importance` | Runtime-context slice for production-importance review. Same params as `check_runtime_coverage`; until `runtime_coverage.importance` ships, combine `runtime_coverage.hot_paths`, `file_scores`, `hotspots`, and `targets`. |
 | `get_cleanup_candidates` | Runtime-context slice for cleanup review. Same params as `check_runtime_coverage`; read `runtime_coverage.findings` for `safe_to_delete`, `review_required`, `low_traffic`, and `coverage_unavailable`. |
-| `audit` | Combined dead-code + complexity + duplication for changed files, returns verdict |
+| `audit` | Combined dead-code + complexity + duplication for changed files, returns verdict. Set `gate` to `"new-only"` or `"all"` |
+| `fallow_explain` | Explain one issue type without running analysis. Required `issue_type`; returns rationale, examples, fix guidance, and docs URL |
 | `project_info` | Project metadata. Set `entry_points`, `files`, `plugins`, or `boundaries` to `true` to request specific sections |
 | `list_boundaries` | Architecture boundary zones and access rules. Returns `{"configured": false}` if no boundaries configured |
 | `feature_flags` | Detect feature flag patterns (env vars, SDK calls, config objects). Set `top` to limit results |

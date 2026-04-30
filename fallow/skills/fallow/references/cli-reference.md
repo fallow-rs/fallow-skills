@@ -15,6 +15,7 @@ Complete command and flag specifications for all fallow CLI commands.
 - [`health`: Function Complexity Analysis](#health-function-complexity-analysis)
 - [`audit`: Changed-File Quality Gate](#audit-changed-file-quality-gate)
 - [`flags`: Feature Flag Detection](#flags-feature-flag-detection)
+- [`explain`: Rule Explanation](#explain-rule-explanation)
 - [`schema`: CLI Introspection](#schema-cli-introspection)
 - [`config-schema`: Config JSON Schema](#config-schema-config-json-schema)
 - [`plugin-schema`: Plugin JSON Schema](#plugin-schema-plugin-json-schema)
@@ -246,7 +247,7 @@ Creates a config file in the project root.
 | Flag | Type | Description |
 |------|------|-------------|
 | `--toml` | bool | Create `fallow.toml` instead of `.fallowrc.json` |
-| `--hooks` | bool | Scaffold a pre-commit git hook that runs `fallow dead-code --changed-since` on staged files |
+| `--hooks` | bool | Scaffold a pre-commit git hook that runs `fallow audit --base <ref> --quiet` (gates dead-code + complexity + duplication; defaults to `gate=new-only` so inherited findings on touched files do not block commits) |
 | `--branch` | string | Base branch for the pre-commit hook (default: auto-detected or `main`). Only used with `--hooks` |
 
 ### Examples
@@ -701,13 +702,14 @@ The snapshot `schema_version` is independent of the report `schema_version`. Def
 
 ## `audit`: Changed-File Quality Gate
 
-Audits changed files for dead code, complexity, and duplication. Returns a verdict (pass/warn/fail). Purpose-built for PR quality gates and reviewing AI-generated code. Auto-detects the base branch if `--base` is not set.
+Audits changed files for dead code, complexity, and duplication. Returns a verdict (pass/warn/fail). Purpose-built for PR quality gates and reviewing AI-generated code. Auto-detects the base branch if `--base` is not set. Defaults to `--gate new-only`, which fails only on findings introduced by the current changeset and reports inherited findings as context.
 
 ### Flags
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--base` | string | auto-detect | Git ref to compare against (alias for `--changed-since`) |
+| `--gate` | `new-only\|all` | `new-only` | Which findings affect the verdict. `new-only` gates only introduced findings; `all` gates every finding in changed files and skips the extra base-snapshot attribution pass. |
 | `--production` | bool | false | Exclude test/story/dev files (applies to dead-code, health, and dupes) |
 | `--production-dead-code` | bool | false | Per-analysis production mode for the dead-code sub-analysis only |
 | `--production-health` | bool | false | Per-analysis production mode for the health sub-analysis only |
@@ -735,6 +737,8 @@ Audits changed files for dead code, complexity, and duplication. Returns a verdi
 | fail | 1 | Error-severity issues found |
 | error | 2 | Runtime error (invalid ref, not a git repo) |
 
+With `--gate new-only`, inherited error-severity findings can be present in the JSON output while the verdict remains `pass`; check the `attribution` object and per-finding `introduced` booleans.
+
 ### Examples
 
 ```bash
@@ -746,6 +750,9 @@ fallow audit --format json --quiet --base main
 
 # Audit last 3 commits
 fallow audit --format json --quiet --base HEAD~3
+
+# Strict mode: fail on inherited findings too
+fallow audit --format json --quiet --gate all
 
 # Production code only in a monorepo workspace
 fallow audit --format json --quiet --production --workspace @app/api
@@ -784,10 +791,19 @@ fallow audit \
     "max_cyclomatic": 28,
     "duplication_clone_groups": 0
   },
+  "attribution": {
+    "gate": "new-only",
+    "dead_code_introduced": 2,
+    "dead_code_inherited": 0,
+    "complexity_introduced": 1,
+    "complexity_inherited": 0,
+    "duplication_introduced": 0,
+    "duplication_inherited": 0
+  },
   "dead_code": {
     "schema_version": 3,
     "total_issues": 2,
-    "unused_exports": [...]
+    "unused_exports": [{ "path": "src/api.ts", "export_name": "oldApi", "introduced": true, "actions": [...] }]
   },
   "complexity": {
     "findings": [...]
@@ -798,7 +814,9 @@ fallow audit \
 }
 ```
 
-The `verdict` field is always present and is the primary decision signal. Dead code, complexity, and duplication sections follow their respective schemas from the individual commands. Thresholds for complexity are inherited from `fallow health` config (defaults: cyclomatic 20, cognitive 15).
+The `verdict` field is always present and is the primary decision signal. With the default `new-only` gate, the `attribution` object counts introduced vs inherited findings and audit sub-results annotate individual findings with `introduced: true/false`. With `gate=all`, audit skips that extra base-snapshot attribution pass, so introduced/inherited counts stay `0` and per-finding `introduced` fields are omitted. Dead code, complexity, and duplication sections follow their respective schemas from the individual commands. Thresholds for complexity are inherited from `fallow health` config (defaults: cyclomatic 20, cognitive 15).
+
+Audit creates a temporary git worktree to compare against the base ref and removes it on normal exit. If the process is force-killed, run `git worktree prune` to clean up stale `.git/worktrees/fallow-audit-base-*` entries.
 
 ---
 
@@ -838,6 +856,42 @@ fallow flags --format json --quiet --workspace my-package
   "total_flags": 0
 }
 ```
+
+---
+
+## `explain`: Rule Explanation
+
+Print rule rationale, examples, fix guidance, and docs URL for one issue type without running analysis.
+
+### Usage
+
+```bash
+fallow explain unused-export
+fallow explain fallow/code-duplication --format json --quiet
+```
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `<issue-type>` | Issue type token or rule id, for example `unused-export`, `unused-exports`, `fallow/unused-dependency`, `high-complexity`, or `code-duplication`. |
+
+### JSON Output Structure
+
+```json
+{
+  "id": "fallow/unused-export",
+  "title": "Unused export",
+  "category": "dead-code",
+  "default_severity": "error",
+  "why_it_matters": "Exported code that is not imported by any reachable file increases maintenance cost and can hide obsolete APIs.",
+  "example": "export const legacyHelper = () => 1;",
+  "how_to_fix": ["Remove the export when it is truly unused."],
+  "docs_url": "https://docs.fallow.tools/explanations/dead-code#unused-exports"
+}
+```
+
+MCP equivalent: `fallow_explain` with required `issue_type`.
 
 ---
 
@@ -943,9 +997,10 @@ Unknown codes fall back to the backend's `message` field, or the raw body.
 
 ## `coverage`: Production-Coverage Workflow
 
-Helper subcommand for runtime coverage setup and cloud inventory upload. Two subcommands today:
+Helper subcommand for runtime coverage setup, focused analysis, and cloud inventory upload. Three subcommands today:
 
 - `coverage setup` — resumable state machine that wires sidecar installation, framework-aware coverage recipe writing, optional license activation for continuous monitoring, and automatic handoff into `fallow health --runtime-coverage`.
+- `coverage analyze` — focused runtime coverage analysis. Local mode reads `--runtime-coverage <path>`; cloud mode requires explicit `--cloud`, `--runtime-coverage-cloud`, or `FALLOW_RUNTIME_COVERAGE_SOURCE=cloud` and never triggers from `FALLOW_API_KEY` alone.
 - `coverage upload-inventory` — push a static function inventory to fallow cloud so the dashboard can surface `untracked` functions (those in the codebase but never called at runtime).
 
 ```bash
@@ -954,6 +1009,9 @@ fallow coverage setup --yes                   # accept all prompts
 fallow coverage setup --non-interactive       # print instructions, do not prompt
 fallow coverage setup --yes --json            # agent-readable JSON, no prompts/writes/installs/network
 fallow coverage setup --yes --json --explain  # add _meta field docs, enums, warnings, docs URL
+
+fallow coverage analyze --runtime-coverage ./coverage --format json
+fallow coverage analyze --cloud --repo owner/repo --format json
 
 fallow coverage upload-inventory              # infers project-id, git-sha, API key
 fallow coverage upload-inventory --dry-run    # print what would be uploaded, exit 0
@@ -967,6 +1025,22 @@ fallow coverage upload-inventory --dry-run    # print what would be uploaded, ex
 2. **Sidecar discovery** — resolves `FALLOW_COV_BIN`, `FALLOW_COV_BINARY_PATH`, platform-package binaries in npm/bun/pnpm layouts, project-local `node_modules/.bin/fallow-cov`, package-manager bin, `~/.fallow/bin/fallow-cov`, and `PATH`. When an explicit env path is set but points to a non-existent file, setup errors fast instead of falling through.
 3. **Coverage recipe** — detects framework (Next.js, Nuxt, Astro, SvelteKit, Remix, NestJS, Vite browser apps, plain Node) and package manager (npm, pnpm, yarn, bun), then writes `docs/collect-coverage.md` with the correct commands.
 4. **Handoff** — if `./coverage/coverage-final.json` or a V8 coverage directory already exists, setup runs `fallow health --runtime-coverage <path>` directly.
+
+### `analyze` flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--runtime-coverage <PATH>` | path | none | Local V8 directory, V8 JSON file, or Istanbul coverage map. Mutually exclusive with cloud mode. |
+| `--cloud`, `--runtime-coverage-cloud` | bool | false | Explicitly fetch cloud runtime facts from `/v1/coverage/:repo/runtime-context`. |
+| `--api-key <KEY>` | string | `$FALLOW_API_KEY` | Fallow cloud bearer token, used only after explicit cloud opt-in. |
+| `--api-endpoint <URL>` | string | `$FALLOW_API_URL` or `https://api.fallow.cloud` | Override for staging / on-prem. |
+| `--repo <OWNER/REPO>` | string | `$FALLOW_REPO`, then parsed git origin | Repository whose latest cloud runtime facts should be pulled. Slashes are percent-encoded as one route segment. |
+| `--coverage-period <DAYS>` | integer | 30 | Cloud observation window, 1 through 90 days. |
+| `--project-id <ID>` | string | none | Optional project discriminator for monorepos. |
+| `--environment <NAME>` | string | none | Optional environment filter. |
+| `--commit-sha <SHA>` | string | none | Optional advanced filter for a specific observed commit. |
+
+Cloud analysis emits the same `runtime_coverage` JSON block as local mode. Its summary includes `data_source: "cloud"`, `last_received_at`, and `capture_quality` derived from the pulled runtime window. Cloud functions that cannot be matched to the local AST/static index are omitted from findings and reported through a `cloud_functions_unmatched` warning.
 
 ### `upload-inventory` flags
 
