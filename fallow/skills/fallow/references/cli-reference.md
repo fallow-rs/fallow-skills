@@ -952,6 +952,7 @@ Helper subcommand for the paid runtime-coverage analyzer. Two subcommands today:
 fallow coverage setup                         # interactive
 fallow coverage setup --yes                   # accept all prompts
 fallow coverage setup --non-interactive       # print instructions, do not prompt
+fallow coverage setup --yes --json            # agent-readable JSON, no prompts/writes/installs/network
 
 fallow coverage upload-inventory              # infers project-id, git-sha, API key
 fallow coverage upload-inventory --dry-run    # print what would be uploaded, exit 0
