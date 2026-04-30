@@ -952,10 +952,13 @@ Helper subcommand for the paid runtime-coverage analyzer. Two subcommands today:
 fallow coverage setup                         # interactive
 fallow coverage setup --yes                   # accept all prompts
 fallow coverage setup --non-interactive       # print instructions, do not prompt
+fallow coverage setup --yes --json            # deterministic agent-readable JSON, no prompts/writes/installs/network
 
 fallow coverage upload-inventory              # infers project-id, git-sha, API key
 fallow coverage upload-inventory --dry-run    # print what would be uploaded, exit 0
 ```
+
+`--json` is the agent-driven entry point: implies `--non-interactive`, never writes files, never installs the sidecar, never makes network calls, and produces a stable JSON payload (`schema_version: "1"`, `framework_detected`, `package_manager`, `runtime_targets`, `commands`, `files_to_edit`, `snippets`, `dockerfile_snippet`, `next_steps`, `warnings`). `framework_detected` uses canonical ids (`nextjs`, `nestjs`, `nuxt`, `sveltekit`, `astro`, `remix`, `vite`, `plain_node`, `unknown`); `dockerfile_snippet` is `null` for browser-only frameworks.
 
 ### `setup` flow
 
