@@ -1383,9 +1383,9 @@ With `--score`, the combined output's `health` section includes a `health_score`
 
 ## Configuration File Format
 
-Config files are searched in priority order: `.fallowrc.json` > `fallow.toml` > `.fallow.toml`
+Config files are searched in priority order: `.fallowrc.json` > `.fallowrc.jsonc` > `fallow.toml` > `.fallow.toml`. Both `.fallowrc.json` and `.fallowrc.jsonc` are parsed as JSON-with-comments; the `.jsonc` extension lets editors auto-detect JSONC syntax highlighting.
 
-### JSON Format (`.fallowrc.json`)
+### JSON Format (`.fallowrc.json` / `.fallowrc.jsonc`)
 
 ```jsonc
 {
