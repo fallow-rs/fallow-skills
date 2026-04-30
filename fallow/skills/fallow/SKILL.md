@@ -1,6 +1,6 @@
 ---
 name: fallow
-description: Codebase intelligence for JavaScript and TypeScript. Free static layer finds unused code (files, exports, types, dependencies), code duplication, circular dependencies, complexity hotspots, architecture boundary violations, and feature flag patterns. Optional paid runtime layer (Fallow Runtime) merges production execution data into the same health report for hot-path review, cold-path deletion confidence, and stale-flag evidence. 90 framework plugins, zero configuration, sub-second static analysis. Use when asked to analyze code health, find unused code, detect duplicates, check circular dependencies, audit complexity, check architecture boundaries, detect feature flags, clean up the codebase, auto-fix issues, merge runtime coverage, or run fallow.
+description: Codebase intelligence for JavaScript and TypeScript. Free static layer finds unused code (files, exports, types, dependencies), code duplication, circular dependencies, complexity hotspots, architecture boundary violations, and feature flag patterns. Runtime coverage merges production execution data into the same health report for hot-path review, cold-path deletion confidence, and stale-flag evidence: a single local capture is free, while continuous/cloud runtime monitoring is paid. 90 framework plugins, zero configuration, sub-second static analysis. Use when asked to analyze code health, find unused code, detect duplicates, check circular dependencies, audit complexity, check architecture boundaries, detect feature flags, clean up the codebase, auto-fix issues, merge runtime coverage, or run fallow.
 license: MIT
 metadata:
   author: Bart Waardenburg
@@ -10,7 +10,7 @@ metadata:
 
 # Fallow: codebase intelligence for JavaScript and TypeScript
 
-Codebase intelligence for JavaScript and TypeScript. The free static layer finds unused code, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, and feature flag patterns. The optional paid runtime layer (Fallow Runtime) merges production execution data into the same `fallow health` report for hot-path review, cold-path deletion confidence, and stale-flag evidence. 90 framework plugins, zero configuration, sub-second static analysis.
+Codebase intelligence for JavaScript and TypeScript. The free static layer finds unused code, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, and feature flag patterns. Runtime coverage merges production execution data into the same `fallow health` report for hot-path review, cold-path deletion confidence, and stale-flag evidence: a single local capture is free, while continuous/cloud runtime monitoring is paid. 90 framework plugins, zero configuration, sub-second static analysis.
 
 ## When to Use
 
@@ -70,8 +70,8 @@ cargo install fallow-cli        # build from source
 | `health` | Function complexity analysis (also covers Angular templates as synthetic `<template>` findings: external `.html` files via `templateUrl` AND inline `@Component({ template: \`...\` })` literals; suppress external with `<!-- fallow-ignore-file complexity -->` at the top of the `.html` file, suppress inline with `// fallow-ignore-next-line complexity` directly above the `@Component` decorator) | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--max-crap`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--ownership`, `--ownership-emails`, `--targets`, `--effort`, `--score`, `--min-score`, `--since`, `--min-commits`, `--save-snapshot`, `--trend`, `--coverage-gaps`, `--coverage`, `--coverage-root`, `--runtime-coverage`, `--min-invocations-hot`, `--min-observation-volume`, `--low-traffic-threshold`, `--workspace`, `--changed-workspaces`, `--baseline`, `--save-baseline` |
 | `audit` | Combined dead-code + complexity + duplication for changed files | `--base`, `--production`, `--production-dead-code`, `--production-health`, `--production-dupes`, `--workspace`, `--changed-workspaces`, `--ci`, `--fail-on-issues`, `--explain`, `--dead-code-baseline`, `--health-baseline`, `--dupes-baseline`, `--max-crap` |
 | `flags` | Detect feature flag patterns (env vars, SDK calls, config objects) | `--top` |
-| `license` | Manage the local license JWT for paid features (activate, status, refresh, deactivate) | `activate --trial --email <addr>`, `activate --from-file`, `activate --stdin`, `status`, `refresh`, `deactivate` |
-| `coverage` | Production-coverage workflow helper (paid) | `setup`, `setup --yes`, `setup --non-interactive` |
+| `license` | Manage the local license JWT for continuous/cloud runtime monitoring (activate, status, refresh, deactivate) | `activate --trial --email <addr>`, `activate --from-file`, `activate --stdin`, `status`, `refresh`, `deactivate` |
+| `coverage` | Runtime coverage setup and cloud inventory workflow helper | `setup`, `setup --yes`, `setup --non-interactive` |
 | `schema` | Dump CLI definition as JSON | |
 | `config` | Show the loaded config path and resolved config (verifies which `.fallowrc.json` is in effect) | `--path` |
 
@@ -106,8 +106,8 @@ When using fallow via MCP (`fallow-mcp`), the following tools are available:
 | `fix_preview` | Dry-run auto-fix preview |
 | `fix_apply` | Apply auto-fixes (destructive) |
 | `check_health` | Complexity metrics, health scores, hotspots, and refactoring targets. Set `group_by` to `owner`, `directory`, `package`, or `section` for per-group `vital_signs` / `health_score`; SARIF results gain `properties.group`, CodeClimate issues gain a top-level `group` field |
-| `check_runtime_coverage` | Merge V8 or Istanbul runtime-coverage data into the health report (paid). Required `coverage` param (V8 dir, V8 JSON, or Istanbul `coverage-final.json`). Tuning knobs: `min_invocations_hot` (default 100), `min_observation_volume` (default 5000), `low_traffic_threshold` (default 0.001), `max_crap` (default 30.0), `top`, `group_by`. Long dumps may exceed the 120s MCP timeout; raise `FALLOW_TIMEOUT_SECS`. Pick this over `check_health` when you have a coverage dump. |
-| `get_hot_paths` | Runtime-context slice over the same paid runtime coverage pipeline. Same params as `check_runtime_coverage`; read `runtime_coverage.hot_paths` for production hot paths. |
+| `check_runtime_coverage` | Merge V8 or Istanbul runtime-coverage data into the health report. One local capture is free; continuous/cloud or multi-capture runtime monitoring is paid. Required `coverage` param (V8 dir, V8 JSON, or Istanbul `coverage-final.json`). Tuning knobs: `min_invocations_hot` (default 100), `min_observation_volume` (default 5000), `low_traffic_threshold` (default 0.001), `max_crap` (default 30.0), `top`, `group_by`. Long dumps may exceed the 120s MCP timeout; raise `FALLOW_TIMEOUT_SECS`. Pick this over `check_health` when you have a coverage dump. |
+| `get_hot_paths` | Runtime-context slice over the same runtime coverage pipeline. Same params as `check_runtime_coverage`; read `runtime_coverage.hot_paths` for production hot paths. |
 | `get_blast_radius` | Runtime-context slice for blast-radius review. Same params as `check_runtime_coverage`; until `runtime_coverage.blast_radius` ships, combine `file_scores[].fan_in`, `runtime_coverage.hot_paths`, and `runtime_coverage.findings`. |
 | `get_importance` | Runtime-context slice for production-importance review. Same params as `check_runtime_coverage`; until `runtime_coverage.importance` ships, combine `runtime_coverage.hot_paths`, `file_scores`, `hotspots`, and `targets`. |
 | `get_cleanup_candidates` | Runtime-context slice for cleanup review. Same params as `check_runtime_coverage`; read `runtime_coverage.findings` for `safe_to_delete`, `review_required`, `low_traffic`, and `coverage_unavailable`. |

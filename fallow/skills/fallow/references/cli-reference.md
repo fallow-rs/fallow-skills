@@ -328,7 +328,7 @@ Angular templates contribute synthetic `<template>` complexity findings whenever
 | `--coverage-gaps` | bool | `false` | Show runtime files and exports that no test dependency path reaches. Opt-in (default off). Configure severity via the `coverage-gaps` rule (`error`/`warn`/`off`). |
 | `--coverage` | path | none | Path to Istanbul-format coverage data (`coverage-final.json`) for accurate per-function CRAP scores. Uses `CC^2 * (1-cov/100)^3 + CC` instead of static binary model. |
 | `--coverage-root` | path | none | Rebase file paths in coverage data by stripping this prefix and prepending the project root. For CI/Docker environments where coverage was generated with different absolute paths. |
-| `--runtime-coverage` | path | none | Merge runtime runtime-coverage input into the health report (paid feature). Accepts a V8 coverage directory (`NODE_V8_COVERAGE=...`), a single V8 coverage JSON file, or an Istanbul `coverage-final.json`. Requires an active license; start one with `fallow license activate --trial --email <addr>`. JSON output gains a `runtime_coverage` object with a top-level report verdict, per-finding `verdict` (`safe_to_delete` / `review_required` / `low_traffic` / `coverage_unavailable` / `active`), stable content-hash IDs (`fallow:prod:<hash>`), evidence block, and percentile-ranked hot paths. On protocol-0.3+ sidecars the `summary` also carries an optional `capture_quality` block (`window_seconds`, `instances_observed`, `lazy_parse_warning`, `untracked_ratio_percent`) that flags short-window captures where lazy-parsed scripts may not appear. |
+| `--runtime-coverage` | path | none | Merge runtime-coverage input into the health report. Accepts a V8 coverage directory (`NODE_V8_COVERAGE=...`), a single V8 coverage JSON file, or an Istanbul `coverage-final.json`. One local capture is free and does not require a license; continuous/cloud or multi-capture runtime monitoring requires an active license or trial (`fallow license activate --trial --email <addr>`). JSON output gains a `runtime_coverage` object with a top-level report verdict, per-finding `verdict` (`safe_to_delete` / `review_required` / `low_traffic` / `coverage_unavailable` / `active`), stable content-hash IDs (`fallow:prod:<hash>`), evidence block, and percentile-ranked hot paths. On protocol-0.3+ sidecars the `summary` also carries an optional `capture_quality` block (`window_seconds`, `instances_observed`, `lazy_parse_warning`, `untracked_ratio_percent`) that flags short-window captures where lazy-parsed scripts may not appear. |
 | `--min-invocations-hot` | number | `100` | Invocation threshold for hot-path classification. Takes effect only when `--runtime-coverage` is set. |
 | `--min-observation-volume` | number | `5000` | Minimum total trace volume before the sidecar may emit high-confidence `safe_to_delete` / `review_required` verdicts. Below this, confidence is capped at `medium`. |
 | `--low-traffic-threshold` | number | `0.001` | Fraction of total trace count below which an invoked function is classified `low_traffic` rather than `active`. Expressed as a decimal (0.001 = 0.1%). |
@@ -871,9 +871,9 @@ fallow plugin-schema > plugin-schema.json
 
 ---
 
-## `license`: Manage Paid-Feature License
+## `license`: Manage Continuous Runtime License
 
-Manage the local JWT used to unlock paid features (Phase 2 runtime coverage). Verification is fully offline against an Ed25519 public key compiled into the binary. Only `--trial` and `refresh` hit the network (`api.fallow.cloud`, 5s connect / 10s total timeout).
+Manage the local JWT used to unlock continuous/cloud runtime monitoring. Single-capture local runtime analysis does not require a license. Verification is fully offline against an Ed25519 public key compiled into the binary. Only `--trial` and `refresh` hit the network (`api.fallow.cloud`, 5s connect / 10s total timeout).
 
 ```bash
 fallow license activate --trial --email you@company.com
@@ -915,7 +915,7 @@ fallow license deactivate
 |-----------------|-------|----------|
 | `<= 7` | ExpiredWarning | Analysis runs; CLI prints a refresh hint |
 | `> 7, <= 30` | ExpiredWatermark | Analysis runs; output gains a visible watermark until refreshed |
-| `> 30` | HardFail | Paid features blocked; run `fallow license refresh` or start a new trial |
+| `> 30` | HardFail | Continuous/cloud runtime monitoring is blocked; run `fallow license refresh` or start a new trial |
 
 ### Actionable error messages
 
@@ -943,9 +943,9 @@ Unknown codes fall back to the backend's `message` field, or the raw body.
 
 ## `coverage`: Production-Coverage Workflow
 
-Helper subcommand for the paid runtime-coverage analyzer. Two subcommands today:
+Helper subcommand for runtime coverage setup and cloud inventory upload. Two subcommands today:
 
-- `coverage setup` — resumable state machine that wires license activation, sidecar installation, framework-aware coverage recipe writing, and automatic handoff into `fallow health --runtime-coverage`.
+- `coverage setup` — resumable state machine that wires sidecar installation, framework-aware coverage recipe writing, optional license activation for continuous monitoring, and automatic handoff into `fallow health --runtime-coverage`.
 - `coverage upload-inventory` — push a static function inventory to fallow cloud so the dashboard can surface `untracked` functions (those in the codebase but never called at runtime).
 
 ```bash
