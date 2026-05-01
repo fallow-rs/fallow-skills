@@ -145,7 +145,7 @@ const health = await computeHealth({ root: process.cwd(), score: true, ownership
 
 Six async functions: `detectDeadCode`, `detectCircularDependencies`, `detectBoundaryViolations`, `detectDuplication`, `computeComplexity`, `computeHealth`. Each returns the same JSON envelope the CLI emits for `--format json`. Rejected promises throw a `FallowNodeError` with `message`, `exitCode`, and optional `code`, `help`, `context` fields that mirror the CLI's structured error surface.
 
-Enum-like fields take lowercase CLI-style literals (`"mild"`, `"cyclomatic"`, `"handle"`, `"low"`). Write-path commands (`fix`, `init`, `setup-hooks`, `license activate`, `coverage setup`) are not exposed; use the CLI for those.
+Enum-like fields take lowercase CLI-style literals (`"mild"`, `"cyclomatic"`, `"handle"`, `"low"`). Write-path commands (`fix`, `init`, `hooks install`, `hooks uninstall`, `license activate`, `coverage setup`) are not exposed; use the CLI for those.
 
 See <https://docs.fallow.tools/integrations/node-bindings> for the full field reference.
 
@@ -293,8 +293,8 @@ Auto-detects `knip.json`, `.knip.json`, `.jscpd.json`, and package.json embedded
 ```bash
 fallow init              # creates .fallowrc.json, adds .fallow/ to .gitignore
 fallow init --toml       # creates fallow.toml, adds .fallow/ to .gitignore
-fallow init --hooks      # scaffold a pre-commit git hook
-fallow init --hooks --branch develop  # hook using custom base branch
+fallow hooks install --target git
+fallow hooks install --target git --branch develop  # fallback base branch when no upstream is set
 ```
 
 ## Exit Codes

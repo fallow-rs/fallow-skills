@@ -247,16 +247,16 @@ Creates a config file in the project root.
 | Flag | Type | Description |
 |------|------|-------------|
 | `--toml` | bool | Create `fallow.toml` instead of `.fallowrc.json` |
-| `--hooks` | bool | Scaffold a pre-commit git hook that runs `fallow audit --base <ref> --quiet` (gates dead-code + complexity + duplication; defaults to `gate=new-only` so inherited findings on touched files do not block commits) |
-| `--branch` | string | Base branch for the pre-commit hook (default: auto-detected or `main`). Only used with `--hooks` |
+| `--hooks` | bool | Scaffold a pre-commit git hook that runs `fallow audit --base <ref> --quiet`. Alias for `fallow hooks install --target git` |
+| `--branch` | string | Fallback base branch for the pre-commit hook when no upstream is set (default: `main`). Only used with `--hooks` |
 
 ### Examples
 
 ```bash
 fallow init              # creates .fallowrc.json with $schema
 fallow init --toml       # creates fallow.toml
-fallow init --hooks      # scaffold a pre-commit git hook (auto-detects base branch)
-fallow init --hooks --branch develop  # hook using custom base branch
+fallow hooks install --target git
+fallow hooks install --target git --branch develop  # fallback base branch when no upstream is set
 ```
 
 ---
@@ -417,7 +417,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.57.0",
+  "version": "2.58.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -777,7 +777,7 @@ fallow audit \
 ```json
 {
   "schema_version": 3,
-  "version": "2.57.0",
+  "version": "2.58.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -850,7 +850,7 @@ fallow flags --format json --quiet --workspace my-package
 ```json
 {
   "schema_version": 3,
-  "version": "2.57.0",
+  "version": "2.58.0",
   "elapsed_ms": 116,
   "feature_flags": [],
   "total_flags": 0
@@ -1244,7 +1244,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ```json
 {
   "schema_version": 3,
-  "version": "2.57.0",
+  "version": "2.58.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "entry_points": {
@@ -1389,7 +1389,7 @@ When `--baseline` is used in combined output, the JSON includes a `baseline_delt
 ```json
 {
   "schema_version": 3,
-  "version": "2.57.0",
+  "version": "2.58.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -1433,7 +1433,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.57.0",
+    "version": "2.58.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -1455,7 +1455,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.57.0",
+    "version": "2.58.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -1464,7 +1464,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.57.0",
+    "version": "2.58.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
