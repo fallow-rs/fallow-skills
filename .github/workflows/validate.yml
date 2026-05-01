@@ -44,6 +44,14 @@ jobs:
           done
           echo "All SKILL.md files are valid."
 
+      - name: Validate skills.sh discovery
+        run: |
+          mkdir -p "$RUNNER_TEMP/skills-home" "$RUNNER_TEMP/skills-config" "$RUNNER_TEMP/skills-cache"
+          HOME="$RUNNER_TEMP/skills-home" \
+            XDG_CONFIG_HOME="$RUNNER_TEMP/skills-config" \
+            XDG_CACHE_HOME="$RUNNER_TEMP/skills-cache" \
+            npx -y skills@1.5.3 add . --list
+
       - name: Check for hardcoded paths
         run: |
           echo "Checking for hardcoded paths..."
