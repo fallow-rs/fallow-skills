@@ -17,52 +17,61 @@ Agent skills for [fallow](https://github.com/fallow-rs/fallow), Rust-native code
 
 ## Quick Start
 
+### Agent Skills CLI
+
+```bash
+npx skills add fallow-rs/fallow-skills
+```
+
 ### Claude Code
 
 ```bash
 /install fallow-rs/fallow-skills
 ```
 
-### Cursor
+### Agent-specific CLI shortcuts
 
 ```bash
-git clone https://github.com/fallow-rs/fallow-skills.git ~/.cursor/skills/fallow-skills
-```
-
-### OpenAI Codex
-
-```bash
-git clone https://github.com/fallow-rs/fallow-skills.git ~/.agents/skills/fallow-skills
-```
-
-### Windsurf
-
-```bash
-git clone https://github.com/fallow-rs/fallow-skills.git ~/.codeium/windsurf/skills/fallow-skills
-```
-
-### GitHub Copilot
-
-```bash
-git clone https://github.com/fallow-rs/fallow-skills.git .github/skills/fallow-skills
-```
-
-### Gemini CLI
-
-```bash
+npx skills add fallow-rs/fallow-skills --agent windsurf
+npx skills add fallow-rs/fallow-skills --agent amp
 gemini skills install https://github.com/fallow-rs/fallow-skills.git
 ```
 
-### Amp
+### Manual install
 
 ```bash
-git clone https://github.com/fallow-rs/fallow-skills.git ~/.config/agents/skills/fallow-skills
+tmp=$(mktemp -d)
+git clone https://github.com/fallow-rs/fallow-skills.git "$tmp/fallow-skills"
+```
+
+Copy the `fallow` skill directory into your agent's skills folder:
+
+```bash
+# OpenAI Codex, Amp, and agents using the shared Agent Skills location
+mkdir -p ~/.agents/skills
+cp -R "$tmp/fallow-skills/fallow/skills/fallow" ~/.agents/skills/fallow
+
+# Claude Code
+mkdir -p ~/.claude/skills
+cp -R "$tmp/fallow-skills/fallow/skills/fallow" ~/.claude/skills/fallow
+
+# Cursor
+mkdir -p ~/.cursor/skills
+cp -R "$tmp/fallow-skills/fallow/skills/fallow" ~/.cursor/skills/fallow
+
+# Windsurf
+mkdir -p ~/.codeium/windsurf/skills
+cp -R "$tmp/fallow-skills/fallow/skills/fallow" ~/.codeium/windsurf/skills/fallow
+
+# GitHub Copilot
+mkdir -p .github/skills
+cp -R "$tmp/fallow-skills/fallow/skills/fallow" .github/skills/fallow
 ```
 
 <details>
 <summary>Other agents</summary>
 
-Clone or copy the skill directory into your agent's skills location. This skill follows the open [Agent Skills](https://agentskills.io) specification and works with any compatible agent.
+Use `npx skills add fallow-rs/fallow-skills --all` for installer-managed discovery, or copy `fallow/skills/fallow` into your agent's skills location as `fallow`. This skill follows the open [Agent Skills](https://agentskills.io) specification and works with any compatible agent.
 
 </details>
 

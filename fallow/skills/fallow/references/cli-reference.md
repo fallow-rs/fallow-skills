@@ -1185,7 +1185,7 @@ Available on all commands:
 | `FALLOW_QUIET` | Set to `1` to suppress progress. CLI `--quiet` overrides. |
 | `FALLOW_BIN` | Path to fallow binary (used by the MCP server). |
 | `FALLOW_TIMEOUT_SECS` | MCP server subprocess timeout in seconds (default: `120`). Increase for very large codebases. |
-| `FALLOW_EXTENDS_TIMEOUT_SECS` | Timeout for fetching remote `extends` URLs in seconds (default: `5`). |
+| `FALLOW_EXTENDS_TIMEOUT_SECS` | Timeout for fetching remote config inheritance in seconds (default: `5`). Do not raise this for untrusted sources. |
 | `FALLOW_COMMAND` | GitLab CI: command to run (default: `dead-code`). |
 | `FALLOW_FAIL_ON_ISSUES` | GitLab CI: set to `true` to exit 1 if issues found. |
 | `FALLOW_CHANGED_SINCE` | GitLab CI: git ref for incremental analysis. Auto-detected in MR pipelines. |
@@ -1566,8 +1566,8 @@ Config files are searched in priority order: `.fallowrc.json` > `.fallowrc.jsonc
   // These files are treated as always-used and never flagged as unused.
   "dynamicallyLoaded": ["plugins/**/*.ts", "locales/**/*.json"],
 
-  // Inherit from base config (relative paths, npm: packages, or https:// URLs)
-  "extends": ["./base-config.json", "npm:@my-org/fallow-config", "https://example.com/shared-config.json"],
+  // Inherit from base config (prefer local paths or trusted npm packages)
+  "extends": ["./base-config.json", "npm:@my-org/fallow-config"],
 
   // Custom external plugins
   "plugins": ["tools/plugins/"],
