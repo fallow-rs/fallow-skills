@@ -429,6 +429,26 @@ Fallow marks `static/style.css` and `static/app.js` as reachable. Root-relative 
 
 ---
 
+## GraphQL `#import` Documents Are Tracked
+
+GraphQL `.graphql` and `.gql` files can keep nearby fragment documents reachable with relative `#import` comments. Fallow tracks `./` and `../` specifiers, including extensionless imports that resolve through `.graphql` and `.gql`; package-style specifiers are ignored.
+
+```graphql
+# src/query.graphql
+
+#import "./fragments/user-fields"
+
+query CurrentUser {
+  currentUser {
+    ...UserFields
+  }
+}
+```
+
+Fallow marks `src/fragments/user-fields.graphql` or `src/fragments/user-fields.gql` as reachable when either file exists. A typo in the relative path is reported as an unresolved import instead of silently dropping the edge.
+
+---
+
 ## Library Packages: Use `publicPackages` Instead of Visibility Tags
 
 In monorepos, shared library packages have exports consumed by external consumers not visible to fallow. Instead of annotating every export with `/** @public */` (or `@internal`, `@beta`, `@alpha`), use the `publicPackages` config to mark entire workspace packages as public libraries. All exports from these packages are excluded from unused export detection.
