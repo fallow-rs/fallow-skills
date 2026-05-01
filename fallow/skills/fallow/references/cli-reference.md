@@ -130,6 +130,8 @@ fallow dead-code --format json --quiet --include-entry-exports
 
 Finds code duplication and clones across the project.
 
+By default, `fallow dupes` skips generated framework output matching `**/.next/**`, `**/.nuxt/**`, `**/.svelte-kit/**`, `**/.turbo/**`, `**/.parcel-cache/**`, `**/.vite/**`, `**/.cache/**`, `**/out/**`, and `**/storybook-static/**`. These defaults merge with `duplicates.ignore`. Set `duplicates.ignoreDefaults = false` to opt out and use only your configured ignore list. If the reported duplication percentage drops after upgrading, this generated-output filtering is the expected reason.
+
 ### Flags
 
 | Flag | Type | Default | Description |
@@ -144,6 +146,7 @@ Finds code duplication and clones across the project.
 | `--skip-local` | bool | `false` | Only report cross-directory duplicates |
 | `--cross-language` | bool | `false` | Strip type annotations for TS↔JS matching |
 | `--ignore-imports` | bool | `false` | Exclude import declarations from clone detection |
+| `--explain-skipped` | bool | `false` | Human/markdown only: show per-pattern counts for files skipped by default duplicates ignores |
 | `--trace` | `FILE:LINE` | — | Trace all clones at a specific location |
 | `--changed-since` | string | — | Only report duplication in files changed since a git ref |
 | `--baseline` | path | — | Compare against baseline |
@@ -1541,6 +1544,7 @@ Config files are searched in priority order: `.fallowrc.json` > `.fallowrc.jsonc
     "minTokens": 50,
     "minLines": 5,
     "threshold": 0,
+    "ignoreDefaults": true,
     "skipLocal": false,
     "ignorePatterns": ["**/*.generated.ts"]
   },
@@ -1599,6 +1603,7 @@ unused-types = "off"
 mode = "mild"
 minTokens = 50
 minLines = 5
+ignoreDefaults = true
 
 [[overrides]]
 files = ["*.test.ts"]
