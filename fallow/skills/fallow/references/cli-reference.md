@@ -1044,7 +1044,9 @@ fallow coverage upload-source-maps --dry-run            # print maps and fileNam
 | `--project-id <ID>` | string | none | Optional project discriminator for monorepos. |
 | `--environment <NAME>` | string | none | Optional environment filter. |
 | `--commit-sha <SHA>` | string | none | Optional advanced filter for a specific observed commit. |
-| `--top <N>` | integer | unset | Show only the top N runtime findings and hot paths. Truncation happens before rendering, so it propagates to JSON, human, and cloud-merge output equally. |
+| `--top <N>` | integer | unset | Show only the top N runtime findings, hot paths, blast-radius entries, and importance entries. Truncation happens before rendering, so it propagates to JSON, human, and cloud-merge output equally. |
+| `--blast-radius` | bool | false | Show the first-class blast-radius section in human output. JSON always includes `runtime_coverage.blast_radius` whenever runtime coverage analysis runs. |
+| `--importance` | bool | false | Show the first-class importance section in human output. JSON always includes `runtime_coverage.importance` whenever runtime coverage analysis runs. |
 | `--production` | bool | false | Run analyze in production mode, matching `fallow health --production`. Filters out test files and dev-only code paths before merging runtime data. |
 | `--min-invocations-hot <N>` | integer | 100 | Hot-path classification threshold. Functions invoked at least N times during the captured window are classified as hot. Mirrors the same flag on `fallow health --runtime-coverage`. |
 | `--min-observation-volume <N>` | integer | 5000 | Minimum total trace volume before the sidecar emits high-confidence `safe_to_delete` / `review_required` verdicts. Below this, confidence is capped at `medium`. |
