@@ -574,17 +574,23 @@ All `health` JSON output includes a `vital_signs` object with project-wide metri
     "dead_file_pct": 3.2,
     "dead_export_pct": 8.1,
     "avg_cyclomatic": 4.5,
+    "critical_complexity_pct": 1.2,
     "p90_cyclomatic": 12,
     "maintainability_avg": 88.5,
+    "maintainability_low_pct": 4.1,
     "hotspot_count": 7,
+    "hotspot_top_pct_count": 3,
     "circular_dep_count": 2,
+    "circular_deps_per_k_files": 4.1,
     "unused_dep_count": 3,
+    "unused_deps_per_k_files": 6.2,
     "unit_size_profile": {
       "low_risk": 82.1,
       "medium_risk": 11.4,
       "high_risk": 4.3,
       "very_high_risk": 2.2
     },
+    "functions_over_60_loc_per_k": 22.0,
     "unit_interfacing_profile": {
       "low_risk": 95.6,
       "medium_risk": 3.8,
@@ -597,13 +603,14 @@ All `health` JSON output includes a `vital_signs` object with project-wide metri
 }
 ```
 
-Fields are `null` when the corresponding data source is not available (e.g., `hotspot_count` is null without `--hotspots` or when git is not available). The `unit_size_profile` and `unit_interfacing_profile` are risk distribution histograms (low risk / medium risk / high risk / very high risk as percentages). `p95_fan_in` is the 95th percentile of incoming dependencies. `coupling_high_pct` is the percentage of files above the effective coupling threshold.
+Fields are `null` when the corresponding data source is not available (e.g., `hotspot_count` is null without `--hotspots` or when git is not available). Health score formula v2 also uses scale-invariant density/tail fields: `critical_complexity_pct`, `hotspot_top_pct_count`, `maintainability_low_pct`, `unused_deps_per_k_files`, `circular_deps_per_k_files`, and `functions_over_60_loc_per_k`. The `unit_size_profile` and `unit_interfacing_profile` are risk distribution histograms (low risk / medium risk / high risk / very high risk as percentages). `p95_fan_in` is the 95th percentile of incoming dependencies. `coupling_high_pct` is the percentage of files above the effective coupling threshold.
 
 With `--score`, the JSON output includes a `health_score` object:
 
 ```json
 {
   "health_score": {
+    "formula_version": 2,
     "score": 76.9,
     "grade": "B",
     "penalties": {
@@ -622,7 +629,7 @@ With `--score`, the JSON output includes a `health_score` object:
 }
 ```
 
-Score is reproducible: `100 - sum(penalties) == score`. Penalty fields are absent when the pipeline didn't run. `--score` automatically runs duplication analysis; add `--hotspots` (or combine `--score --targets`) when the score should include the churn-backed hotspot penalty. Grades: A (>= 85), B (70-84), C (55-69), D (40-54), F (< 40).
+Score is reproducible: `100 - sum(penalties) == score`. `formula_version` identifies the scoring formula; version 2 uses scale-invariant density and tail metrics for monorepo-safe scoring. Penalty fields are absent when the pipeline didn't run. `--score` automatically runs duplication analysis; add `--hotspots` (or combine `--score --targets`) when the score should include the churn-backed hotspot penalty. Grades: A (>= 85), B (70-84), C (55-69), D (40-54), F (< 40).
 
 ### Health Trend
 
@@ -665,7 +672,7 @@ With `--trend`, the JSON output includes a `health_trend` object comparing curre
 }
 ```
 
-Metrics tracked: `score`, `dead_file_pct`, `dead_export_pct`, `avg_cyclomatic`, `maintainability_avg`, `unused_dep_count`, `circular_dep_count`, `hotspot_count`, `unit_size_very_high_pct`, `p95_fan_in`, `duplication_pct`. Each metric includes `direction` (`improving`, `declining`, `stable`). Percentage metrics include `previous_count`/`current_count` with raw numerator/denominator. `--trend` requires at least one saved snapshot in `.fallow/snapshots/`. When comparing against a snapshot from an older schema version (current: v5), the trend output warns that score deltas may reflect formula changes.
+Metrics tracked: `score`, `dead_file_pct`, `dead_export_pct`, `avg_cyclomatic`, `maintainability_avg`, `unused_dep_count`, `circular_dep_count`, `hotspot_count`, `unit_size_very_high_pct`, `p95_fan_in`, `duplication_pct`. Each metric includes `direction` (`improving`, `declining`, `stable`). Percentage metrics include `previous_count`/`current_count` with raw numerator/denominator. `--trend` requires at least one saved snapshot in `.fallow/snapshots/`. When comparing against a snapshot from an older schema version (current: v8), the trend output warns that score deltas may reflect formula changes.
 
 ### Vital Signs Snapshots
 
@@ -673,17 +680,23 @@ Metrics tracked: `score`, `dead_file_pct`, `dead_export_pct`, `avg_cyclomatic`, 
 
 ```json
 {
-  "schema_version": 5,
+  "snapshot_schema_version": 8,
   "timestamp": "2025-12-01T10:30:00Z",
   "vital_signs": {
     "dead_file_pct": 3.2,
     "dead_export_pct": 8.1,
     "avg_cyclomatic": 4.5,
+    "critical_complexity_pct": 1.2,
     "p90_cyclomatic": 12,
     "maintainability_avg": 88.5,
+    "maintainability_low_pct": 4.1,
     "hotspot_count": 7,
+    "hotspot_top_pct_count": 3,
     "circular_dep_count": 2,
-    "unused_dep_count": 3
+    "circular_deps_per_k_files": 4.1,
+    "unused_dep_count": 3,
+    "unused_deps_per_k_files": 6.2,
+    "functions_over_60_loc_per_k": 22.0
   },
   "counts": {
     "total_files": 482,
@@ -699,7 +712,7 @@ Metrics tracked: `score`, `dead_file_pct`, `dead_export_pct`, `avg_cyclomatic`, 
 }
 ```
 
-The snapshot `schema_version` is independent of the report `schema_version`. Default path: `.fallow/snapshots/<timestamp>.json`. The `--save-snapshot` flag forces file-scores and hotspot computation to populate all vital signs fields.
+The snapshot `snapshot_schema_version` is independent of the report `schema_version`. Default path: `.fallow/snapshots/<timestamp>.json`. The `--save-snapshot` flag forces file-scores and hotspot computation to populate all vital signs fields.
 
 ---
 
