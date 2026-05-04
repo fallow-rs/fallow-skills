@@ -1574,7 +1574,7 @@ Config files are searched in priority order: `.fallowrc.json` > `.fallowrc.jsonc
   "production": false,
 
   // Workspace packages that are public libraries.
-  // Exports from these packages are not flagged as unused.
+  // Exported API surface from these packages is not flagged as unused.
   "publicPackages": ["@myorg/shared-lib", "@myorg/utils"],
 
   // Glob patterns for files that are dynamically loaded at runtime.

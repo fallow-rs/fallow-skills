@@ -451,7 +451,7 @@ Fallow marks `src/fragments/user-fields.graphql` or `src/fragments/user-fields.g
 
 ## Library Packages: Use `publicPackages` Instead of Visibility Tags
 
-In monorepos, shared library packages have exports consumed by external consumers not visible to fallow. Instead of annotating every export with `/** @public */` (or `@internal`, `@beta`, `@alpha`), use the `publicPackages` config to mark entire workspace packages as public libraries. All exports from these packages are excluded from unused export detection.
+In monorepos, shared library packages have exported APIs consumed by external consumers not visible to fallow. Instead of annotating every export with `/** @public */` (or `@internal`, `@beta`, `@alpha`), use the `publicPackages` config to mark entire workspace packages as public libraries. Exports and exported enum/class members from these packages are excluded from unused API detection.
 
 ```jsonc
 {
