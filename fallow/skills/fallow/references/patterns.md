@@ -596,7 +596,7 @@ Focus on findings that are BOTH dead code and duplicated:
 
 ## Custom Plugin Setup
 
-For frameworks not covered by the 90 built-in plugins.
+For frameworks not covered by the 93 built-in plugins.
 
 ### Option 1: Inline framework config
 
