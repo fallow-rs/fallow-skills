@@ -739,6 +739,8 @@ Audits changed files for dead code, complexity, and duplication. Returns a verdi
 | `--health-baseline` | path | — | Baseline file (produced by `fallow health --save-baseline`). Pre-existing complexity findings are excluded from the verdict. |
 | `--dupes-baseline` | path | — | Baseline file (produced by `fallow dupes --save-baseline`). Pre-existing clone groups are excluded from the verdict. |
 | `--max-crap` | number | `30.0` | Forwarded to the health sub-analysis. Functions meeting or exceeding this CRAP score cause audit to fail. Same formula as `health --max-crap`. Pair with coverage data for accurate per-function CRAP. |
+| `--coverage` | path | none | Path to Istanbul-format coverage data (`coverage-final.json`) for accurate per-function CRAP scores in the health sub-analysis. Same format and semantics as `health --coverage`. Also configurable via `FALLOW_COVERAGE`. |
+| `--coverage-root` | path | none | Rebase file paths in coverage data by stripping this prefix and prepending the project root. Use when coverage was generated under a different checkout root in CI / Docker (e.g., `/home/runner/work/myapp` on GitHub Actions). |
 | `--fail-on-regression` | bool | false | Fail if issues increased beyond tolerance vs regression baseline |
 | `--tolerance` | string | `0` | Allowed increase before regression fails (`N` or `N%`) |
 | `--regression-baseline` | path | `.fallow/regression-baseline.json` | Path to the regression baseline file |
