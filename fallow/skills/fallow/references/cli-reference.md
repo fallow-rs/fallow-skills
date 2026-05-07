@@ -757,6 +757,17 @@ Audits changed files for dead code, complexity, and duplication. Returns a verdi
 
 With `--gate new-only`, inherited error-severity findings can be present in the JSON output while the verdict remains `pass`; check the `attribution` object and per-finding `introduced` booleans.
 
+### JSON contract: which fields are severity-aware
+
+| Field | Severity-aware? | What it counts |
+|-------|-----------------|----------------|
+| `verdict` | **yes** | Overall outcome honoring per-rule severity (`pass` / `warn` / `fail`) |
+| `attribution.*_introduced` | no | Findings introduced by the changeset under `gate: new-only`, ignoring severity |
+| `summary.*` | no | All findings in changed files, ignoring severity |
+| Per-finding `introduced` | no | Whether each finding was introduced by the changeset |
+
+For CI gating and any "did this PR pass?" question, read `verdict` (or exit code). Counting introduced findings ignores severity and breaks projects with `unused-exports: warn`. For agent triage, read `verdict` first, then `attribution` for new-vs-inherited counts, then the per-category finding arrays for actionable details.
+
 ### Examples
 
 ```bash
