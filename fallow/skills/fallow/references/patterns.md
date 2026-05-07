@@ -129,6 +129,31 @@ Parse the JSON to list specific files and exports that became unused.
 
 Computes a health score (0-100 with letter grade) in combined mode and enables the health delta header in PR comments.
 
+### GitHub Actions: Severity-Aware PR Quality Gate (Audit)
+
+```yaml
+- uses: fallow-rs/fallow@v2
+  with:
+    command: audit
+    gate: new-only        # default; fails only on findings introduced by this PR
+    fail-on-issues: true
+```
+
+Runs `fallow audit` to combine dead-code + complexity + duplication scoped to changed files. The gate respects rule severity from `.fallowrc.json`, so `unused-exports: warn` projects do not fail when a PR touches a file with pre-existing warn-tier findings. Use `gate: all` to fail on every finding in changed files.
+
+The action exposes `outputs.verdict` (`pass`/`warn`/`fail`) and `outputs.gate` for downstream conditionals; `outputs.issues` holds the introduced count under `gate: new-only` and the total count under `gate: all`.
+
+```yaml
+- uses: fallow-rs/fallow@v2
+  id: fallow
+  with:
+    command: audit
+
+- name: Block release on regression
+  if: steps.fallow.outputs.verdict == 'fail'
+  run: exit 1
+```
+
 ### GitHub Actions: Inline PR Annotations (No Advanced Security)
 
 The official action supports inline PR annotations via GitHub workflow commands. This does not require Advanced Security (unlike SARIF upload) and works on any GitHub plan.
