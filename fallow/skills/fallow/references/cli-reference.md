@@ -272,9 +272,12 @@ Migrates configuration from knip and/or jscpd to fallow. Auto-detects config fil
 
 | Flag | Type | Description |
 |------|------|-------------|
-| `--toml` | bool | Output as TOML instead of JSON |
+| `--toml` | bool | Output as `fallow.toml` (mutually exclusive with `--jsonc`) |
+| `--jsonc` | bool | Write to `.fallowrc.jsonc` instead of `.fallowrc.json`. Same JSONC content either way; the `.jsonc` extension lets editors auto-detect JSON-with-comments syntax highlighting |
 | `--dry-run` | bool | Preview without writing |
 | `--from` | path | Specify source config file path |
+
+Without `--jsonc` or `--toml`, fallow auto-mirrors the source extension: a `knip.jsonc` migration writes `.fallowrc.jsonc`, a `knip.json` migration writes `.fallowrc.json`.
 
 ### Detected Source Configs
 
@@ -286,10 +289,11 @@ Migrates configuration from knip and/or jscpd to fallow. Auto-detects config fil
 ### Examples
 
 ```bash
-fallow migrate --dry-run    # preview
-fallow migrate              # auto-detect and write .fallowrc.json
-fallow migrate --toml       # output as TOML
-fallow migrate --from knip.json
+fallow migrate --dry-run        # preview
+fallow migrate                  # auto-detect; mirrors source extension
+fallow migrate --jsonc          # force .fallowrc.jsonc output
+fallow migrate --toml           # output as fallow.toml
+fallow migrate --from knip.jsonc
 ```
 
 ---

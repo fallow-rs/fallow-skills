@@ -281,14 +281,17 @@ fallow dead-code --format json --quiet --trace-dependency lodash
 # Preview migration
 fallow migrate --dry-run
 
-# Apply migration (creates .fallowrc.json)
+# Apply migration (auto-mirrors source extension: knip.jsonc -> .fallowrc.jsonc, knip.json -> .fallowrc.json)
 fallow migrate
+
+# Force JSONC output regardless of source (lets editors syntax-highlight comments)
+fallow migrate --jsonc
 
 # Migrate to TOML (creates fallow.toml)
 fallow migrate --toml
 ```
 
-Auto-detects `knip.json`, `.knip.json`, `.jscpd.json`, and package.json embedded configs.
+Auto-detects `knip.json`, `knip.jsonc`, `.knip.json`, `.knip.jsonc`, `.jscpd.json`, and package.json embedded configs.
 
 ### Initialize a new config
 
