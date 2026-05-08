@@ -37,7 +37,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate\|gitlab-codequality` | `human` | Output format |
+| `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate\|gitlab-codequality\|pr-comment-github\|pr-comment-gitlab\|review-github\|review-gitlab` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars and timing on stderr |
 | `--changed-since` | string | — | Only analyze files changed since a git ref (e.g., `main`, `HEAD~3`) |
 | `--production` | bool | `false` | Exclude test/dev files, only start/build scripts (applies to every analysis) |
@@ -136,7 +136,7 @@ By default, `fallow dupes` skips generated framework output matching `**/.next/*
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate\|gitlab-codequality` | `human` | Output format |
+| `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate\|gitlab-codequality\|pr-comment-github\|pr-comment-gitlab\|review-github\|review-gitlab` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars |
 | `--top` | number | — | Show only the N largest clone groups (sorted by line count descending). Summary stats reflect the full project. |
 | `--mode` | `strict\|mild\|weak\|semantic` | `mild` | Detection mode |
@@ -304,7 +304,7 @@ Angular templates contribute synthetic `<template>` complexity findings whenever
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate\|gitlab-codequality\|badge` | `human` | Output format |
+| `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate\|gitlab-codequality\|pr-comment-github\|pr-comment-gitlab\|review-github\|review-gitlab\|badge` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars |
 | `--max-cyclomatic` | number | `20` | Fail if any function exceeds this cyclomatic complexity |
 | `--max-cognitive` | number | `15` | Fail if any function exceeds this cognitive complexity |
@@ -857,7 +857,7 @@ Detects feature flag patterns in the codebase. Identifies environment variable f
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate\|gitlab-codequality` | `human` | Output format |
+| `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate\|gitlab-codequality\|pr-comment-github\|pr-comment-gitlab\|review-github\|review-gitlab` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars |
 | `--top` | number | — | Show only the top N flags |
 
@@ -1239,6 +1239,29 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 | `compact` | Grep-friendly: `type:path:line:name` per line | Quick filtering |
 | `markdown` | Markdown tables | Documentation, PR comments |
 | `codeclimate` / `gitlab-codequality` | CodeClimate JSON array | GitLab Code Quality, CodeClimate-compatible tools |
+| `pr-comment-github` / `pr-comment-gitlab` | Sticky PR/MR comment markdown with HTML-comment marker for upsert | Posted by the action / template `comment.sh` scripts |
+| `review-github` / `review-gitlab` | JSON envelope for `POST /pulls/.../reviews` (GH) or `POST /merge_requests/.../discussions` (GL) | Posted by the action / template `review.sh` scripts; reconciled by `fallow ci reconcile-review` |
+
+---
+
+## `ci`: Provider-Aware Review Automation
+
+`fallow ci reconcile-review` reads a typed review envelope (`--format review-github` / `review-gitlab`), looks up existing fingerprints on the PR/MR, and resolves stale review threads when their finding is no longer present in the new envelope. Posts an idempotent "Resolved in `<sha>`" follow-up comment per stale finding (skipped if a marker for the same fingerprint at the current SHA already exists).
+
+### Flags
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `--provider` | `github\|gitlab` | Required. Selects the provider API. |
+| `--pr` | `<number>` | GitHub PR number. Required when `--provider github`. |
+| `--mr` | `<iid>` | GitLab MR internal id. Required when `--provider gitlab`. |
+| `--repo` | `owner/name` | GitHub repo. Defaults to `$GH_REPO` / `$GITHUB_REPOSITORY`. |
+| `--project-id` | `<id>` | GitLab project id (numeric or `group/project`). Defaults to `$CI_PROJECT_ID`. |
+| `--api-url` | `<url>` | Override the API base URL (GitHub Enterprise, self-hosted GitLab). |
+| `--envelope` | `<path>` | Path to the review envelope JSON written by `--format review-{github,gitlab}`. |
+| `--dry-run` | `bool` | Compute the new/stale plan without posting / resolving. |
+
+The HTTP layer mirrors the bash `gh_api_retry` / `curl_retry` helpers: `FALLOW_API_RETRIES` (default 3) caps attempts; `FALLOW_API_RETRY_DELAY` (default 2) sets the floor delay; server-supplied `Retry-After` overrides the floor on 429 responses.
 
 ---
 

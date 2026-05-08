@@ -75,6 +75,7 @@ cargo install fallow-cli        # build from source
 | `license` | Manage the local license JWT for continuous/cloud runtime monitoring (activate, status, refresh, deactivate) | `activate --trial --email <addr>`, `activate --from-file`, `activate --stdin`, `status`, `refresh`, `deactivate` |
 | `coverage` | Runtime coverage setup, focused analysis, and cloud inventory workflow helper | `setup`, `setup --yes`, `setup --non-interactive`, `analyze --runtime-coverage <path>`, `analyze --cloud --repo owner/repo`, `upload-inventory` |
 | `coverage upload-source-maps` | Upload build source maps from CI so bundled runtime coverage resolves to original source paths | `--dir dist`, `--git-sha <sha>`, `--repo <name>`, `--strip-path=false`, `--dry-run` |
+| `ci reconcile-review` | Resolve stale review threads on a PR/MR by joining a typed review envelope (`--format review-github` / `review-gitlab`) against the provider's existing comments + threads. Posts an idempotent "Resolved in `<sha>`" follow-up per stale fingerprint, marker keyed on (fingerprint, short-sha) so re-runs on the same commit don't duplicate. | `--provider`, `--pr` (GH) / `--mr` (GL), `--repo` / `--project-id`, `--api-url`, `--envelope`, `--dry-run` |
 | `schema` | Dump CLI definition as JSON | |
 | `config` | Show the loaded config path and resolved config (verifies which `.fallowrc.json` is in effect) | `--path` |
 
