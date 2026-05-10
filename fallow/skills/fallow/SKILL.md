@@ -115,7 +115,7 @@ When using fallow via MCP (`fallow-mcp`), the following tools are available:
 | `get_blast_radius` | Runtime-context slice for blast-radius review. Same params as `check_runtime_coverage`; read `runtime_coverage.blast_radius` for stable `fallow:blast:<hash>` IDs, caller counts, traffic-weighted caller reach, optional cloud deploy touch counts, and low/medium/high risk bands. |
 | `get_importance` | Runtime-context slice for production-importance review. Same params as `check_runtime_coverage`; read `runtime_coverage.importance` for stable `fallow:importance:<hash>` IDs, invocations, cyclomatic complexity, owner count, 0-100 score, and templated reason. |
 | `get_cleanup_candidates` | Runtime-context slice for cleanup review. Same params as `check_runtime_coverage`; read `runtime_coverage.findings` for `safe_to_delete`, `review_required`, `low_traffic`, and `coverage_unavailable`. |
-| `audit` | Combined dead-code + complexity + duplication for changed files, returns verdict. Set `gate` to `"new-only"` or `"all"` |
+| `audit` | Combined dead-code + complexity + duplication for changed files, returns verdict. Set `gate` to `"new-only"` or `"all"`. Optional `runtime_coverage` (V8 dir / V8 JSON / Istanbul JSON) folds runtime findings into the same call; `min_invocations_hot` tunes the hot-path threshold |
 | `fallow_explain` | Explain one issue type without running analysis. Required `issue_type`; returns rationale, examples, fix guidance, and docs URL |
 | `project_info` | Project metadata. Set `entry_points`, `files`, `plugins`, or `boundaries` to `true` to request specific sections |
 | `list_boundaries` | Architecture boundary zones and access rules. Returns `{"configured": false}` if no boundaries configured |
