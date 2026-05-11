@@ -1359,7 +1359,8 @@ Every issue in `dead-code` JSON output includes an `actions` array with structur
 | `comment` | string | no | Suppression comment text (on `suppress-line` actions) |
 | `note` | string | no | Additional context on non-auto-fixable items |
 | `config_key` | string | no | Config field to update (on `add-to-config` actions) |
-| `value` | string | no | Value to add to the config field (on `add-to-config` actions) |
+| `value` | string \| array | no | Value to add to the config field (on `add-to-config` actions). Scalar for `ignoreDependencies`-style keys (e.g. `"lodash"`); array of `{ file, exports }` rule objects for `ignoreExports`. |
+| `value_schema` | string | no | URL pointing at the JSON Schema fragment that describes `value` (on `add-to-config` actions). Agents that want to validate `value` before writing it into a user's config can fetch and apply the linked schema. |
 
 Example:
 
@@ -1401,7 +1402,8 @@ Dependency issues use `add-to-config` with `config_key` and `value`:
       "auto_fixable": false,
       "description": "Add to ignoreDependencies in fallow config",
       "config_key": "ignoreDependencies",
-      "value": "autoprefixer"
+      "value": "autoprefixer",
+      "value_schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json#/properties/ignoreDependencies/items"
     }
   ]
 }
