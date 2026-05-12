@@ -192,7 +192,7 @@ fallow dupes --format json --quiet --baseline fallow-baselines/dupes.json --thre
 
 ## `fix`: Auto-Remove Unused Code
 
-Auto-removes unused exports and dependencies.
+Auto-removes unused exports, dependencies, enum members, and pnpm catalog entries.
 
 ### Flags
 
@@ -203,6 +203,13 @@ Auto-removes unused exports and dependencies.
 | `--force` | bool | `false` | Alias for `--yes` |
 | `--format` | `human\|json` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars |
+
+### What gets fixed
+
+- Unused exports (removes the `export` keyword; whole-enum block when every member is unused)
+- Unused dependencies (removed from `package.json`)
+- Unused enum members (removed from the declaration)
+- Unused pnpm catalog entries (removed from `pnpm-workspace.yaml` by line-aware deletion; comments preserved). Entries with non-empty `hardcoded_consumers` are skipped to avoid breaking `pnpm install`; the skip is surfaced in the JSON fix output as `{"type": "remove_catalog_entry", "applied": false, "skipped": true, "skip_reason": "hardcoded_consumers", "consumers": [...]}`. After a successful catalog edit the CLI emits a one-line `Run pnpm install to refresh pnpm-lock.yaml` reminder. The JSON envelope carries a top-level `"skipped"` count alongside `"total_fixed"` for partial-fix gating.
 
 ### Examples
 
