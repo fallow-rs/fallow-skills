@@ -100,6 +100,8 @@ cargo install fallow-cli        # build from source
 | Test-only dependencies | n/a | Production deps only imported from test files (should be devDependencies) |
 | Unused pnpm catalog entries | `--unused-catalog-entries` | `pnpm-workspace.yaml` entries no workspace package.json references via `catalog:` (default `warn`) |
 | Unresolved pnpm catalog references | `--unresolved-catalog-references` | `package.json` references to `catalog:` / `catalog:<name>` whose catalog does not declare the package; `pnpm install` would fail. Default `error`. Suppress via `ignoreCatalogReferences: [{ package, catalog?, consumer? }]` in fallow config (package.json has no comment syntax). |
+| Unused pnpm dependency overrides | `--unused-dependency-overrides` | `pnpm-workspace.yaml#overrides` / `package.json#pnpm.overrides` entries forcing a version no workspace package depends on. Default `warn`; the `hint` field flags entries that may be intentional pins for transitive CVEs. Suppress via `ignoreDependencyOverrides: [{ package, source? }]` in fallow config. |
+| Misconfigured pnpm dependency overrides | `--misconfigured-dependency-overrides` | `pnpm.overrides` entries whose key is unparsable (empty, dangling separators, malformed selectors) or value is missing/empty. `pnpm install` would fail. Default `error`. Suppression: same `ignoreDependencyOverrides` config rule. |
 
 ## MCP Tools
 
