@@ -97,6 +97,8 @@ cargo install fallow-cli        # build from source
 | Boundary violations | `--boundary-violations` | Imports crossing architecture zone boundaries. Presets: `layered`, `hexagonal`, `feature-sliced`, `bulletproof` |
 | Stale suppressions | `--stale-suppressions` | `fallow-ignore` comments or `@expected-unused` JSDoc tags that no longer match any issue |
 | Test-only dependencies | n/a | Production deps only imported from test files (should be devDependencies) |
+| Unused pnpm catalog entries | `--unused-catalog-entries` | `pnpm-workspace.yaml` entries no workspace package.json references via `catalog:` (default `warn`) |
+| Unresolved pnpm catalog references | `--unresolved-catalog-references` | `package.json` references to `catalog:` / `catalog:<name>` whose catalog does not declare the package; `pnpm install` would fail. Default `error`. Suppress via `ignoreCatalogReferences: [{ package, catalog?, consumer? }]` in fallow config (package.json has no comment syntax). |
 
 ## MCP Tools
 
