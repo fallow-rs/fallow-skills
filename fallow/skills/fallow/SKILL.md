@@ -109,7 +109,7 @@ When using fallow via MCP (`fallow-mcp`), the following tools are available:
 |------|-------------|
 | `analyze` | Full dead code analysis (unused files/exports/types/dependencies/members + circular dependencies + boundary violations + stale suppressions). Private type leaks are an opt-in API hygiene check via `issue_types: ["private-type-leaks"]`. Set `boundary_violations: true` as a convenience alias for `issue_types: ["boundary-violations"]`. Set `group_by` to `"owner"`, `"directory"`, `"package"`, or `"section"` to partition results. The `section` mode reads GitLab CODEOWNERS `[Section]` headers and emits `owners` metadata per group |
 | `check_changed` | Incremental analysis of files changed since a git ref |
-| `find_dupes` | Code duplication detection. Set `changed_since` to scope to changed files since a git ref |
+| `find_dupes` | Code duplication detection. Set `changed_since` to scope to changed files since a git ref. Set `min_occurrences` (≥ 2, default 2) to hide pair-only clones and focus on widespread copy-paste; JSON gains `stats.clone_groups_below_min_occurrences` when the filter hides anything |
 | `fix_preview` | Dry-run auto-fix preview |
 | `fix_apply` | Apply auto-fixes (destructive) |
 | `check_health` | Complexity metrics, health scores, hotspots, and refactoring targets. Set `group_by` to `owner`, `directory`, `package`, or `section` for per-group `vital_signs` / `health_score`; SARIF results gain `properties.group`, CodeClimate issues gain a top-level `group` field |
