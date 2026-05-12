@@ -138,10 +138,11 @@ By default, `fallow dupes` skips generated framework output matching `**/.next/*
 |------|------|---------|-------------|
 | `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate\|gitlab-codequality\|pr-comment-github\|pr-comment-gitlab\|review-github\|review-gitlab` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars |
-| `--top` | number | — | Show only the N largest clone groups (sorted by line count descending). Summary stats reflect the full project. |
+| `--top` | number | — | Show only the N most-duplicated clone groups (sorted by instance count desc, tiebreak: line count desc, then path/line). Summary stats reflect the full project. |
 | `--mode` | `strict\|mild\|weak\|semantic` | `mild` | Detection mode |
 | `--min-tokens` | number | `50` | Minimum token count for a clone |
 | `--min-lines` | number | `5` | Minimum line count for a clone |
+| `--min-occurrences` | number | `2` | Minimum number of occurrences before a clone group is reported (must be ≥ 2). Raise to skip pair-only clones and focus on widespread copy-paste worth refactoring. `fallow init` writes `minOccurrences: 3` into new projects. |
 | `--threshold` | number | `0` | Fail if duplication exceeds this percentage |
 | `--skip-local` | bool | `false` | Only report cross-directory duplicates |
 | `--cross-language` | bool | `false` | Strip type annotations for TS↔JS matching |
