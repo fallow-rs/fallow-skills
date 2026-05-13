@@ -1619,10 +1619,20 @@ Config files are searched in priority order: `.fallowrc.json` > `.fallowrc.jsonc
     "ignorePatterns": ["**/*.generated.ts"]
   },
 
-  // Architecture boundaries (preset or custom zones/rules)
+  // Architecture boundaries (preset, custom zones/rules, or auto-discovered feature zones)
   // Presets: "layered", "hexagonal", "feature-sliced", "bulletproof"
   "boundaries": {
     "preset": "bulletproof"
+    // Or:
+    // "zones": [
+    //   { "name": "app", "patterns": ["src/app/**"] },
+    //   { "name": "features", "autoDiscover": ["src/features"] },
+    //   { "name": "shared", "patterns": ["src/shared/**"] }
+    // ],
+    // "rules": [
+    //   { "from": "app", "allow": ["features", "shared"] },
+    //   { "from": "features", "allow": ["shared"] }
+    // ]
   },
 
   // Production mode
