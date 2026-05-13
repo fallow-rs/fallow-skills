@@ -72,6 +72,11 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 | `--circular-deps` | Circular dependencies |
 | `--boundary-violations` | Boundary violations (imports crossing architecture zone boundaries) |
 | `--stale-suppressions` | Stale suppression comments or `@expected-unused` JSDoc tags |
+| `--unused-catalog-entries` | Unused pnpm catalog entries |
+| `--empty-catalog-groups` | Empty named pnpm catalog groups |
+| `--unresolved-catalog-references` | Package references to missing pnpm catalog entries |
+| `--unused-dependency-overrides` | Unused pnpm dependency overrides |
+| `--misconfigured-dependency-overrides` | Malformed pnpm dependency overrides |
 
 ### Examples
 
