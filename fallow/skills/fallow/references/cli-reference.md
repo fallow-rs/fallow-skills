@@ -1621,6 +1621,9 @@ Config files are searched in priority order: `.fallowrc.json` > `.fallowrc.jsonc
 
   // Architecture boundaries (preset, custom zones/rules, or auto-discovered feature zones)
   // Presets: "layered", "hexagonal", "feature-sliced", "bulletproof"
+  // Rules accept an optional `allowTypeOnly: [zones]` list that admits type-only imports
+  // (`import type`, inline `{ type Foo }`, namespace type imports, and `export type` re-exports)
+  // to the listed zones even when not present in `allow`. Mixed-specifier imports still fire.
   "boundaries": {
     "preset": "bulletproof"
     // Or:
@@ -1631,7 +1634,7 @@ Config files are searched in priority order: `.fallowrc.json` > `.fallowrc.jsonc
     // ],
     // "rules": [
     //   { "from": "app", "allow": ["features", "shared"] },
-    //   { "from": "features", "allow": ["shared"] }
+    //   { "from": "features", "allow": ["shared"], "allowTypeOnly": ["features"] }
     // ]
   },
 
