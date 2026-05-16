@@ -1131,7 +1131,7 @@ Coverage CI helper for bundled/minified runtime coverage. It scans a build direc
 | `--dir <PATH>` | path | `dist` | Directory scanned recursively. |
 | `--include <GLOB>` | glob | `**/*.map` | Include glob relative to `--dir`. |
 | `--exclude <GLOB>` | glob | `**/node_modules/**` | Exclude glob, repeatable. |
-| `--repo <NAME>` | string | `package.json` `repository.url`, then `git remote get-url origin` | Repo name used in the source-map API path. |
+| `--repo <NAME>` | string | `package.json` `repository.url`, then `git remote get-url origin` parsed to `owner/repo` | Repo identifier used in the source-map API path. Must match the beacon's `projectId` (and `upload-inventory`'s `--project-id`); pass `--repo <bare-name>` explicitly if the beacon reports a bare name. |
 | `--git-sha <SHA>` | string | `$GITHUB_SHA` -> `$CI_COMMIT_SHA` -> `$COMMIT_SHA` -> `git rev-parse HEAD` | Commit SHA, 7-40 hex chars. |
 | `--endpoint <URL>` | string | `$FALLOW_API_URL` or `https://api.fallow.cloud` | Override for staging / on-prem. |
 | `--strip-path <BOOL>` | bool | `true` | Upload basename-only `fileName` values. Use `--strip-path=false` when runtime coverage reports paths like `assets/app.js`. |
