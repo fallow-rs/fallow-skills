@@ -95,7 +95,7 @@ cargo install fallow-cli        # build from source
 | Unlisted dependencies | `--unlisted-deps` | Used packages missing from package.json. In monorepos, importing a workspace package from a workspace whose own `package.json` does not list it is reported here too; self-references stay allowed without requiring a package to depend on itself. |
 | Duplicate exports | `--duplicate-exports` | Same symbol exported from multiple modules |
 | Circular dependencies | `--circular-deps` | Import cycles in the module graph |
-| Boundary violations | `--boundary-violations` | Imports crossing architecture zone boundaries. Presets: `layered`, `hexagonal`, `feature-sliced`, `bulletproof`; `autoDiscover` can create one zone per feature directory |
+| Boundary violations | `--boundary-violations` | Imports crossing architecture zone boundaries. Presets: `layered`, `hexagonal`, `feature-sliced`, `bulletproof`; `autoDiscover` can create one zone per feature directory; per-rule `allowTypeOnly: [zones]` admits `import type` / `export type` crossings while still blocking value imports |
 | Stale suppressions | `--stale-suppressions` | `fallow-ignore` comments or `@expected-unused` JSDoc tags that no longer match any issue |
 | Test-only dependencies | n/a | Production deps only imported from test files (should be devDependencies) |
 | Unused pnpm catalog entries | `--unused-catalog-entries` | `pnpm-workspace.yaml` entries no workspace package.json references via `catalog:` (default `warn`) |
