@@ -1629,7 +1629,7 @@ Config files are searched in priority order: `.fallowrc.json` > `.fallowrc.jsonc
     // Or:
     // "zones": [
     //   { "name": "app", "patterns": ["src/app/**"] },
-    //   { "name": "features", "autoDiscover": ["src/features"] },
+    //   { "name": "features", "patterns": ["src/features/**"], "autoDiscover": ["src/features"] },
     //   { "name": "shared", "patterns": ["src/shared/**"] }
     // ],
     // "rules": [
