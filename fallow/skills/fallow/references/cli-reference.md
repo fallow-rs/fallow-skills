@@ -203,9 +203,10 @@ Auto-removes unused exports, dependencies, enum members, and pnpm catalog entrie
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--dry-run` | bool | `false` | Show what would be removed without modifying files |
+| `--dry-run` | bool | `false` | Show what would be removed without modifying files. For `add-to-config` actions, prints a unified-diff preview of the proposed config write; JSON mode includes the diff under a `proposed_diff` field on the fix entry. |
 | `--yes` | bool | `false` | Skip confirmation prompt (**required** in non-TTY) |
 | `--force` | bool | `false` | Alias for `--yes` |
+| `--no-create-config` | bool | `false` | Refuse to create a new `.fallowrc.json` when none exists. The duplicate-export config-add path is skipped with `skip_reason: "no_create_config"`; source-file edits proceed normally. Use in pre-commit hooks, CI bots, and `fallow watch` where silently materialising a new top-level file would surprise the user. |
 | `--format` | `human\|json` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars |
 
@@ -215,6 +216,7 @@ Auto-removes unused exports, dependencies, enum members, and pnpm catalog entrie
 - Unused dependencies (removed from `package.json`)
 - Unused enum members (removed from the declaration)
 - Unused pnpm catalog entries (removed from `pnpm-workspace.yaml` by line-aware deletion; comments preserved). When the last entry of a catalog group is removed, the header is rewritten to `catalog: {}` / `<name>: {}` so pnpm doesn't reject the resulting null value. Entries with non-empty `hardcoded_consumers` are skipped to avoid breaking `pnpm install`; the skip is surfaced in the JSON fix output as `{"type": "remove_catalog_entry", "applied": false, "skipped": true, "skip_reason": "hardcoded_consumers", "consumers": [...]}`. After a successful catalog edit the CLI emits a one-line `Run pnpm install to refresh pnpm-lock.yaml` reminder. The JSON envelope carries a top-level `"skipped"` count alongside `"total_fixed"` for partial-fix gating.
+- Duplicate exports (appends an `ignoreExports` rule to your fallow config file). When no fallow config file exists, `.fallowrc.json` is created using the same scaffolding `fallow init` would emit (framework detection, `$schema`, `entry`, `ignorePatterns`, etc.) and the rules are layered on top. Inside a monorepo subpackage (`pnpm-workspace.yaml`, `package.json#workspaces`, `turbo.json`, `lerna.json`, or `rush.json` above the invocation directory) the create-fallback refuses to fire and emits `skip_reason: "monorepo_subpackage"` with a relative `workspace_root` path pointing at the workspace root. The applied entry carries `created_files: [".fallowrc.json"]` so consumers can detect file-creation side effects programmatically.
 
 ### Examples
 
