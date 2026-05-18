@@ -1369,7 +1369,7 @@ Every issue in `dead-code` JSON output includes an `actions` array with structur
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `type` | string | yes | Action type in kebab-case (for example `remove-export`, `remove-file`, `remove-dependency`, `move-dependency`, `suppress-line`, `add-to-config`) |
-| `auto_fixable` | bool | yes | `true` if `fallow fix` handles this action automatically |
+| `auto_fixable` | bool | yes | `true` if `fallow fix` handles this action automatically. Evaluated PER FINDING, not per action type: the same `type` may carry `true` on one finding and `false` on another when per-instance guards in the applier discriminate. Filter on this bool of each individual action, not on `type` alone. |
 | `description` | string | yes | Human-readable description of the action |
 | `comment` | string | no | Suppression comment text (on `suppress-line` actions) |
 | `note` | string | no | Additional context on non-auto-fixable items |
@@ -1425,6 +1425,14 @@ Dependency issues use `add-to-config` with `config_key` and `value`:
 ```
 
 When a dependency action is `move-dependency`, `auto_fixable` is `false`; the package is imported from another workspace and needs a package.json ownership move rather than removal.
+
+Per-instance `auto_fixable` flips today (the same action `type` flipping between findings):
+
+- `remove-catalog-entry` (unused-catalog-entries): `true` only when `hardcoded_consumers` is empty; `false` otherwise (the applier skips the entry to avoid breaking `pnpm install`).
+- `remove-dependency` vs `move-dependency` (dependency findings): primary action flips between `remove-dependency` (`true`) and `move-dependency` (`false`) on `used_in_workspaces`.
+- `add-to-config` for `ignoreExports` (duplicate-exports): `true` only when a fallow config file exists on disk.
+- `update-catalog-reference` (unresolved-catalog-references): always `false` today; non-singleton on the wire so a future applier can promote it without a schema change.
+- All `suppress-line` and `suppress-file` actions are uniformly `false`.
 
 #### Health `actions` array (CRAP findings)
 
