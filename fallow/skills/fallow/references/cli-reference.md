@@ -1430,7 +1430,7 @@ Per-instance `auto_fixable` flips today (the same action `type` flipping between
 
 - `remove-catalog-entry` (unused-catalog-entries): `true` only when `hardcoded_consumers` is empty; `false` otherwise (the applier skips the entry to avoid breaking `pnpm install`).
 - `remove-dependency` vs `move-dependency` (dependency findings): primary action flips between `remove-dependency` (`true`) and `move-dependency` (`false`) on `used_in_workspaces`.
-- `add-to-config` for `ignoreExports` (duplicate-exports): `true` only when a fallow config file exists on disk.
+- `add-to-config` for `ignoreExports` (duplicate-exports): `true` when `fallow fix` can safely apply the action, which today means EITHER a fallow config file already exists OR no config exists and the working directory is NOT inside a monorepo subpackage. In the second case the applier creates `.fallowrc.json` using `fallow init`'s framework-aware scaffolding and layers the new rules on top. `false` inside a monorepo subpackage with no workspace-root config (the applier refuses to fragment per-package configs). Pass `--no-create-config` to `fallow fix` from pre-commit hooks, CI bots, and `fallow watch` to opt out of the create-fallback; the action then surfaces with `auto_fixable: false`.
 - `update-catalog-reference` (unresolved-catalog-references): always `false` today; non-singleton on the wire so a future applier can promote it without a schema change.
 - All `suppress-line` and `suppress-file` actions are uniformly `false`.
 
