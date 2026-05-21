@@ -892,7 +892,7 @@ Audit creates a temporary git worktree to compare against the base ref. When the
 
 ## `flags`: Feature Flag Detection
 
-Detects feature flag patterns in the codebase. Identifies environment variable flags (`process.env.FEATURE_*`), SDK calls (LaunchDarkly, Statsig, Unleash, GrowthBook), and config object patterns (opt-in). Reports flag locations, detection confidence, and cross-references with dead code findings.
+Detects feature flag patterns in the codebase. Identifies environment variable flags (`process.env.FEATURE_*`), SDK calls from common providers (LaunchDarkly, Statsig, Unleash, GrowthBook, Split, PostHog, Vercel Flags, ConfigCat, Flagsmith, Optimizely, Eppo), and config object patterns (opt-in). Reports flag locations, detection confidence, and cross-references with dead code findings.
 
 ### Flags
 
