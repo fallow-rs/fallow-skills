@@ -70,6 +70,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 | `--unlisted-deps` | Unlisted dependencies |
 | `--duplicate-exports` | Duplicate exports |
 | `--circular-deps` | Circular dependencies |
+| `--re-export-cycles` | Re-export cycles (`kind: multi-node` for barrel files re-exporting from each other in a loop, `kind: self-loop` for a barrel re-exporting from itself). File-scoped finding; chain propagation through the loop is a no-op so imports may silently come up empty. Distinct from `--circular-deps` (runtime cycles). |
 | `--boundary-violations` | Boundary violations (imports crossing architecture zone boundaries) |
 | `--stale-suppressions` | Stale suppression comments or `@expected-unused` JSDoc tags |
 | `--unused-catalog-entries` | Unused pnpm catalog entries |
@@ -1362,6 +1363,7 @@ The HTTP layer mirrors the bash `gh_api_retry` / `curl_retry` helpers: `FALLOW_A
     "type_only_dependencies": 0,
     "test_only_dependencies": 0,
     "circular_dependencies": 0,
+    "re_export_cycles": 0,
     "boundary_violations": 0,
     "stale_suppressions": 0
   },
@@ -1376,6 +1378,7 @@ The HTTP layer mirrors the bash `gh_api_retry` / `curl_retry` helpers: `FALLOW_A
   "unlisted_dependencies": [{ "name": "chalk", "imported_from": [{ "path": "src/cli.ts", "line": 1, "col": 0 }] }],
   "duplicate_exports": [{ "name": "Config", "locations": ["src/config.ts:5", "src/types.ts:12"] }],
   "circular_dependencies": [{ "cycle": ["src/a.ts", "src/b.ts", "src/a.ts"], "line": 3, "col": 0, "is_cross_package": false }],
+  "re_export_cycles": [{ "files": ["src/api/index.ts", "src/api/internal/index.ts"], "kind": "multi-node", "actions": [{ "type": "fix", "kind": "refactor-re-export-cycle", "auto_fixable": false, "description": "Remove one `export * from` (or `export { ... } from`) statement on any one member to break the cycle" }, { "type": "suppress-file", "kind": "suppress-file", "auto_fixable": false, "comment": "// fallow-ignore-file re-export-cycle" }] }],
   "boundary_violations": [{ "from_path": "src/ui/Button.ts", "to_path": "src/data/db.ts", "from_zone": "ui", "to_zone": "data", "import_specifier": "../data/db", "line": 5, "col": 0 }],
   "unused_optional_dependencies": [{ "name": "fsevents" }],
   "type_only_dependencies": [{ "name": "zod", "used_in": ["src/schema.ts"], "line": 12 }],
@@ -1556,6 +1559,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
     "unlisted_dependencies": [],
     "duplicate_exports": [],
     "circular_dependencies": [],
+    "re_export_cycles": [],
     "boundary_violations": [],
     "unused_optional_dependencies": [],
     "type_only_dependencies": [],
@@ -1746,4 +1750,4 @@ preset = "bulletproof"
 
 ### Valid Issue Type Tokens
 
-`unused-file`, `unused-export`, `unused-type`, `unused-dependency`, `unused-dev-dependency`, `unused-enum-member`, `unused-class-member`, `unresolved-import`, `unlisted-dependency`, `duplicate-export`, `circular-dependency`, `boundary-violation`, `unused-optional-dependency`, `type-only-dependency`, `test-only-dependency`, `code-duplication`
+`unused-file`, `unused-export`, `unused-type`, `unused-dependency`, `unused-dev-dependency`, `unused-enum-member`, `unused-class-member`, `unresolved-import`, `unlisted-dependency`, `duplicate-export`, `circular-dependency`, `re-export-cycle`, `boundary-violation`, `unused-optional-dependency`, `type-only-dependency`, `test-only-dependency`, `code-duplication`
