@@ -461,7 +461,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.77.0",
+  "version": "2.78.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -847,7 +847,7 @@ fallow audit \
 ```json
 {
   "schema_version": 3,
-  "version": "2.77.0",
+  "version": "2.78.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -920,7 +920,7 @@ fallow flags --format json --quiet --workspace my-package
 ```json
 {
   "schema_version": 3,
-  "version": "2.77.0",
+  "version": "2.78.0",
   "elapsed_ms": 116,
   "feature_flags": [],
   "total_flags": 0
@@ -1053,13 +1053,23 @@ On HTTP error from `api.fallow.cloud`, fallow parses the `{error, message, code}
 
 Unknown codes fall back to the backend's `message` field, or the raw body.
 
+### Clock skew
+
+License verification rejects JWTs whose `iat` claim is more than 24 hours in the future relative to the local system clock. The same check catches both a forward-signed JWT and a local clock behind reality. Rejection exits non-zero so paid features fail closed.
+
+| Env var | Default | Effect |
+|---------|---------|--------|
+| `FALLOW_LICENSE_SKEW_TOLERANCE_SECONDS` | `86400` (24h) | Overrides the tolerance window applied to the `iat` claim. Lenient parsing: unset / empty / unparsable / negative all fall back to the default. |
+
+Common non-user causes: CI containers without NTP, machines with a dead BIOS battery, drifted laptop clocks after long sleep.
+
 ### Exit Codes
 
 | Code | Meaning |
 |------|---------|
 | `0`  | Valid license (or trial/refresh succeeded) |
 | `2`  | Bad invocation (missing email for `--trial`, unreadable file) |
-| `3`  | License missing, hard-fail expired, or malformed JWT |
+| `3`  | License missing, hard-fail expired, malformed JWT, or clock skew exceeds tolerance |
 | `7`  | Network failure or non-success HTTP status from `api.fallow.cloud` |
 
 ---
@@ -1342,7 +1352,7 @@ The HTTP layer mirrors the bash `gh_api_retry` / `curl_retry` helpers: `FALLOW_A
 ```json
 {
   "schema_version": 3,
-  "version": "2.77.0",
+  "version": "2.78.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "entry_points": {
@@ -1501,7 +1511,7 @@ When `--baseline` is used in combined output, the JSON includes a `baseline_delt
 ```json
 {
   "schema_version": 3,
-  "version": "2.77.0",
+  "version": "2.78.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -1545,7 +1555,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.77.0",
+    "version": "2.78.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -1568,7 +1578,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.77.0",
+    "version": "2.78.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -1577,7 +1587,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.77.0",
+    "version": "2.78.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
