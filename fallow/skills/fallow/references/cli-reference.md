@@ -772,7 +772,7 @@ Audits changed files for dead code, complexity, and duplication. Returns a verdi
 | `--production-health` | bool | false | Per-analysis production mode for the health sub-analysis only |
 | `--production-dupes` | bool | false | Per-analysis production mode for the duplication sub-analysis only |
 | `-w, --workspace` | string | — | Scope to one or more workspaces. Comma-separated, globs, `!` negation. |
-| `--explain` | bool | false | Include metric definitions in JSON output |
+| `--explain` | bool | false | JSON: include metric definitions in `_meta`. Human: print a `Description:` line under each section header. |
 | `--ci` | bool | false | Equivalent to `--format sarif --fail-on-issues --quiet` |
 | `--fail-on-issues` | bool | false | Exit with code 1 if issues are found |
 | `--sarif-file` | path | — | Write SARIF output to a file alongside primary format |
@@ -1232,7 +1232,7 @@ Available on all commands:
 | `--performance` | bool | Show pipeline timing breakdown |
 | `-w, --workspace` | string | Scope to one or more workspaces (comma-separated, globs, `!` negation) |
 | `--changed-workspaces` | string (git ref) | Git-derived monorepo CI scoping: scope to workspaces containing any file changed since `REF`. Mutually exclusive with `--workspace`. Missing ref is a hard error. |
-| `--explain` | bool | Include metric definitions in JSON output (`_meta` object). Always on for MCP |
+| `--explain` | bool | JSON: include metric definitions in `_meta`. Human: print a `Description:` line under each section header. Always on for MCP. |
 | `--only` | string | Run only specific analyses (e.g., `--only dead-code,dupes`). Values: `dead-code` (alias: `check`), `dupes`, `health` |
 | `--skip` | string | Skip specific analyses (e.g., `--skip health`). Values: `dead-code` (alias: `check`), `dupes`, `health` |
 | `--ci` | bool | CI mode: `--format sarif --fail-on-issues --quiet` |
