@@ -1,6 +1,6 @@
 # fallow-skills
 
-Agent skills for finding and removing dead code, unused dependencies, and code duplication in JavaScript/TypeScript projects using [fallow](https://github.com/fallow-rs/fallow).
+Agent skills for JavaScript/TypeScript codebase intelligence using [fallow](https://github.com/fallow-rs/fallow): quality, changed-code risk, cleanup opportunities, dependencies, duplication, and complexity hotspots.
 
 ## Repository Structure
 
@@ -8,7 +8,7 @@ Agent skills for finding and removing dead code, unused dependencies, and code d
 .claude-plugin/
   marketplace.json          # Marketplace metadata
   plugin.json               # Plugin metadata
-fallow/                     # Codebase analysis skill (dead code, duplication, complexity)
+fallow/                     # Codebase intelligence skill (quality, cleanup, duplication, complexity)
   SKILL.md                  # Skill entry point
   references/
     cli-reference.md        # Complete CLI specs and output formats
