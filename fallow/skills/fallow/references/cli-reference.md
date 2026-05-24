@@ -461,7 +461,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.79.0",
+  "version": "2.80.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -847,7 +847,7 @@ fallow audit \
 ```json
 {
   "schema_version": 3,
-  "version": "2.79.0",
+  "version": "2.80.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -920,7 +920,7 @@ fallow flags --format json --quiet --workspace my-package
 ```json
 {
   "schema_version": 3,
-  "version": "2.79.0",
+  "version": "2.80.0",
   "elapsed_ms": 116,
   "feature_flags": [],
   "total_flags": 0
@@ -1272,6 +1272,8 @@ Available on all commands:
 | `FALLOW_CHANGED_SINCE` | GitLab CI: git ref for incremental analysis. Auto-detected in MR pipelines. |
 | `FALLOW_COMMENT` | GitLab CI: set to `true` to post MR summary comments. |
 | `FALLOW_REVIEW` | GitLab CI: set to `true` to post inline code review comments on MR diffs. |
+| `FALLOW_REVIEW_GUIDANCE` | Add collapsed "What to do" guidance blocks to `review-github` / `review-gitlab` inline comments. |
+| `FALLOW_SUMMARY_SCOPE` | Sticky PR/MR summary scope for `pr-comment-github` / `pr-comment-gitlab`: `all` (default) keeps project-level findings outside the diff; `diff` applies the diff filter to those findings too. Inline review comments are unaffected. |
 | `FALLOW_SCORE` | GitLab CI: set to `true` to compute health score in combined mode. Enables health delta header in MR comments. |
 | `FALLOW_TREND` | GitLab CI: set to `true` to compare current health metrics against saved snapshot. Implies `FALLOW_SCORE`. |
 | `FALLOW_EXTRA_ARGS` | GitLab CI: additional CLI flags passed through to fallow. |
@@ -1334,6 +1336,8 @@ The HTTP layer mirrors the bash `gh_api_retry` / `curl_retry` helpers: `FALLOW_A
 | `FALLOW_CHANGED_SINCE` | auto | Git ref for incremental analysis. Auto-detected in MR pipelines (`origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME`) |
 | `FALLOW_COMMENT` | `false` | Post a summary comment on the MR with findings |
 | `FALLOW_REVIEW` | `false` | Post inline code review comments on MR diff lines where issues were found |
+| `FALLOW_REVIEW_GUIDANCE` | `false` | Add collapsed "What to do" guidance blocks to inline review comments |
+| `FALLOW_SUMMARY_SCOPE` | `all` | Sticky summary scope: `all` keeps project-level findings outside the diff; `diff` applies the diff filter to those findings too |
 | `FALLOW_SCORE` | `false` | Compute health score (0-100 with letter grade) in combined mode. Enables the health delta header in MR comments |
 | `FALLOW_TREND` | `false` | Compare current health metrics against saved snapshot. Implies `FALLOW_SCORE`. Shows per-metric deltas |
 | `FALLOW_EXTRA_ARGS` | — | Additional CLI flags passed through to fallow |
@@ -1352,7 +1356,7 @@ The HTTP layer mirrors the bash `gh_api_retry` / `curl_retry` helpers: `FALLOW_A
 ```json
 {
   "schema_version": 3,
-  "version": "2.79.0",
+  "version": "2.80.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "entry_points": {
@@ -1511,7 +1515,7 @@ When `--baseline` is used in combined output, the JSON includes a `baseline_delt
 ```json
 {
   "schema_version": 3,
-  "version": "2.79.0",
+  "version": "2.80.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -1555,7 +1559,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.79.0",
+    "version": "2.80.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -1578,7 +1582,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.79.0",
+    "version": "2.80.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -1587,7 +1591,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.79.0",
+    "version": "2.80.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
