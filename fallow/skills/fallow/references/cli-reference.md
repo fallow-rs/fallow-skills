@@ -1155,10 +1155,13 @@ Only plain JS/TS/JSX/TSX sources are walked. Declaration files (`*.d.ts`, `*.d.m
 - `FALLOW_COV_BIN` — explicit override for the sidecar binary (for `setup`). Wins over all other discovery paths. Must point to an existing file.
 - `FALLOW_API_KEY` — fallow cloud bearer token (for `upload-inventory` and `upload-source-maps`). Overridden by `--api-key` for `upload-inventory`; `upload-source-maps` reads only the env var so secrets stay out of argv.
 - `FALLOW_API_URL` — base URL for cloud calls. Overridden by `--api-endpoint`.
+- `FALLOW_CA_BUNDLE` - PEM certificate bundle for cloud calls. Relative paths resolve from the process cwd. The bundle replaces default WebPKI roots, so private-CA runners should pass a complete bundle that includes public roots plus the private CA.
 
 ### `coverage upload-source-maps` flags
 
 Coverage CI helper for bundled/minified runtime coverage. It scans a build directory for `.map` files and uploads them to `/v1/coverage/:repo/source-maps` keyed by the commit SHA the beacon reports.
+
+Uploads retry network failures, HTTP 429, and HTTP 502/503/504 up to three attempts. HTTP 429 honors `Retry-After` delta seconds and HTTP-date values, capped at 60 seconds. Setup or transport failures that prevent every map from uploading exit 7; mixed per-map failures still exit 1.
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
@@ -1278,7 +1281,9 @@ Available on all commands:
 | `FALLOW_TREND` | GitLab CI: set to `true` to compare current health metrics against saved snapshot. Implies `FALLOW_SCORE`. |
 | `FALLOW_EXTRA_ARGS` | GitLab CI: additional CLI flags passed through to fallow. |
 | `FALLOW_VERSION` | GitLab CI: fallow version to install. Empty (default) reads the project's `package.json` `fallow` dependency, then falls back to `latest`; set explicitly to override the local pin. |
-| `FALLOW_SKIP_BINARY_VERIFY` | Skip Ed25519 signature verification of platform binaries during `npm install fallow` postinstall and the GitHub Action installer. Set to `1`, `true`, or `yes` ONLY when deliberately replacing the published binary (source builds, airgapped mirrors, signed-repack registries). Never set in regular CI; use the published binary or the documented out-of-band verification recipe in [`SECURITY.md`](https://github.com/fallow-rs/fallow/blob/main/SECURITY.md) instead. |
+| `FALLOW_SKIP_BINARY_VERIFY` | Skip Ed25519 + SHA-256 verification of platform binaries on first invocation of `fallow`, `fallow-lsp`, or `fallow-mcp` (and during the GitHub Action installer). Set to `1`, `true`, or `yes` ONLY when deliberately replacing the published binary (source builds, airgapped mirrors, signed-repack registries). The skip is recorded in `fallow --version` output as `verified: skipped (FALLOW_SKIP_BINARY_VERIFY is set)` so it stays visible in CI logs and vendor audits. Never set in regular CI; use the published binary or the documented out-of-band verification recipe in [`SECURITY.md`](https://github.com/fallow-rs/fallow/blob/main/SECURITY.md) instead. |
+| `FALLOW_VERIFY_CACHE_DIR` | Override where the lazy-verify sentinel file is written. Cascade is platform-pkg-dir, then this override, then `$XDG_CACHE_HOME/fallow/sentinels/` (Linux/macOS) or `%LOCALAPPDATA%\fallow\sentinels\` (Windows). Useful when the platform pkg dir is read-only (yarn PnP, Docker layered images, pnpm verify-store). |
+| `FALLOW_VERIFY_LOG` | Set to `1`, `true`, or `yes` to emit one structured stderr line per verify outcome (`fallow-verify outcome=ok cache=hit sentinel=...`). Off by default so MCP stdout/stderr stay clean; enable for CI diagnostic logs. |
 | `GITLAB_TOKEN` | GitLab CI: project access token with `api` scope (for MR comments/reviews; `CI_JOB_TOKEN` is read-only for MR notes in the official GitLab API). |
 
 Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid passing flags on every invocation.
@@ -1303,6 +1308,8 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 ## `ci`: Provider-Aware Review Automation
 
 `fallow ci reconcile-review` reads a typed review envelope (`--format review-github` / `review-gitlab`), looks up existing fingerprints on the PR/MR, and resolves stale review threads when their finding is no longer present in the new envelope. Posts an idempotent "Resolved in `<sha>`" follow-up comment per stale finding (skipped if a marker for the same fingerprint at the current SHA already exists).
+
+Provider mutations are fail-fast. If a preflight check, permission error, or provider mutation fails, JSON output keeps `apply_errors` and can add `apply_hint`, `failed_fingerprints`, and `unapplied_fingerprints` so agents and CI wrappers can report what was not fully applied.
 
 ### Flags
 
