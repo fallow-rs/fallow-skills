@@ -223,6 +223,15 @@ Auto-removes unused exports, dependencies, enum members, and pnpm catalog entrie
 
 `fallow fix` captures every parsed source file's xxh3 content hash during the in-process analysis and recomputes it at fix time. Files whose hash drifted between analysis and write (parallel editor save, CI rebase, concurrent tool) are skipped with `{"type": "skipped", "path": "...", "skipped": true, "skip_reason": "content_changed"}` in the JSON output and `Skipping <path>: file content changed since fallow check ran. Re-run fallow fix to refresh the analysis first.` on stderr (gated on non-quiet). A run with any content-changed skip exits with code 2 so CI does not treat the partial run as a clean no-op. The JSON envelope's top-level `skipped_content_changed: number` is always present and disjoint from `skipped` (which still tallies catalog / YAML guard skips only). Per-file writes are batched: each rewrite is staged to a sibling temp file, and the orchestrator promotes the batch only after every stage succeeds. A stage failure leaves every target file at its original content. Hash precondition covers source files (TS, JS, Vue, Svelte, Astro, MDX); `package.json` and `pnpm-workspace.yaml` are not in the captured hash map because the extract layer does not parse them, but the dep and catalog fixers re-parse those files at fix time as the natural safety net.
 
+### Low-confidence export removals
+
+Issue #602: `fallow fix` withholds unused-export removals when the consumer may be invisible to static analysis, because stripping a real export breaks `tsc` and the build. Two cases are skipped:
+
+- **Off-graph consumer directories.** The file is under any of `__mocks__`, `__fixtures__`, `fixtures`, `e2e`, `e2e-tests`, `cypress`, `playwright`, `examples`, `evals`, `golden` (matched on any path segment). Catches Vitest mock aliases, off-workspace e2e suites, and fixture / golden harnesses. Plain `test` / `tests` / `__tests__` are deliberately NOT on the list, so genuinely-dead test helpers still auto-remove.
+- **Files with an unresolved import.** The file itself imports something fallow could not resolve, so its local usage graph is incomplete.
+
+JSON output carries `{"type": "skipped", "path": "...", "skipped": true, "skip_reason": "low_confidence_off_graph"}` (or `"low_confidence_unresolved_imports"`) plus a top-level counter `skipped_low_confidence_exports: number` (always present), disjoint from `skipped`. Unlike the drift and encoding skips this is INTENTIONAL and does NOT change the exit code; the export stays reported by `fallow check` for manual review. High-confidence exports in normal source files are removed unchanged. The AI agent should report kept exports to the user and let them decide whether the export is truly unused before removing it by hand.
+
 ### File encoding contract
 
 `fallow fix` is UTF-8 only. Two encoding shapes that previously caused silent corruption are handled explicitly (issue #475):
