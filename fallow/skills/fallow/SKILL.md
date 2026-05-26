@@ -334,7 +334,7 @@ When `--format json` is active and exit code is 2, errors are emitted as JSON on
 
 ## Configuration
 
-Fallow reads config from project root: `.fallowrc.json` > `.fallowrc.jsonc` > `fallow.toml` > `.fallow.toml`. Both `.fallowrc.json` and `.fallowrc.jsonc` accept JSON-with-comments syntax (same parser); the `.jsonc` extension lets editors auto-detect JSONC syntax highlighting. Most projects work with zero configuration thanks to 97 auto-detecting framework plugins.
+Fallow reads config from project root: `.fallowrc.json` > `.fallowrc.jsonc` > `fallow.toml` > `.fallow.toml`. Both `.fallowrc.json` and `.fallowrc.jsonc` accept JSON-with-comments syntax (same parser); the `.jsonc` extension lets editors auto-detect JSONC syntax highlighting. Most projects work with zero configuration thanks to 104 auto-detecting framework plugins.
 
 ```jsonc
 {
