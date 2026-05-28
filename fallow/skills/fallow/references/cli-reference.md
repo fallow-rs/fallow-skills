@@ -154,7 +154,7 @@ By default, `fallow dupes` skips generated framework output matching `**/.next/*
 | `--cross-language` | bool | `false` | Strip type annotations for TS↔JS matching |
 | `--ignore-imports` | bool | `false` | Exclude import declarations from clone detection |
 | `--explain-skipped` | bool | `false` | Human/markdown only: show per-pattern counts for files skipped by default duplicates ignores |
-| `--trace` | `FILE:LINE` | — | Trace all clones at a specific location |
+| `--trace` | `FILE:LINE` \| `dup:<fp>` | — | Deep-dive clones. `FILE:LINE` traces all clones at a location; `dup:<8hex>` traces a clone group by the stable fingerprint shown in the listing and on `clone_groups[].fingerprint` in JSON. Trace output adds an extract-function suggestion, estimated savings, and a best-effort proposed name per group |
 | `--changed-since` | string | — | Only report duplication in files changed since a git ref |
 | `--baseline` | path | — | Compare against baseline |
 | `--save-baseline` | path | — | Save results as baseline |
@@ -185,6 +185,9 @@ fallow dupes --format json --quiet --skip-local --threshold 5
 
 # Trace clones at a specific location
 fallow dupes --format json --quiet --trace src/utils.ts:42
+
+# Deep-dive a clone group by its dup:<id> fingerprint (from the listing or JSON)
+fallow dupes --format json --quiet --trace dup:7f3a2c1e
 
 # Only check duplication in changed files
 fallow dupes --format json --quiet --changed-since main
