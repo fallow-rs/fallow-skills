@@ -370,7 +370,9 @@ Angular templates contribute synthetic `<template>` complexity findings whenever
 | `--targets` | bool | `false` | Show only refactoring targets: ranked recommendations based on complexity, coupling, churn, and dead code signals. Categories: churn+complexity, circular dep, high impact, dead code, complexity, coupling. When no section flags are set, all sections are shown by default. |
 | `--effort` | `low\|medium\|high` | — | Filter refactoring targets by effort level. Implies `--targets`. |
 | `--score` | bool | `false` | Show only the project health score (0-100) with letter grade (A/B/C/D/F). The score is included by default when no section flags are set. JSON includes `health_score` object with `score`, `grade`, and `penalties` breakdown. As of v2.55.0, plain `--score` skips the churn-backed hotspot penalty so it does not run a `git log` shell-out per invocation; pass `--hotspots` (or `--targets` with `--score`) to include the hotspot penalty. Snapshot (`--save-snapshot`) and trend (`--trend`) flows still trigger hotspot vital signs so saved data stays complete. |
-| `--min-score` | number | — | Fail if health score is below this threshold (exit code 1). Implies `--score`. CI quality gate. |
+| `--min-score` | number | — | Fail (exit 1) only when the health score is below this threshold. Implies `--score`. Authoritative CI quality gate: when set, complexity findings are demoted to informational and the exit code is driven solely by the score, so `--min-score 0` always exits 0. Composes with `--min-severity`. |
+| `--min-severity` | `moderate\|high\|critical` | — | Only exit with an error for findings at or above this severity. Composes with `--min-score` (the run fails if either gate trips). |
+| `--report-only` | bool | `false` | Print the score and findings but never fail CI (always exit 0). Advisory mode. Mutually exclusive with `--min-score` and `--min-severity`. |
 | `--since` | string | `6m` | Git history window for hotspot analysis. Accepts durations (`6m`, `90d`, `1y`, `2w`) or ISO dates (`2025-06-01`). |
 | `--min-commits` | number | `3` | Minimum number of commits for a file to be included in hotspot ranking. |
 | `--ownership` | bool | `false` | Attach ownership signals to hotspot entries: bus factor (Avelino truck factor), contributor count, top contributor with stale-days, recent contributors (top-3), `suggested_reviewers`, declared CODEOWNERS owner, `ownership_state`, ownership drift, unowned-hotspot detection. Human output gains a project-level summary line. JSON adds `low-bus-factor`, `unowned-hotspot`, `ownership-drift` action types. Test files get a `[test]` tag. Implies `--hotspots`. Requires git. |
@@ -392,10 +394,17 @@ Angular templates contribute synthetic `<template>` complexity findings whenever
 
 ### Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | No functions exceed thresholds (and score above `--min-score` if set) |
-| 1 | Functions exceed thresholds, or score below `--min-score` |
+The gate flag in play determines what drives the exit code. Plain `fallow health` (no gate flag) stays advisory but still fails on any finding (back-compat).
+
+| Invocation | Exit 0 when | Exit 1 when |
+|------------|-------------|-------------|
+| `fallow health` (no gate flag) | no function exceeds a threshold | any function exceeds a threshold |
+| `--min-score N` | score >= N (findings informational) | score < N |
+| `--min-severity LEVEL` | no finding at or above LEVEL | any finding at or above LEVEL |
+| `--min-score N --min-severity LEVEL` | score >= N AND no finding >= LEVEL | score < N OR a finding >= LEVEL |
+| `--report-only` | always | never |
+
+`--report-only` with `--min-score` / `--min-severity` exits 2 (mutually exclusive). The `--runtime-coverage` and coverage-gap gates stay independent and are not demoted by `--min-score`. For gating only newly-introduced complexity, use `fallow audit --gate new-only`.
 
 ### Examples
 
