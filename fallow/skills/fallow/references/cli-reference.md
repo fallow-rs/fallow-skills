@@ -154,7 +154,7 @@ By default, `fallow dupes` skips generated framework output matching `**/.next/*
 | `--cross-language` | bool | `false` | Strip type annotations for TS↔JS matching |
 | `--ignore-imports` | bool | `false` | Exclude import declarations from clone detection |
 | `--explain-skipped` | bool | `false` | Human/markdown only: show per-pattern counts for files skipped by default duplicates ignores |
-| `--trace` | `FILE:LINE` \| `dup:<fp>` | — | Deep-dive clones. `FILE:LINE` traces all clones at a location; `dup:<8hex>` traces a clone group by the stable fingerprint shown in the listing and on `clone_groups[].fingerprint` in JSON. Trace output adds an extract-function suggestion, estimated savings, and a best-effort proposed name per group |
+| `--trace` | `FILE:LINE` \| `dup:<fp>` | — | Deep-dive clones. `FILE:LINE` traces all clones at a location; `dup:<id>` traces a clone group by the stable fingerprint shown in the listing and on `clone_groups[].fingerprint` in JSON. Fingerprints are usually `dup:<8hex>` and widen only on rare report collisions. Trace output adds an extract-function suggestion, estimated savings, and a best-effort proposed name per group |
 | `--changed-since` | string | — | Only report duplication in files changed since a git ref |
 | `--baseline` | path | — | Compare against baseline |
 | `--save-baseline` | path | — | Save results as baseline |
