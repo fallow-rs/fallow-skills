@@ -1109,7 +1109,7 @@ The inspected payload prints to stderr; stdout (including `--format json`) is un
 
 ### Behavior
 
-- **Off by default.** Precedence: `DO_NOT_TRACK` / `FALLOW_TELEMETRY_DISABLED` (kill switches) > `FALLOW_TELEMETRY` env > user config (`fallow telemetry enable/disable`) > off.
+- **Off by default.** Precedence: `DO_NOT_TRACK` / `FALLOW_TELEMETRY_DISABLED` (kill switches) > `FALLOW_TELEMETRY_DEBUG` (forces inspect) > `FALLOW_TELEMETRY` env > CI (off unless `FALLOW_TELEMETRY` is set) > user config (`fallow telemetry enable/disable`) > off.
 - **CI is off** unless `FALLOW_TELEMETRY` is explicitly set in that CI environment; a local `enable` never turns on org CI telemetry.
 - **Transport:** when enabled, one small JSON event is POSTed to `https://api.fallow.cloud/v1/telemetry/events` (override with `FALLOW_API_URL`), no auth token, no cookies, on a background thread so it does not delay your command. Delivery is best-effort; errors never change output or exit code.
 - **Agent source:** wrappers may set `FALLOW_AGENT_SOURCE=<allowlisted-value>` so an enabled run is attributed correctly. Allowlist: `codex`, `claude_code`, `cursor`, `copilot`, `opencode`, `aider`, `roo`, `windsurf`, `gemini` (aliases `gemini_cli`/`antigravity`), `cline`, `continue`, `zed`, `goose`, `other_known`, `unknown`, `none`. Setting it never enables telemetry and uploads no codebase content.
@@ -1328,7 +1328,7 @@ Available on all commands:
 | `FALLOW_VERIFY_LOG` | Set to `1`, `true`, or `yes` to emit one structured stderr line per verify outcome (`fallow-verify outcome=ok cache=hit sentinel=...`). Off by default so MCP stdout/stderr stay clean; enable for CI diagnostic logs. |
 | `FALLOW_TELEMETRY` | Opt-in product telemetry mode, off by default: `off`/`on`/`inspect` (plus `0`/`1`/`true`/`false`/`disabled`/`enabled`/`debug`/`log`). `inspect` prints the exact payload to stderr without sending. Wins over the user telemetry config. |
 | `FALLOW_TELEMETRY_DISABLED` | Admin/fleet telemetry kill switch (top precedence, with `DO_NOT_TRACK`). Truthy (`1`/`true`/`yes`/`on`) hard-disables telemetry and refuses `fallow telemetry enable`. |
-| `FALLOW_TELEMETRY_DEBUG` | Alias for `FALLOW_TELEMETRY=inspect`. |
+| `FALLOW_TELEMETRY_DEBUG` | Forces inspect mode; outranks `FALLOW_TELEMETRY`. |
 | `DO_NOT_TRACK` | Honored as a top-precedence telemetry kill switch (consoledonottrack.com convention). |
 | `FALLOW_AGENT_SOURCE` | Declare the calling agent for telemetry classification (only used when telemetry is enabled; never enables it): `codex`, `claude_code`, `cursor`, `copilot`, `opencode`, `aider`, `roo`, `windsurf`, `gemini` (aliases `gemini_cli`/`antigravity`), `cline`, `continue`, `zed`, `goose`, `other_known`, `unknown`, `none`. Unrecognized values are ignored. |
 | `GITLAB_TOKEN` | GitLab CI: project access token with `api` scope (for MR comments/reviews; `CI_JOB_TOKEN` is read-only for MR notes in the official GitLab API). |
