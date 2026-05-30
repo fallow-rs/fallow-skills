@@ -482,7 +482,7 @@ fallow health --format json --quiet --trend
 ```json
 {
   "schema_version": 3,
-  "version": "2.84.0",
+  "version": "2.85.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -870,7 +870,7 @@ fallow audit \
 ```json
 {
   "schema_version": 3,
-  "version": "2.84.0",
+  "version": "2.85.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -943,7 +943,7 @@ fallow flags --format json --quiet --workspace my-package
 ```json
 {
   "schema_version": 3,
-  "version": "2.84.0",
+  "version": "2.85.0",
   "elapsed_ms": 116,
   "feature_flags": [],
   "total_flags": 0
@@ -1419,7 +1419,7 @@ The HTTP layer mirrors the bash `gh_api_retry` / `curl_retry` helpers: `FALLOW_A
 ```json
 {
   "schema_version": 3,
-  "version": "2.84.0",
+  "version": "2.85.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "entry_points": {
@@ -1578,7 +1578,7 @@ When `--baseline` is used in combined output, the JSON includes a `baseline_delt
 ```json
 {
   "schema_version": 3,
-  "version": "2.84.0",
+  "version": "2.85.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -1622,7 +1622,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "check": {
     "schema_version": 3,
-    "version": "2.84.0",
+    "version": "2.85.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
@@ -1645,7 +1645,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "dupes": {
     "schema_version": 3,
-    "version": "2.84.0",
+    "version": "2.85.0",
     "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
@@ -1654,7 +1654,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
   },
   "health": {
     "schema_version": 3,
-    "version": "2.84.0",
+    "version": "2.85.0",
     "elapsed_ms": 32,
     "summary": {},
     "findings": [],
