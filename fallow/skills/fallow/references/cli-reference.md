@@ -15,6 +15,7 @@ Complete command and flag specifications for all fallow CLI commands.
 - [`health`: Function Complexity Analysis](#health-function-complexity-analysis)
 - [`audit`: Changed-File Quality Gate](#audit-changed-file-quality-gate)
 - [`flags`: Feature Flag Detection](#flags-feature-flag-detection)
+- [`security`: Security Candidate Detection](#security-security-candidate-detection)
 - [`explain`: Rule Explanation](#explain-rule-explanation)
 - [`schema`: CLI Introspection](#schema-cli-introspection)
 - [`config-schema`: Config JSON Schema](#config-schema-config-json-schema)
@@ -39,6 +40,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 |------|------|---------|-------------|
 | `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate\|gitlab-codequality\|pr-comment-github\|pr-comment-gitlab\|review-github\|review-gitlab` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars and timing on stderr |
+| `--legacy-envelope` | bool | `false` | Remove the top-level `kind` field from typed JSON roots for one migration cycle |
 | `--changed-since` | string | — | Only analyze files changed since a git ref (e.g., `main`, `HEAD~3`) |
 | `--production` | bool | `false` | Exclude test/dev files, only start/build scripts (applies to every analysis) |
 | `--production-dead-code` | bool | `false` | Per-analysis production mode for dead-code. Bare combined runs and `fallow audit` only. |
@@ -481,7 +483,8 @@ fallow health --format json --quiet --trend
 
 ```json
 {
-  "schema_version": 3,
+  "kind": "health",
+  "schema_version": 7,
   "version": "2.85.0",
   "elapsed_ms": 32,
   "summary": {
@@ -530,7 +533,8 @@ With `--file-scores`, the JSON output also includes `file_scores` array and `sum
   "summary": {
     "files_scored": 482,
     "average_maintainability": 88.5,
-    "coverage_model": "static_estimated"
+    "coverage_model": "static_estimated",
+    "coverage_source_consistency": "uniform"
   },
   "file_scores": [
     {
@@ -553,7 +557,7 @@ With `--file-scores`, the JSON output also includes `file_scores` array and `sum
 
 The `file_scores` array is sorted by risk-aware triage concern: the larger of low-MI concern and CRAP risk. This keeps files with very high untested complexity near the top even when their Maintainability Index is not the lowest.
 
-The `crap_max` field is the highest CRAP (Change Risk Anti-Patterns) score among functions in the file, using the canonical formula `CC^2 * (1 - cov/100)^3 + CC`. The default model (`static_estimated`) estimates per-function coverage from export references: directly test-referenced = 85%, indirectly test-reachable = 40%, untested = 0%. Provide `--coverage <path>` with Istanbul-format `coverage-final.json` for exact scores (`istanbul` model). The `crap_above_threshold` field counts functions with CRAP >= 30. When `--file-scores` is active, `summary.coverage_model` indicates the model used (`"static_estimated"` or `"istanbul"`).
+The `crap_max` field is the highest CRAP (Change Risk Anti-Patterns) score among functions in the file, using the canonical formula `CC^2 * (1 - cov/100)^3 + CC`. The default model (`static_estimated`) estimates per-function coverage from export references: directly test-referenced = 85%, indirectly test-reachable = 40%, untested = 0%. Provide `--coverage <path>` with Istanbul-format `coverage-final.json` for exact scores (`istanbul` model). The `crap_above_threshold` field counts functions with CRAP >= 30. When `--file-scores` is active, `summary.coverage_model` indicates the model used (`"static_estimated"` or `"istanbul"`). When CRAP findings carry `coverage_source`, `summary.coverage_source_consistency` is `uniform` or `mixed`; grouped health JSON mirrors this as `groups[].coverage_source_consistency`.
 
 Maintainability index formula: `100 - (complexity_density × 30) - (dead_code_ratio × 20) - min(ln(fan_out+1) × 4, 15)`, clamped to 0–100. Higher is better. Type-only exports are excluded from dead_code_ratio. Zero-function files (barrels) are excluded by default.
 
@@ -869,7 +873,8 @@ fallow audit \
 
 ```json
 {
-  "schema_version": 3,
+  "kind": "audit",
+  "schema_version": 7,
   "version": "2.85.0",
   "command": "audit",
   "verdict": "fail",
@@ -942,13 +947,57 @@ fallow flags --format json --quiet --workspace my-package
 
 ```json
 {
-  "schema_version": 3,
+  "schema_version": 7,
   "version": "2.85.0",
   "elapsed_ms": 116,
   "feature_flags": [],
   "total_flags": 0
 }
 ```
+
+---
+
+## `security`: Security Candidate Detection
+
+Surfaces local security candidates for agent or human verification. The first rule, `client-server-leak`, starts at `"use client"` files and reports a candidate when that client boundary directly reads, or statically imports a path to a module that reads, a non-public `process.env` value.
+
+Findings are not confirmed vulnerabilities. Use the structural trace to verify whether the value can actually reach client-bundled code. Public env conventions (`NODE_ENV`, `NEXT_PUBLIC_*`, `VITE_*`, `NUXT_PUBLIC_*`, `REACT_APP_*`, `PUBLIC_*`, `GATSBY_*`, `EXPO_PUBLIC_*`, `STORYBOOK_*`) are excluded.
+
+### Flags
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--format` | `human\|json\|sarif` | `human` | Output format |
+| `--quiet` | bool | `false` | Suppress progress output |
+| `--summary` | bool | `false` | Show a compact human summary |
+| `--ci` | bool | `false` | Equivalent to `--format sarif --fail-on-issues --quiet` |
+| `--fail-on-issues` | bool | `false` | Exit 1 when candidates are found |
+| `--sarif-file` | path | none | Write SARIF in addition to the primary output |
+| `--changed-since` | git ref | none | Scope to candidates whose client anchor or trace hops touch changed files |
+| `--diff-file` | path | none | Scope candidates to added hunks on the client anchor or import trace. Secret-source hops use file-level retention because member-access spans are not yet stored. Use `-` for stdin |
+| `--workspace` | string | none | Scope to selected workspace packages |
+| `--changed-workspaces` | git ref | none | Scope to workspaces changed since a git ref |
+
+### Examples
+
+```bash
+fallow security --format json --quiet
+fallow security --ci --sarif-file fallow-security.sarif
+git diff --unified=0 origin/main...HEAD | fallow security --diff-file -
+```
+
+### JSON Output Structure
+
+```json
+{
+  "kind": "security",
+  "schema_version": "1",
+  "security_findings": [],
+  "unresolved_edge_files": 0
+}
+```
+
+Each finding includes `kind`, `path`, `line`, `col`, `evidence`, `trace`, and `actions`. Suppress a verified false positive with `// fallow-ignore-file security-client-server-leak`.
 
 ---
 
@@ -1297,6 +1346,7 @@ Available on all commands:
 | `-w, --workspace` | string | Scope to one or more workspaces (comma-separated, globs, `!` negation) |
 | `--changed-workspaces` | string (git ref) | Git-derived monorepo CI scoping: scope to workspaces containing any file changed since `REF`. Mutually exclusive with `--workspace`. Missing ref is a hard error. |
 | `--explain` | bool | JSON: include metric definitions in `_meta`. Human: print a `Description:` line under each section header. Always on for MCP. |
+| `--legacy-envelope` | bool | Emit the previous typed JSON root envelope without top-level `kind` |
 | `--only` | string | Run only specific analyses (e.g., `--only dead-code,dupes`). Values: `dead-code` (alias: `check`), `dupes`, `health` |
 | `--skip` | string | Skip specific analyses (e.g., `--skip health`). Values: `dead-code` (alias: `check`), `dupes`, `health` |
 | `--ci` | bool | CI mode: `--format sarif --fail-on-issues --quiet` |
@@ -1418,7 +1468,8 @@ The HTTP layer mirrors the bash `gh_api_retry` / `curl_retry` helpers: `FALLOW_A
 
 ```json
 {
-  "schema_version": 3,
+  "kind": "dead-code",
+  "schema_version": 7,
   "version": "2.85.0",
   "elapsed_ms": 45,
   "total_issues": 12,
@@ -1551,9 +1602,9 @@ Health findings (`fallow health` JSON output) include an `actions` array. Primar
 
 The `coverage_tier` field is `"none"` (file not test-reachable / Istanbul 0%), `"partial"` (Istanbul `(0, 70)` / estimated 40%), or `"high"` (Istanbul `>= 70` / estimated 85%).
 
-Each CRAP finding also carries a `coverage_source` discriminator: `"istanbul"` (direct fnMap match for this function), `"estimated"` (graph-based estimate evaluated against the finding's own file), or `"estimated_component_inherited"` (graph-based estimate inherited from an Angular component `.ts` reached via the inverse `templateUrl` edge). Synthetic `<template>` findings on Angular `.html` templates use the `estimated_component_inherited` source and ship an `inherited_from` field with the project-relative path to the owning `.component.ts`. When the inherit path applies, the primary `increase-coverage` action targets that `.ts` file (description names the component path explicitly and includes a `target_path` field) so AI agents add component tests rather than scaffolding tests against a structurally untestable `.html` path. The human `fallow health` output renders `(inherited from <project-relative-path>.component.ts)` after the CRAP score on those rows (project-relative since fallow 2.78.0; was the bare basename before). This is the JIT-test fallback (Angular's runtime renders templates via `ɵɵconditional` / `ɵɵrepeaterCreate` calls; Istanbul never has `fnMap` entries keyed at `.html` paths). AOT-compiled coverage with source-map back-mapping is planned as a tier 2 follow-up; when it lands, `coverage_source` will gain a `"measured_aot_source_map"` variant.
+Each CRAP finding also carries a `coverage_source` discriminator: `"istanbul"` (direct fnMap match for this function), `"estimated"` (graph-based estimate evaluated against the finding's own file), or `"estimated_component_inherited"` (graph-based estimate inherited from an Angular component `.ts` reached via the inverse `templateUrl` edge). The report summary carries `coverage_source_consistency` (`"uniform"` or `"mixed"`) whenever emitted CRAP findings have source data; grouped health JSON also includes `groups[].coverage_source_consistency`. Synthetic `<template>` findings on Angular `.html` templates use the `estimated_component_inherited` source and include an `inherited_from` field with the project-relative path to the owning `.component.ts`. When the inherit path applies, the primary `increase-coverage` action targets that `.ts` file (description names the component path explicitly and includes a `target_path` field) so AI agents add component tests rather than scaffolding tests against a structurally untestable `.html` path. The human `fallow health` output renders `(inherited from <project-relative-path>.component.ts)` after the CRAP score on those rows (project-relative since fallow 2.78.0; was the bare basename before). This is the JIT-test fallback (Angular's runtime renders templates via `ɵɵconditional` / `ɵɵrepeaterCreate` calls; Istanbul never has `fnMap` entries keyed at `.html` paths). AOT-compiled coverage with source-map back-mapping is planned as a phase 2 follow-up; when it lands, `coverage_source` will gain a `"measured_aot_source_map"` variant.
 
-When CRAP-only with cyclomatic count within 5 of `maxCyclomatic` AND cognitive at or above `maxCognitive / 2`, a secondary `refactor-function` is appended. The cognitive floor suppresses false positives on flat type-tag dispatchers and JSX render maps (high CC, near-zero cog). A single finding can carry multiple action types: e.g. a finding that exceeds both cyclomatic and CRAP at `coverage_tier=partial` gets `increase-coverage` AND `refactor-function`. Treat the first non-`suppress-line` action as primary.
+When CRAP-only with cyclomatic count within `health.crapRefactorBand` of `maxCyclomatic` AND cognitive at or above `maxCognitive / 2`, a secondary `refactor-function` is appended. The default band is `5`; set it to `0` to only add the secondary refactor after cyclomatic reaches `maxCyclomatic`. The cognitive floor suppresses false positives on flat type-tag dispatchers and JSX render maps (high CC, near-zero cog). A single finding can carry multiple action types: e.g. a finding that exceeds both cyclomatic and CRAP at `coverage_tier=partial` gets `increase-coverage` AND `refactor-function`. Treat the first non-`suppress-line` action as primary.
 
 The `suppress-line` action is auto-omitted when `--baseline`/`--save-baseline` is set, OR when `health.suggestInlineSuppression: false` in config. The report root carries an `actions_meta: { suppression_hints_omitted: true, reason: "baseline-active" | "config-disabled" }` breadcrumb in that case.
 
@@ -1577,7 +1628,8 @@ When `--baseline` is used in combined output, the JSON includes a `baseline_delt
 
 ```json
 {
-  "schema_version": 3,
+  "kind": "dupes",
+  "schema_version": 7,
   "version": "2.85.0",
   "elapsed_ms": 82,
   "total_clones": 15,
@@ -1620,8 +1672,12 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 
 ```json
 {
+  "kind": "combined",
+  "schema_version": 7,
+  "version": "2.85.0",
+  "elapsed_ms": 159,
   "check": {
-    "schema_version": 3,
+    "schema_version": 7,
     "version": "2.85.0",
     "elapsed_ms": 45,
     "total_issues": 12,
@@ -1644,18 +1700,12 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
     "stale_suppressions": []
   },
   "dupes": {
-    "schema_version": 3,
-    "version": "2.85.0",
-    "elapsed_ms": 82,
     "total_clones": 15,
     "total_lines_duplicated": 230,
     "duplication_percentage": 4.2,
     "clone_groups": []
   },
   "health": {
-    "schema_version": 3,
-    "version": "2.85.0",
-    "elapsed_ms": 32,
     "summary": {},
     "findings": [],
     "vital_signs": {}
