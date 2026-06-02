@@ -963,6 +963,22 @@ Surfaces local security candidates for agent or human verification. The first ru
 
 Findings are not confirmed vulnerabilities. Use the structural trace to verify whether the value can actually reach client-bundled code. Public env conventions (`NODE_ENV`, `NEXT_PUBLIC_*`, `VITE_*`, `NUXT_PUBLIC_*`, `REACT_APP_*`, `PUBLIC_*`, `GATSBY_*`, `EXPO_PUBLIC_*`, `STORYBOOK_*`) are excluded.
 
+The second rule family is a data-driven `tainted-sink` catalogue: syntactic dangerous-sink candidates across 9 CWE categories. A candidate fires only when the relevant argument is non-literal, so a fully-literal value (`el.innerHTML = "<b>x</b>"`, `child_process.exec("ls")`) never fires; fallow prefers false-negatives over false-positives.
+
+| Category | CWE | Sink |
+|----------|-----|------|
+| `dangerous-html` | 79 | `innerHTML` / `outerHTML` / `insertAdjacentHTML` / `dangerouslySetInnerHTML` |
+| `command-injection` | 78 | `child_process` `exec` / `execSync` / `spawn` / `spawnSync` (provenance-gated to `node:child_process`) |
+| `code-injection` | 94 | `eval` / `vm.runInNewContext` |
+| `sql-injection` | 89 | string concat or interpolated template into `.query()` / `.execute()`, and `sql.raw(...)`. Parameterized `` sql`${x}` `` and the object form `.execute({ sql, args })` are NOT flagged |
+| `ssrf` | 918 | `fetch` / `axios` / `http(s).request` |
+| `path-traversal` | 22 | `fs.*` / `path.join` / `path.resolve` |
+| `open-redirect` | 601 | `res.redirect` |
+| `weak-crypto` | 327 | runtime-selectable hash / cipher algorithm |
+| `unsafe-deserialization` | 502 | `js-yaml` `load` / `node-serialize` |
+
+Build-config and test files are excluded from candidate generation. Both rule families default to `off` and are surfaced only by `fallow security`, never under bare `fallow` or the `audit` gate. Scope which catalogue categories run with `security.categories` include / exclude lists in config.
+
 ### Flags
 
 | Flag | Type | Default | Description |
@@ -993,11 +1009,12 @@ git diff --unified=0 origin/main...HEAD | fallow security --diff-file -
   "kind": "security",
   "schema_version": "1",
   "security_findings": [],
-  "unresolved_edge_files": 0
+  "unresolved_edge_files": 0,
+  "unresolved_callee_sites": 0
 }
 ```
 
-Each finding includes `kind`, `path`, `line`, `col`, `evidence`, `trace`, and `actions`. Suppress a verified false positive with `// fallow-ignore-file security-client-server-leak`.
+Each finding includes `kind`, `path`, `line`, `col`, `evidence`, `trace`, and `actions`. `tainted-sink` findings additionally carry `category` (the catalogue id, e.g. `"dangerous-html"`) and `cwe`; `client-server-leak` findings omit both. `unresolved_edge_files` (client-server-leak) and `unresolved_callee_sites` (tainted-sink) are in-band blind-spot counters: a zero finding count with a non-zero counter is not a clean bill. Suppress a verified false positive with `// fallow-ignore-file security-client-server-leak` (client-server-leak) or `// fallow-ignore-file security-sink` (any tainted-sink category).
 
 ---
 

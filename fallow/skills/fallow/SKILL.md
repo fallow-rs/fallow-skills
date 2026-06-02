@@ -1,6 +1,6 @@
 ---
 name: fallow
-description: Codebase intelligence for JavaScript and TypeScript. Free static layer reports quality, changed-code risk, cleanup opportunities (unused files, exports, types, dependencies), code duplication, circular dependencies, complexity hotspots, architecture boundary violations, feature flag patterns, and opt-in security candidates. Runtime coverage merges production execution data into the same health report for hot-path review, cold-path deletion confidence, and stale-flag evidence, with a single local capture available by default and continuous/cloud runtime monitoring available as an optional mode. 114 framework plugins, zero configuration, sub-second static analysis. Use when asked to analyze code health, audit PR risk, find cleanup opportunities or unused code, detect duplicates, check circular dependencies, audit complexity, check architecture boundaries, detect feature flags, surface security candidates, clean up the codebase, auto-fix issues, merge runtime coverage, or run fallow.
+description: Codebase intelligence for JavaScript and TypeScript. Free static layer reports quality, changed-code risk, cleanup opportunities (unused files, exports, types, dependencies), code duplication, circular dependencies, complexity hotspots, architecture boundary violations, feature flag patterns, and opt-in security candidates. Runtime coverage merges production execution data into the same health report for hot-path review, cold-path deletion confidence, and stale-flag evidence, with a single local capture available by default and continuous/cloud runtime monitoring available as an optional mode. 118 framework plugins, zero configuration, sub-second static analysis. Use when asked to analyze code health, audit PR risk, find cleanup opportunities or unused code, detect duplicates, check circular dependencies, audit complexity, check architecture boundaries, detect feature flags, surface security candidates, clean up the codebase, auto-fix issues, merge runtime coverage, or run fallow.
 license: MIT
 metadata:
   author: Bart Waardenburg
@@ -10,7 +10,7 @@ metadata:
 
 # Fallow: codebase intelligence for JavaScript and TypeScript
 
-Codebase intelligence for JavaScript and TypeScript. The free static layer reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, feature flag patterns, and opt-in security candidates. Runtime coverage merges production execution data into the same `fallow health` report for hot-path review, cold-path deletion confidence, and stale-flag evidence, with a single local capture available by default and continuous/cloud runtime monitoring available as an optional mode. 114 framework plugins, zero configuration, sub-second static analysis.
+Codebase intelligence for JavaScript and TypeScript. The free static layer reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, feature flag patterns, and opt-in security candidates. Runtime coverage merges production execution data into the same `fallow health` report for hot-path review, cold-path deletion confidence, and stale-flag evidence, with a single local capture available by default and continuous/cloud runtime monitoring available as an optional mode. 118 framework plugins, zero configuration, sub-second static analysis.
 
 ## When to Use
 
@@ -30,7 +30,7 @@ Codebase intelligence for JavaScript and TypeScript. The free static layer repor
 - Runtime error analysis or debugging
 - Type checking (use `tsc` for that)
 - Linting style or formatting issues (use ESLint, Biome, Prettier)
-- Security vulnerability scanning
+- Verified security vulnerability scanning or SAST. `fallow security` surfaces local, deterministic security *candidates* for a downstream agent to verify; it does not prove exploitability. Use Snyk, CodeQL, or Semgrep for verified scanning, and an SCA tool for dependency CVEs.
 - Bundle size analysis
 - Projects that are not JavaScript or TypeScript
 
@@ -75,7 +75,7 @@ cargo install fallow-cli        # build from source
 | `health` | Function complexity analysis (also covers Angular templates as synthetic `<template>` findings: external `.html` files via `templateUrl` AND inline `@Component({ template: \`...\` })` literals; suppress external with `<!-- fallow-ignore-file complexity -->` at the top of the `.html` file, suppress inline with `// fallow-ignore-next-line complexity` directly above the `@Component` decorator) | `--complexity`, `--max-cyclomatic`, `--max-cognitive`, `--max-crap`, `--top`, `--sort`, `--file-scores`, `--hotspots`, `--ownership`, `--ownership-emails`, `--targets`, `--effort`, `--score`, `--min-score`, `--since`, `--min-commits`, `--save-snapshot`, `--trend`, `--coverage-gaps`, `--coverage`, `--coverage-root`, `--runtime-coverage`, `--min-invocations-hot`, `--min-observation-volume`, `--low-traffic-threshold`, `--workspace`, `--changed-workspaces`, `--baseline`, `--save-baseline` |
 | `audit` | Combined dead-code + complexity + duplication for changed files | `--base`, `--gate`, `--production`, `--production-dead-code`, `--production-health`, `--production-dupes`, `--workspace`, `--changed-workspaces`, `--ci`, `--fail-on-issues`, `--explain`, `--explain-skipped`, `--dead-code-baseline`, `--health-baseline`, `--dupes-baseline`, `--max-crap`, `--coverage`, `--coverage-root`, `--include-entry-exports` |
 | `flags` | Detect feature flag patterns (env vars, SDK calls, config objects) | `--top` |
-| `security` | Surface opt-in local security candidates for verification. First rule: `"use client"` file reaches a non-public `process.env` secret source. Findings are candidates, not confirmed vulnerabilities. | `--format human|json|sarif`, `--changed-since`, `--diff-file`, `--workspace`, `--changed-workspaces`, `--ci`, `--fail-on-issues`, `--sarif-file`, `--summary` |
+| `security` | Surface opt-in local security candidates for agent verification (not confirmed vulnerabilities). Two rule families: the graph rule `client-server-leak` (a `"use client"` file reaching a non-public `process.env` secret) and a data-driven `tainted-sink` catalogue across 9 CWE categories (dangerous-html, command-injection, code-injection, sql-injection, ssrf, path-traversal, open-redirect, weak-crypto, unsafe-deserialization). Conservative non-literal trigger; parameterized SQL not flagged. Rules default off; suppress a file with `// fallow-ignore-file security-sink`; scope categories with `security.categories`. | `--format human|json|sarif`, `--changed-since`, `--diff-file`, `--workspace`, `--changed-workspaces`, `--ci`, `--fail-on-issues`, `--sarif-file`, `--summary` |
 | `explain` | Explain one issue type without running analysis | `<issue-type>`, `--format json` |
 | `license` | Manage the local license JWT for continuous/cloud runtime monitoring (activate, status, refresh, deactivate) | `activate --trial --email <addr>`, `activate --from-file`, `activate --stdin`, `status`, `refresh`, `deactivate` |
 | `telemetry` | Manage opt-in, off-by-default product telemetry (never collects code, paths, or names). Agents must not enable it; only the user may | `status`, `enable`, `disable`, `inspect --example` |
@@ -388,7 +388,7 @@ export const deprecatedHelper = () => {};
 ## Key Gotchas
 
 - **`fix --yes` is required** in non-TTY (agent) environments. Without it, `fix` exits with code 2
-- **Zero config by default.** 114 framework plugins auto-detect, including Wuchale config, Contentlayer content roots, tap and tsd test entry points. Don't create config unless customization is needed
+- **Zero config by default.** 118 framework plugins auto-detect, including Wuchale config, Contentlayer content roots, tap and tsd test entry points. Don't create config unless customization is needed
 - **Syntactic analysis only.** No TypeScript compiler, so fully dynamic `import(variable)` is not resolved
 - **Function overloads are deduplicated.** TypeScript function overload signatures are merged into a single export (not reported as separate unused exports)
 - **Re-export chains are resolved.** Exports through barrel files are tracked, not falsely flagged
