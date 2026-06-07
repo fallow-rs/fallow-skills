@@ -973,21 +973,49 @@ Surfaces local security candidates for agent or human verification. The first ru
 
 Findings are not confirmed vulnerabilities. Use the structural trace to verify whether the value can actually reach client-bundled code. Public env conventions (`NODE_ENV`, `NEXT_PUBLIC_*`, `VITE_*`, `NUXT_PUBLIC_*`, `REACT_APP_*`, `PUBLIC_*`, `GATSBY_*`, `EXPO_PUBLIC_*`, `STORYBOOK_*`) are excluded.
 
-The second rule family is a data-driven `tainted-sink` catalogue: syntactic dangerous-sink candidates across 9 CWE categories. A candidate fires only when the relevant argument is non-literal, so a fully-literal value (`el.innerHTML = "<b>x</b>"`, `child_process.exec("ls")`) never fires; fallow prefers false-negatives over false-positives.
+The second rule family is a data-driven `tainted-sink` catalogue: syntactic dangerous-sink candidates across 36 catalogue categories. Most rows require a non-literal argument; narrowly literal-aware rows flag deterministic unsafe literals such as wildcard `postMessage` origins, weak crypto algorithms, disabled TLS validation, and JWT algorithm issues. Fallow prefers false-negatives over false-positives.
 
 | Category | CWE | Sink |
 |----------|-----|------|
 | `dangerous-html` | 79 | `innerHTML` / `outerHTML` / `insertAdjacentHTML` / `dangerouslySetInnerHTML` |
+| `template-escape-bypass` | 79 | template-engine `SafeString(...)` wrapping a non-literal value |
 | `command-injection` | 78 | `child_process` `exec` / `execSync` / `spawn` / `spawnSync` (provenance-gated to `node:child_process`) |
 | `code-injection` | 94 | `eval` / `vm.runInNewContext` |
+| `dynamic-regex` | 1333 | `RegExp(...)` / `new RegExp(...)` with a non-literal pattern |
+| `dynamic-module-load` | 95 | dynamic `require(...)` |
 | `sql-injection` | 89 | string concat or interpolated template into `.query()` / `.execute()`, and `sql.raw(...)`. Parameterized `` sql`${x}` `` and the object form `.execute({ sql, args })` are NOT flagged |
-| `ssrf` | 918 | `fetch` / `axios` / `http(s).request` |
-| `path-traversal` | 22 | `fs.*` / `path.join` / `path.resolve` |
-| `open-redirect` | 601 | `res.redirect` |
+| `ssrf` | 918 | `fetch` / `got` / `ky` / `needle` / `request` / `axios` / `superagent` / `undici` / `http(s).request` |
+| `path-traversal` | 22 | `path.join` / `path.resolve` / `node:fs` path methods / route `sendFile` |
+| `header-injection` | 113 | response `setHeader` / `writeHead` |
+| `open-redirect` | 601 | `res.redirect` / `location.href` / `location.assign` / `window.open` |
+| `postmessage-wildcard-origin` | 346 | `postMessage(..., "*")` |
+| `tls-validation-disabled` | 295 | HTTPS/TLS options with `rejectUnauthorized: false`, plus `NODE_TLS_REJECT_UNAUTHORIZED = "0"` |
+| `permissive-cors` | 942 | CORS wildcard origin with credentials |
+| `insecure-cookie` | 614 | cookie options missing or disabling `httpOnly` / `secure` |
+| `mass-assignment` | 915 | source-backed `Object.assign(target, source)` |
 | `weak-crypto` | 327 | runtime-selectable hash / cipher algorithm |
+| `deprecated-cipher` | 327 | `crypto.createCipher` / `createDecipher` |
+| `insecure-randomness` | 338 | `crypto.pseudoRandomBytes(...)` and token-like `Math.random()` use |
+| `jwt-alg-none` | 347 | JWT signing with algorithm `none` |
+| `jwt-verify-missing-algorithms` | 347 | `jsonwebtoken` verify calls missing an `algorithms` allowlist |
+| `unsafe-buffer-alloc` | 1188 | `Buffer.allocUnsafe` / `allocUnsafeSlow` |
 | `unsafe-deserialization` | 502 | `js-yaml` `load` / `node-serialize` |
+| `angular-trusted-html` | 79 | Angular `bypassSecurityTrust*` |
+| `nextjs-open-redirect` | 601 | Next.js `redirect` / `permanentRedirect` |
+| `dom-document-write` | 79 | `document.write` / `document.writeln` |
+| `jquery-html` | 79 | jQuery `.html(value)` |
+| `route-send-file` | 22 | Express / Fastify / Hono route `sendFile` |
+| `webview-injection` | 94 | react-native-webview injected JavaScript |
+| `prototype-pollution` | 1321 | `__proto__` writes and recursive merge sources |
+| `zip-slip` | 22 | archive extraction destination paths |
+| `nosql-injection` | 943 | Mongo / Mongoose query object passthrough |
+| `ssti` | 1336 | template engine compile / render calls |
+| `xxe` | 611 | XML parse calls |
+| `secret-pii-log` | 532 | source-backed secrets or request PII reaching logs |
+| `hardcoded-secret` | 798 | provider-prefix credentials and high-entropy literals assigned to secret-shaped identifiers (include-required) |
+| `xpath-injection` | 643 | `xpath.select` / `select1` with a non-literal expression |
 
-Build-config and test files are excluded from candidate generation. Both rule families default to `off` and are surfaced only by `fallow security`, never under bare `fallow` or the `audit` gate. Scope which catalogue categories run with `security.categories` include / exclude lists in config.
+Build-config and test files are excluded from candidate generation. Security rule families default to `off` and are surfaced only by `fallow security`, never under bare `fallow` or the `audit` gate. Scope which catalogue categories run with `security.categories` include / exclude lists in config. `hardcoded-secret` is intentionally include-required and only runs when listed in `security.categories.include`.
 
 ### Flags
 
@@ -1000,6 +1028,7 @@ Build-config and test files are excluded from candidate generation. Both rule fa
 | `--fail-on-issues` | bool | `false` | Exit 1 when candidates are found |
 | `--sarif-file` | path | none | Write SARIF in addition to the primary output |
 | `--changed-since` | git ref | none | Scope to candidates whose client anchor or trace hops touch changed files |
+| `--file` | path, repeatable | none | Scope output to candidates whose finding anchor or trace hop matches the selected file. The full graph is still analyzed |
 | `--diff-file` | path | none | Scope candidates to added hunks on the client anchor or import trace. Secret-source hops use file-level retention because member-access spans are not yet stored. Use `-` for stdin |
 | `--workspace` | string | none | Scope to selected workspace packages |
 | `--changed-workspaces` | git ref | none | Scope to workspaces changed since a git ref |
