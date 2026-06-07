@@ -973,7 +973,7 @@ Surfaces local security candidates for agent or human verification. The first ru
 
 Findings are not confirmed vulnerabilities. Use the structural trace to verify whether the value can actually reach client-bundled code. Public env conventions (`NODE_ENV`, `NEXT_PUBLIC_*`, `VITE_*`, `NUXT_PUBLIC_*`, `REACT_APP_*`, `PUBLIC_*`, `GATSBY_*`, `EXPO_PUBLIC_*`, `STORYBOOK_*`) are excluded.
 
-The second rule family is a data-driven `tainted-sink` catalogue: syntactic dangerous-sink candidates across 36 catalogue categories. Most rows require a non-literal argument; narrowly literal-aware rows flag deterministic unsafe literals such as wildcard `postMessage` origins, weak crypto algorithms, disabled TLS validation, and JWT algorithm issues. Fallow prefers false-negatives over false-positives.
+The second rule family is a data-driven `tainted-sink` catalogue: syntactic dangerous-sink candidates across 42 catalogue categories. Most rows require a non-literal argument; narrowly literal-aware rows flag deterministic unsafe literals such as wildcard `postMessage` origins, weak crypto algorithms, disabled TLS validation, and JWT algorithm issues. Fallow prefers false-negatives over false-positives.
 
 | Category | CWE | Sink |
 |----------|-----|------|
@@ -982,6 +982,7 @@ The second rule family is a data-driven `tainted-sink` catalogue: syntactic dang
 | `command-injection` | 78 | `child_process` `exec` / `execSync` / `spawn` / `spawnSync` (provenance-gated to `node:child_process`) |
 | `code-injection` | 94 | `eval` / `vm.runInNewContext` |
 | `dynamic-regex` | 1333 | `RegExp(...)` / `new RegExp(...)` with a non-literal pattern |
+| `redos-regex` | 1333 | vulnerable regex literals tested with source-backed input |
 | `dynamic-module-load` | 95 | dynamic `require(...)` |
 | `sql-injection` | 89 | string concat or interpolated template into `.query()` / `.execute()`, and `sql.raw(...)`. Parameterized `` sql`${x}` `` and the object form `.execute({ sql, args })` are NOT flagged |
 | `ssrf` | 918 | `fetch` / `got` / `ky` / `needle` / `request` / `axios` / `superagent` / `undici` / `http(s).request` |
@@ -990,6 +991,11 @@ The second rule family is a data-driven `tainted-sink` catalogue: syntactic dang
 | `open-redirect` | 601 | `res.redirect` / `location.href` / `location.assign` / `window.open` |
 | `postmessage-wildcard-origin` | 346 | `postMessage(..., "*")` |
 | `tls-validation-disabled` | 295 | HTTPS/TLS options with `rejectUnauthorized: false`, plus `NODE_TLS_REJECT_UNAUTHORIZED = "0"` |
+| `cleartext-transport` | 319 | cleartext `http://` URLs in fetch-like calls and WebSocket constructors |
+| `electron-unsafe-webpreferences` | 1188 | Electron `webPreferences` with unsafe literal options |
+| `world-writable-permission` | 732 | `chmod` / `chmodSync` with world-writable modes |
+| `insecure-temp-file` | 377 | predictable temporary file paths in `fs` writes |
+| `mysql-multiple-statements` | 89 | MySQL connection options with `multipleStatements: true` |
 | `permissive-cors` | 942 | CORS wildcard origin with credentials |
 | `insecure-cookie` | 614 | cookie options missing or disabling `httpOnly` / `secure` |
 | `mass-assignment` | 915 | source-backed `Object.assign(target, source)` |
