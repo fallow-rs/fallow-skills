@@ -44,6 +44,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 | `--legacy-envelope` | bool | `false` | Remove the top-level `kind` field from typed JSON roots for one migration cycle |
 | `--changed-since` | string | — | Only analyze files changed since a git ref (e.g., `main`, `HEAD~3`) |
 | `--production` | bool | `false` | Exclude test/dev files, only start/build scripts (applies to every analysis) |
+| `--no-production` | bool | `false` | Force production mode off, overriding a project config's `production: true` (applies to every analysis; conflicts with `--production`) |
 | `--production-dead-code` | bool | `false` | Per-analysis production mode for dead-code. Bare combined runs and `fallow audit` only. |
 | `--production-health` | bool | `false` | Per-analysis production mode for health. Bare combined runs and `fallow audit` only. |
 | `--production-dupes` | bool | `false` | Per-analysis production mode for duplication. Bare combined runs and `fallow audit` only. |
@@ -806,6 +807,7 @@ Audits changed files for dead code, complexity, and duplication. Returns a verdi
 | `--base` | string | auto-detect | Git ref to compare against (alias for `--changed-since`) |
 | `--gate` | `new-only\|all` | `new-only` | Which findings affect the verdict. `new-only` gates only introduced findings; `all` gates every finding in changed files and skips the extra base-snapshot attribution pass. |
 | `--production` | bool | false | Exclude test/story/dev files (applies to dead-code, health, and dupes) |
+| `--no-production` | bool | false | Force production mode off, overriding a project config's `production: true` (conflicts with `--production`) |
 | `--production-dead-code` | bool | false | Per-analysis production mode for the dead-code sub-analysis only |
 | `--production-health` | bool | false | Per-analysis production mode for the health sub-analysis only |
 | `--production-dupes` | bool | false | Per-analysis production mode for the duplication sub-analysis only |
