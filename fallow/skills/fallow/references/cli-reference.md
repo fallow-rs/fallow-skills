@@ -40,6 +40,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 |------|------|---------|-------------|
 | `--format` | `human\|json\|sarif\|compact\|markdown\|codeclimate\|gitlab-codequality\|pr-comment-github\|pr-comment-gitlab\|review-github\|review-gitlab` | `human` | Output format |
 | `--quiet` | bool | `false` | Suppress progress bars and timing on stderr |
+| `-o, --output-file` | path | (none) | Write the report to a file instead of stdout, for any `--format` (no ANSI codes). Progress and a confirmation stay on stderr (suppressed by `--quiet`). Valid with dead-code/dupes/health/security/bare; composes with `--sarif-file`. |
 | `--legacy-envelope` | bool | `false` | Remove the top-level `kind` field from typed JSON roots for one migration cycle |
 | `--changed-since` | string | — | Only analyze files changed since a git ref (e.g., `main`, `HEAD~3`) |
 | `--production` | bool | `false` | Exclude test/dev files, only start/build scripts (applies to every analysis) |
