@@ -1038,6 +1038,8 @@ Build-config and test files are excluded from candidate generation. Security rul
 | `--changed-since` | git ref | none | Scope to candidates whose client anchor or trace hops touch changed files |
 | `--file` | path, repeatable | none | Scope output to candidates whose finding anchor or trace hop matches the selected file. The full graph is still analyzed |
 | `--diff-file` | path | none | Scope candidates to added hunks on the client anchor or import trace. Secret-source hops use file-level retention because member-access spans are not yet stored. Use `-` for stdin |
+| `--diff-stdin` | bool | `false` | Read the unified diff from stdin (equivalent to `--diff-file -`) for line-level scoping and the regression gate |
+| `--gate` | `new` | none | Fail (exit code **8**) only when the change introduces a NEW security-sink candidate in the changed lines, not on the whole candidate backlog. Requires a diff source (`--changed-since`, `--diff-file`, or `--diff-stdin`); a diff the gate cannot compute is a loud exit 2, never a green gate. Human output says `REVIEW REQUIRED` (not `FAIL`); SARIF keeps every result at `level: note` with the verdict in `run.properties.fallowGate`; `--format json` carries an additive `gate` block (`mode` / `verdict` / `new_count`) |
 | `--workspace` | string | none | Scope to selected workspace packages |
 | `--changed-workspaces` | git ref | none | Scope to workspaces changed since a git ref |
 
@@ -1047,6 +1049,9 @@ Build-config and test files are excluded from candidate generation. Security rul
 fallow security --format json --quiet
 fallow security --ci --sarif-file fallow-security.sarif
 git diff --unified=0 origin/main...HEAD | fallow security --diff-file -
+# Regression gate: fail (exit 8) only on candidates introduced in the changed lines
+fallow security --gate new --changed-since origin/main
+git diff --cached --unified=0 | fallow security --gate new --diff-stdin
 ```
 
 ### JSON Output Structure
