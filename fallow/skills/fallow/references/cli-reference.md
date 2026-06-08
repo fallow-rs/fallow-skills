@@ -984,6 +984,7 @@ The second rule family is a data-driven `tainted-sink` catalogue: syntactic dang
 | `code-injection` | 94 | `eval` / `vm.runInNewContext` |
 | `dynamic-regex` | 1333 | `RegExp(...)` / `new RegExp(...)` with a non-literal pattern |
 | `redos-regex` | 1333 | vulnerable regex literals tested with source-backed input |
+| `resource-amplification` | 400 | source-backed size into `Array(...)` / `new Array(...)` / `Buffer.alloc*` / `String.prototype.repeat` / `padStart` / `padEnd` (directly `Math.min`-clamped sizes stay quiet) |
 | `dynamic-module-load` | 95 | dynamic `require(...)` |
 | `sql-injection` | 89 | string concat or interpolated template into `.query()` / `.execute()`, and `sql.raw(...)`. Parameterized `` sql`${x}` `` and the object form `.execute({ sql, args })` are NOT flagged |
 | `ssrf` | 918 | `fetch` / `got` / `ky` / `needle` / `request` / `axios` / `superagent` / `undici` / `http(s).request` |
