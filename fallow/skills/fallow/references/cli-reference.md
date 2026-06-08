@@ -1070,6 +1070,15 @@ git diff --cached --unified=0 | fallow security --gate new --diff-stdin
 
 Each finding includes `kind`, `path`, `line`, `col`, `evidence`, `trace`, `actions`, and optional `reachability`. `tainted-sink` findings additionally carry `category` (the catalogue id, e.g. `"dangerous-html"`) and `cwe`; `client-server-leak` findings omit both. `tainted-sink` findings can also include `reachability.untrusted_source_trace` when a module with a known untrusted source imports the sink module; it is ranking and triage context only, not proof that a specific value reaches the sink. `unresolved_edge_files` (client-server-leak) and `unresolved_callee_sites` (tainted-sink) are in-band blind-spot counters: a zero finding count with a non-zero counter is not a clean bill. Suppress a verified false positive with `// fallow-ignore-file security-client-server-leak` (client-server-leak) or `// fallow-ignore-file security-sink` (any tainted-sink category).
 
+Every finding also carries an agent-actionable `candidate { source_kind, sink, boundary }`, an optional `taint_flow { source, sink, path }`, and a stable `finding_id`:
+
+- `candidate.source_kind`: the untrusted-input kind that reaches the sink, as a stable catalogue id (`"http-request-input"`, `"process-env"`, `"process-argv"`, `"message-event-data"`, `"location-input"`, ...). Absent when no source matched (always absent for `client-server-leak`). Treat an unknown id as an untrusted source of unknown kind; never drop the candidate on that basis.
+- `candidate.sink`: a self-contained sink (`path`, `line`, `col`, `category`, `cwe`, `callee`), actionable without reading the rest of the finding.
+- `candidate.boundary`: `client_server` (a `"use client"` file in the trace), `cross_module` (the source reaches the sink across import hops), and optional `architecture_zone` (`from`/`to`) when the anchor also crosses a declared architecture boundary.
+- There is no `impact` field: deciding exploitability is the verifying agent's job.
+- `taint_flow`: present only when an untrusted source is import-reachable to the sink. `path` is the compact `{ intra_module, cross_module_hops }` shape; the full ordered hops stay in `reachability.untrusted_source_trace`.
+- `finding_id`: a stable correlation id, identical across runs for the same rule/path/line and identical to the SARIF `partialFingerprints` value, for tracking a candidate across runs and joining JSON with SARIF.
+
 ---
 
 ## `explain`: Rule Explanation
