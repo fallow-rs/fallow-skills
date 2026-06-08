@@ -1061,7 +1061,7 @@ git diff --unified=0 origin/main...HEAD | fallow security --diff-file -
 }
 ```
 
-Each finding includes `kind`, `path`, `line`, `col`, `evidence`, `trace`, and `actions`. `tainted-sink` findings additionally carry `category` (the catalogue id, e.g. `"dangerous-html"`) and `cwe`; `client-server-leak` findings omit both. `unresolved_edge_files` (client-server-leak) and `unresolved_callee_sites` (tainted-sink) are in-band blind-spot counters: a zero finding count with a non-zero counter is not a clean bill. Suppress a verified false positive with `// fallow-ignore-file security-client-server-leak` (client-server-leak) or `// fallow-ignore-file security-sink` (any tainted-sink category).
+Each finding includes `kind`, `path`, `line`, `col`, `evidence`, `trace`, `actions`, and optional `reachability`. `tainted-sink` findings additionally carry `category` (the catalogue id, e.g. `"dangerous-html"`) and `cwe`; `client-server-leak` findings omit both. `tainted-sink` findings can also include optional `source_reachability` context when a module with a known untrusted source imports the sink module; it is ranking and triage context only, not proof that a specific value reaches the sink. `unresolved_edge_files` (client-server-leak), `unresolved_callee_sites` (tainted-sink), and optional `source_reachability_unresolved_edge_files` are in-band blind-spot counters: a zero finding count with a non-zero counter is not a clean bill. Suppress a verified false positive with `// fallow-ignore-file security-client-server-leak` (client-server-leak) or `// fallow-ignore-file security-sink` (any tainted-sink category).
 
 ---
 
