@@ -1064,15 +1064,14 @@ git diff --cached --unified=0 | fallow security --gate new --diff-stdin
 ```json
 {
   "kind": "security",
-  "schema_version": "1",
+  "schema_version": "2",
   "security_findings": [],
-  "attack_surface": [],
   "unresolved_edge_files": 0,
   "unresolved_callee_sites": 0
 }
 ```
 
-Each finding includes `kind`, `path`, `line`, `col`, `evidence`, `trace`, `actions`, and optional `reachability`. `tainted-sink` findings additionally carry `category` (the catalogue id, e.g. `"dangerous-html"`) and `cwe`; `client-server-leak` findings omit both. `tainted-sink` findings can also include `reachability.untrusted_source_trace` when a module with a known untrusted source imports the sink module; it is ranking and triage context only, not proof that a specific value reaches the sink. When set, `reachability.taint_confidence` tiers the association as `"arg-level"` (the sink argument traces to a same-module source read, strong) or `"module-level"` (only the module is import-reachable from a source, weak); tier from this field rather than the evidence text. For arg-level findings the trace's first hop points at the actual source-read line, and module-level source hops carry the role `"module-source"`. `unresolved_edge_files` (client-server-leak) and `unresolved_callee_sites` (tainted-sink) are in-band blind-spot counters: a zero finding count with a non-zero counter is not a clean bill. Suppress a verified false positive with `// fallow-ignore-file security-client-server-leak` (client-server-leak) or `// fallow-ignore-file security-sink` (any tainted-sink category).
+Each finding includes `kind`, `path`, `line`, `col`, `evidence`, `trace`, `actions`, `severity`, and optional `reachability`. `severity` is a review-priority tier (`high`, `medium`, or `low`) derived from reachability, boundary, source-backed, and runtime-hot signals; it is not a verified vulnerability verdict and does not change gate or exit semantics. SARIF maps high and medium candidates to `warning`, and low candidates to `note`. `tainted-sink` findings additionally carry `category` (the catalogue id, e.g. `"dangerous-html"`) and `cwe`; `client-server-leak` findings omit both. `tainted-sink` findings can also include `reachability.untrusted_source_trace` when a module with a known untrusted source imports the sink module; it is ranking and triage context only, not proof that a specific value reaches the sink. When set, `reachability.taint_confidence` tiers the association as `"arg-level"` (the sink argument traces to a same-module source read, strong) or `"module-level"` (only the module is import-reachable from a source, weak); tier from this field rather than the evidence text. For arg-level findings the trace's first hop points at the actual source-read line, and module-level source hops carry the role `"module-source"`. `unresolved_edge_files` (client-server-leak) and `unresolved_callee_sites` (tainted-sink) are in-band blind-spot counters: a zero finding count with a non-zero counter is not a clean bill. Suppress a verified false positive with `// fallow-ignore-file security-client-server-leak` (client-server-leak) or `// fallow-ignore-file security-sink` (any tainted-sink category).
 
 Every finding also carries an agent-actionable `candidate { source_kind, sink, boundary }`, an optional `taint_flow { source, sink, path }`, and a stable `finding_id`:
 
@@ -1080,7 +1079,7 @@ Every finding also carries an agent-actionable `candidate { source_kind, sink, b
 - `candidate.sink`: a self-contained sink (`path`, `line`, `col`, `category`, `cwe`, `callee`), actionable without reading the rest of the finding.
 - `candidate.boundary`: `client_server` (a `"use client"` file in the trace), `cross_module` (the source reaches the sink across import hops), and optional `architecture_zone` (`from`/`to`) when the anchor also crosses a declared architecture boundary.
 - `candidate.network`: present only on `secret-to-network` (#890) candidates. `destination` is the network call's URL when it is a static literal (usually intended auth) or absent when the destination is dynamic (the higher-signal exfil case). Use it to triage exfil from intended auth without re-reading source.
-- There is no `impact` field: deciding exploitability is the verifying agent's job.
+- There is no `impact` field: deciding exploitability is the verifying agent's job; `severity` is only the review-priority tier.
 - `taint_flow`: present only when an untrusted source is import-reachable to the sink. `path` is the compact `{ intra_module, cross_module_hops }` shape; the full ordered hops stay in `reachability.untrusted_source_trace`.
 - `finding_id`: a stable correlation id, identical across runs for the same rule/path/line and identical to the SARIF `partialFingerprints` value, for tracking a candidate across runs and joining JSON with SARIF.
 
