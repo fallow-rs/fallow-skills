@@ -43,6 +43,7 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 | `-o, --output-file` | path | (none) | Write the report to a file instead of stdout, for any `--format` (no ANSI codes). Progress and a confirmation stay on stderr (suppressed by `--quiet`). Valid with dead-code/dupes/health/security/bare; composes with `--sarif-file`. |
 | `--legacy-envelope` | bool | `false` | Remove the top-level `kind` field from typed JSON roots for one migration cycle |
 | `--changed-since` | string | — | Only analyze files changed since a git ref (e.g., `main`, `HEAD~3`) |
+| `--max-file-size` | int (MB) | `5` | Skip source files larger than N megabytes at discovery instead of parsing them (`0` disables). Guards against the OOM a single multi-MB generated/vendored/bundled file causes on large repos. `.d.ts` files are always analyzed. Skipped files appear on stderr and in `--format json` under `workspace_diagnostics` (`kind: "skipped-large-file"`). Also settable via `FALLOW_MAX_FILE_SIZE`. Global flag. |
 | `--production` | bool | `false` | Exclude test/dev files, only start/build scripts (applies to every analysis) |
 | `--no-production` | bool | `false` | Force production mode off, overriding a project config's `production: true` (applies to every analysis; conflicts with `--production`) |
 | `--production-dead-code` | bool | `false` | Per-analysis production mode for dead-code. Bare combined runs and `fallow audit` only. |
