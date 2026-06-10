@@ -312,6 +312,7 @@ Creates a config file in the project root.
 | Flag | Type | Description |
 |------|------|-------------|
 | `--toml` | bool | Create `fallow.toml` instead of `.fallowrc.json` |
+| `--agents` | bool | Scaffold a starter `AGENTS.md` guide for coding agents. Prefills Install (from the `packageManager` field, or pnpm via `pnpm-workspace.yaml`), Test (only when exactly one of Vitest / Jest / Playwright is present), Typecheck (`tsc --noEmit` when `tsconfig.json` exists), and monorepo module-boundary lines; everything ambiguous stays blank (no lockfile sniffing). Prefilled command lines carry an HTML provenance comment. Refuses to overwrite an existing `AGENTS.md` |
 | `--hooks` | bool | Scaffold a pre-commit git hook that runs `fallow audit --base <ref> --quiet`. Alias for `fallow hooks install --target git` |
 | `--branch` | string | Fallback base branch for the pre-commit hook when no upstream is set (default: `main`). Only used with `--hooks` |
 
@@ -320,6 +321,7 @@ Creates a config file in the project root.
 ```bash
 fallow init              # creates .fallowrc.json with $schema
 fallow init --toml       # creates fallow.toml
+fallow init --agents     # scaffolds a starter AGENTS.md prefilled from detected project info (never overwrites)
 fallow hooks install --target git
 fallow hooks install --target git --branch develop  # fallback base branch when no upstream is set
 ```

@@ -68,7 +68,7 @@ cargo install fallow-cli        # build from source
 | `dead-code` | Dead code analysis (`check` is an alias) | `--unused-exports`, `--changed-since`, `--changed-workspaces`, `--production`, `--file`, `--include-entry-exports`, `--stale-suppressions`, `--ci`, `--group-by`, `--summary`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `dupes` | Code duplication detection | `--mode`, `--threshold`, `--top`, `--changed-since`, `--workspace`, `--changed-workspaces`, `--skip-local`, `--cross-language`, `--ignore-imports`, `--explain-skipped`, `--fail-on-regression`, `--tolerance`, `--regression-baseline`, `--save-regression-baseline` |
 | `fix` | Auto-remove unused exports/deps | `--dry-run`, `--yes` (required in non-TTY) |
-| `init` | Generate config file or pre-commit hook | `--toml`, `--hooks`, `--branch` |
+| `init` | Generate config file, AGENTS.md agent guide, or pre-commit hook | `--toml`, `--agents`, `--hooks`, `--branch` |
 | `migrate` | Convert knip/jscpd config | `--dry-run`, `--from PATH` |
 | `list` | Inspect project structure | `--files`, `--entry-points`, `--plugins`, `--boundaries`, `--workspaces` |
 | `workspaces` | Inspect monorepo workspaces + discovery diagnostics (shorthand for `list --workspaces`) | (no flags) |
@@ -323,6 +323,7 @@ Auto-detects `knip.json`, `knip.jsonc`, `.knip.json`, `.knip.jsonc`, `.jscpd.jso
 ```bash
 fallow init              # creates .fallowrc.json, adds .fallow/ to .gitignore
 fallow init --toml       # creates fallow.toml, adds .fallow/ to .gitignore
+fallow init --agents     # scaffolds a starter AGENTS.md prefilled from detected project info (never overwrites)
 fallow hooks install --target git
 fallow hooks install --target git --branch develop  # fallback base branch when no upstream is set
 ```
