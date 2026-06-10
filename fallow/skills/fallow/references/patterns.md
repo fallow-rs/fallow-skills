@@ -118,6 +118,19 @@ Parse the JSON to list specific files and exports that became unused.
     changed-since: main
 ```
 
+### GitHub Actions: Security Delta Gate
+
+Fail a PR only when it introduces new security candidates (or makes existing ones newly reachable). Gated failures exit with code 8; the `issues` output counts only matching gate candidates. PR comment and review renderers skip security envelopes.
+
+```yaml
+- uses: fallow-rs/fallow@v2
+  with:
+    command: security
+    security-gate: new   # or newly-reachable (needs a base ref via changed-since or PR auto-scoping)
+```
+
+GitLab equivalent: `FALLOW_COMMAND: "security"` with `FALLOW_SECURITY_GATE: "new"`.
+
 ### GitHub Actions: With Health Score
 
 ```yaml
