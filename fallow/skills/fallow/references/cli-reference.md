@@ -1067,14 +1067,87 @@ fallow security --gate newly-reachable --changed-since origin/main
 ```json
 {
   "kind": "security",
-  "schema_version": "2",
+  "schema_version": "4",
+  "version": "2.91.0",
+  "elapsed_ms": 42,
+  "config": {
+    "rules": {
+      "security_client_server_leak": {
+        "configured": "off",
+        "effective": "warn"
+      },
+      "security_sink": {
+        "configured": "off",
+        "effective": "warn"
+      }
+    },
+    "categories_include": null,
+    "categories_exclude": null
+  },
   "security_findings": [],
   "unresolved_edge_files": 0,
-  "unresolved_callee_sites": 0
+  "unresolved_callee_sites": 0,
+  "unresolved_callee_diagnostics": null
+}
+```
+
+`fallow security --summary --format json --quiet` emits the same `kind`, `schema_version`, `version`, `elapsed_ms`, and `config` metadata, but replaces candidate arrays with `summary` aggregate counts:
+
+```json
+{
+  "kind": "security",
+  "schema_version": "4",
+  "version": "2.91.0",
+  "elapsed_ms": 42,
+  "config": {
+    "rules": {
+      "security_client_server_leak": {
+        "configured": "off",
+        "effective": "warn"
+      },
+      "security_sink": {
+        "configured": "off",
+        "effective": "warn"
+      }
+    },
+    "categories_include": null,
+    "categories_exclude": null
+  },
+  "summary": {
+    "security_findings": 0,
+    "by_severity": {
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    },
+    "by_category": {},
+    "by_reachability": {
+      "entry_reachable": 0,
+      "untrusted_source_reachable": 0,
+      "arg_level": 0,
+      "module_level": 0,
+      "crosses_boundary": 0,
+      "source_backed": 0
+    },
+    "by_runtime_state": {
+      "runtime_hot": 0,
+      "runtime_cold": 0,
+      "never_executed": 0,
+      "low_traffic": 0,
+      "coverage_unavailable": 0,
+      "runtime_unknown": 0,
+      "not_collected": 0
+    },
+    "unresolved_edge_files": 0,
+    "unresolved_callee_sites": 0,
+    "attack_surface_entries": 0
+  }
 }
 ```
 
 Each finding includes `kind`, `path`, `line`, `col`, `evidence`, `trace`, `actions`, `severity`, and optional `reachability`. `severity` is a review-priority tier (`high`, `medium`, or `low`) derived from reachability, boundary, source-backed, and runtime-hot signals; it is not a verified vulnerability verdict and does not change gate or exit semantics. SARIF maps high and medium candidates to `warning`, and low candidates to `note`. `tainted-sink` findings additionally carry `category` (the catalogue id, e.g. `"dangerous-html"`) and `cwe`; `client-server-leak` findings omit both. `tainted-sink` findings can also include `reachability.untrusted_source_trace` when a module with a known untrusted source imports the sink module; it is ranking and triage context only, not proof that a specific value reaches the sink. When set, `reachability.taint_confidence` tiers the association as `"arg-level"` (the sink argument traces to a same-module source read, strong) or `"module-level"` (only the module is import-reachable from a source, weak); tier from this field rather than the evidence text. For arg-level findings the trace's first hop points at the actual source-read line, and module-level source hops carry the role `"module-source"`. `unresolved_edge_files` (client-server-leak) and `unresolved_callee_sites` (tainted-sink) are in-band blind-spot counters: a zero finding count with a non-zero counter is not a clean bill. Suppress a verified false positive with `// fallow-ignore-file security-client-server-leak` (client-server-leak) or `// fallow-ignore-file security-sink` (any tainted-sink category).
+
+When present, `unresolved_callee_diagnostics` adds bounded unresolved-callee metadata for follow-up review: `sampled[]` rows with `path`, `line`, `col`, `reason`, and `expression_kind`, `top_files[]` counts, `by_reason[]` counts, and the emitted sample/top-file limits. It is blind-spot metadata, not a finding list, and follows the same `--file`, `--workspace`, `--changed-since`, and `--gate new` scoping as security candidates.
 
 Every finding also carries an agent-actionable `candidate { source_kind, sink, boundary }`, an optional `taint_flow { source, sink, path }`, and a stable `finding_id`:
 
