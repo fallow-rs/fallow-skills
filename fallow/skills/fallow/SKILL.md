@@ -191,6 +191,8 @@ Most tools accept `root`, `config`, `no_cache`, and `threads` params. Exceptions
 
 All JSON responses include structured `actions` arrays on every finding (dead code, health, duplication), enabling programmatic fix application or suppression.
 
+`dead-code`, `health`, `dupes`, bare `fallow`, and `audit` JSON output also carry a top-level `next_steps` array of read-only follow-up commands computed from the run's findings: each entry is `{ id, command, reason }`. The `command` is runnable as-is (never a placeholder, never `fix` or any other mutating command); the stable kebab-case `id` (`trace-unused-export`, `trace-clone`, `complexity-breakdown`, `scope-workspaces`, `audit-changed`) maps to a verification step you should run BEFORE acting, for example tracing an export before deleting it. When running via MCP, dispatch on the `id` to the matching tool / `code_execute` host call (`trace_export`, `trace_clone`, `check_health` with `complexity_breakdown: true`, `audit`) rather than shelling out the CLI string. The array is deduplicated, capped at three, and omitted when empty; set `FALLOW_SUGGESTIONS=off` to suppress it.
+
 ## Node.js Bindings
 
 When embedding fallow inside a Node.js process (editor extensions, long-running servers, custom tooling), prefer the NAPI bindings over spawning the CLI. Same analysis engine, same JSON envelopes, no subprocess or JSON parsing overhead.
