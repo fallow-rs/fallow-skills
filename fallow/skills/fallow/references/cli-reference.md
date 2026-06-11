@@ -416,8 +416,8 @@ Angular templates contribute synthetic `<template>` complexity findings whenever
 | `--save-snapshot` | path (optional) | `.fallow/snapshots/<timestamp>.json` | Save vital signs snapshot for trend tracking. Forces file-scores + hotspot computation. |
 | `--trend` | bool | `false` | Compare current metrics against the most recent saved snapshot. Reads from `.fallow/snapshots/` and shows per-metric deltas with directional indicators (improving/declining/stable). Implies `--score`. |
 | `--coverage-gaps` | bool | `false` | Show runtime files and exports that no test dependency path reaches. Opt-in (default off). Configure severity via the `coverage-gaps` rule (`error`/`warn`/`off`). |
-| `--coverage` | path | none | Path to Istanbul-format coverage data (`coverage-final.json`) for accurate per-function CRAP scores. Uses `CC^2 * (1-cov/100)^3 + CC` instead of static binary model. Relative paths resolve against `--root`. |
-| `--coverage-root` | path | none | Absolute prefix to strip from file paths in coverage data before prepending the project root. For CI/Docker environments where coverage was generated with different absolute paths. |
+| `--coverage` | path | none | Path to Istanbul-format coverage data (`coverage-final.json`) for accurate per-function CRAP scores. Uses `CC^2 * (1-cov/100)^3 + CC` instead of static binary model. Relative paths resolve against `--root`. Falls back to `FALLOW_COVERAGE`, then `health.coverage`, then auto-detection. |
+| `--coverage-root` | path | none | Absolute prefix to strip from file paths in coverage data before prepending the project root. For CI/Docker environments where coverage was generated with different absolute paths. Falls back to `FALLOW_COVERAGE_ROOT`, then `health.coverageRoot`. |
 | `--runtime-coverage` | path | none | Merge runtime-coverage input into the health report. Accepts a V8 coverage directory (`NODE_V8_COVERAGE=...`), a single V8 coverage JSON file, or an Istanbul `coverage-final.json`. One local capture is free and does not require a license; continuous/cloud or multi-capture runtime monitoring requires an active license or trial (`fallow license activate --trial --email <addr>`). JSON output gains a `runtime_coverage` object with a top-level report verdict, per-finding `verdict` (`safe_to_delete` / `review_required` / `low_traffic` / `coverage_unavailable` / `active`), a per-finding suppression `id` (`fallow:prod:<hash>`, hashes the current line), an optional cross-surface `stable_id` join key (`fallow:fn:<hash>`, hashes file + name + start line; one value per function across findings / hot-paths / blast-radius / importance and across V8/Istanbul/oxc producers), an optional content-digest `source_hash` (line-move-immune, so baselines survive a pure line shift), an evidence block, and percentile-ranked hot paths. On protocol-0.3+ sidecars the `summary` also carries an optional `capture_quality` block (`window_seconds`, `instances_observed`, `lazy_parse_warning`, `untracked_ratio_percent`) that flags short-window captures where lazy-parsed scripts may not appear. |
 | `--min-invocations-hot` | number | `100` | Invocation threshold for hot-path classification. Takes effect only when `--runtime-coverage` is set. |
 | `--min-observation-volume` | number | `5000` | Minimum total trace volume before the sidecar may emit high-confidence `safe_to_delete` / `review_required` verdicts. Below this, confidence is capped at `medium`. |
@@ -838,7 +838,7 @@ Audits changed files for dead code, complexity, and duplication. Returns a verdi
 | `--dupes-baseline` | path | - | Baseline file (produced by `fallow dupes --save-baseline`). Pre-existing clone groups are excluded from the verdict. |
 | `--max-crap` | number | `30.0` | Forwarded to the health sub-analysis. Functions meeting or exceeding this CRAP score cause audit to fail. Same formula as `health --max-crap`. Pair with coverage data for accurate per-function CRAP. |
 | `--coverage` | path | none | Path to Istanbul-format coverage data (`coverage-final.json`) for accurate per-function CRAP scores in the health sub-analysis. Same format and semantics as `health --coverage`. Also configurable via `FALLOW_COVERAGE`. Relative paths resolve against `--root`. |
-| `--coverage-root` | path | none | Absolute prefix to strip from file paths in coverage data before prepending the project root. Use when coverage was generated under a different checkout root in CI / Docker (e.g., `/home/runner/work/myapp` on GitHub Actions). |
+| `--coverage-root` | path | none | Absolute prefix to strip from file paths in coverage data before prepending the project root. Also configurable via `FALLOW_COVERAGE_ROOT`. Use when coverage was generated under a different checkout root in CI / Docker (e.g., `/home/runner/work/myapp` on GitHub Actions). |
 | `--fail-on-regression` | bool | false | Fail if issues increased beyond tolerance vs regression baseline |
 | `--tolerance` | string | `0` | Allowed increase before regression fails (`N` or `N%`) |
 | `--regression-baseline` | path | `.fallow/regression-baseline.json` | Path to the regression baseline file |
@@ -1557,6 +1557,8 @@ Available on all commands:
 | `--score` | bool | Compute health score (0-100 with letter grade) in combined mode. Enables the health delta header in PR comments. JSON includes `health_score` object with `score`, `grade`, and `penalties` breakdown |
 | `--trend` | bool | Compare current health metrics against saved snapshot. Implies `--score`. Shows per-metric deltas with directional indicators. Requires at least one saved snapshot in `.fallow/snapshots/` |
 | `--save-snapshot` | path (optional) | Save vital signs snapshot for trend tracking. Default path: `.fallow/snapshots/<timestamp>.json`. Forces file-scores + hotspot computation |
+| `--coverage` | path | Feed Istanbul coverage data to the embedded health analysis in combined mode. Falls back to `FALLOW_COVERAGE`, then `health.coverage`, then auto-detection |
+| `--coverage-root` | path | Absolute prefix to strip from Istanbul coverage paths in combined mode. Falls back to `FALLOW_COVERAGE_ROOT`, then `health.coverageRoot` |
 
 ---
 
@@ -1571,6 +1573,8 @@ Available on all commands:
 | `FALLOW_EXTENDS_TIMEOUT_SECS` | Timeout for fetching remote config inheritance in seconds (default: `5`). Do not raise this for untrusted sources. |
 | `FALLOW_CACHE_DIR` | Override the persistent extraction cache directory. Wins over `cache.dir`. Useful for read-only checkouts or CI cache volumes. `--no-cache` disables this knob. |
 | `FALLOW_CACHE_MAX_SIZE` | Maximum on-disk extraction cache (`.fallow/cache.bin`) size in megabytes (default: `256`). Triggers LRU eviction when crossed. Wins over `cache.maxSizeMb` config field. Intended for CI runners with disk quotas. `--no-cache` short-circuits this knob. |
+| `FALLOW_COVERAGE` | Path to Istanbul coverage data for exact CRAP scoring in `health`, `audit`, and bare `fallow`. |
+| `FALLOW_COVERAGE_ROOT` | Absolute coverage-data prefix to strip before matching Istanbul paths in `health`, `audit`, and bare `fallow`. |
 | `FALLOW_AUDIT_BASE` | Pin the `fallow audit` comparison base when `--base` / `--changed-since` is unset (precedence: flag > env > auto-detect). Escape hatch for the agent gate and forks, e.g. `FALLOW_AUDIT_BASE=upstream/main`. When unset, audit auto-detects the `git merge-base` against the branch's upstream or the remote default. A malformed value exits 2. |
 | `FALLOW_AUDIT_CACHE_MAX_AGE_DAYS` | Max age (in days since last reuse or fresh create) of a persistent reusable `fallow audit` base-snapshot worktree cache. Older entries are reclaimed at the top of the next `fallow audit` invocation (default: `30`). Wins over `audit.cacheMaxAgeDays` config field. `0` disables the GC; invalid values silently fall back to config / default. |
 | `FALLOW_UPDATE_CHECK` | Set to `off`, `0`, `false`, `disabled`, or `no` to disable the human-TTY upgrade nudge and its background latest-version check. `DO_NOT_TRACK`, `FALLOW_TELEMETRY_DISABLED`, and CI also suppress it. |
@@ -1917,7 +1921,7 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 }
 ```
 
-Use `--only` or `--skip` to control which analyses are included in the combined output.
+Use `--only` or `--skip` to control which analyses are included in the combined output. Use `--coverage` and `--coverage-root` to feed Istanbul coverage data to the embedded health analysis for exact CRAP scoring.
 
 With `--score`, the combined output's `health` section includes a `health_score` object (same schema as `health --score`). With `--trend`, it includes a `health_trend` object comparing against the most recent saved snapshot. With `--save-snapshot`, a vital signs snapshot is persisted for future trend comparisons.
 
