@@ -66,6 +66,26 @@ cargo install fallow-cli        # build from source
 10. **Type the JSON in TypeScript**. When a project has `fallow` installed as a dev-dependency and the agent is consuming `--format json` output from TypeScript code, `import type { CheckOutput, HealthOutput, DupesOutput, AuditOutput, FallowJsonOutput } from "fallow/types"` exposes the full output contract. `SchemaVersion` is pinned to a literal at codegen time, so a major schema bump fails to compile at call sites that gate on the version.
 11. **Never enable telemetry on the user's behalf**. Fallow's product telemetry is opt-in and off by default; only the user may run `fallow telemetry enable`. You MAY set `FALLOW_AGENT_SOURCE=<allowlisted-value>` (for example `claude_code`, `codex`, `cursor`, `windsurf`, `gemini`, `cline`) so that, IF the user has already enabled telemetry, your integration is correctly attributed. Setting `FALLOW_AGENT_SOURCE` never enables telemetry by itself and uploads no codebase content.
 
+## Task Cheat Sheet
+
+Route by intent before reaching for the big analysis commands. Same matrix as `fallow schema` (`task_matrix`) and the generated AGENTS.md section.
+
+<!-- generated:task-matrix:start -->
+| When the agent is about to... | Run |
+|---|---|
+| delete an "unused" export or file | `fallow dead-code --trace <file>:<export>` |
+| delete an "unused" dependency | `fallow dead-code --trace-dependency <name>` |
+| commit or open a PR | `fallow audit --base <ref>` |
+| prioritize refactoring | `fallow health --hotspots --targets` |
+| ask who owns code | `fallow health --ownership` |
+| check untested-but-reachable code | `fallow health --coverage-gaps` |
+| consolidate duplication | `fallow dupes --trace dup:<fingerprint>` |
+| find feature flags | `fallow flags` |
+| surface security candidates | `fallow security` |
+| understand a finding | `fallow explain <issue-type>` |
+| scope a monorepo | `--workspace <glob> / --changed-workspaces <ref>`; global flags, prefix any command |
+<!-- generated:task-matrix:end -->
+
 ## Commands
 
 <!-- generated:commands:start -->
