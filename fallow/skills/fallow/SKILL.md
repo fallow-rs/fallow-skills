@@ -22,8 +22,14 @@ Codebase intelligence for JavaScript and TypeScript. The free static layer repor
 - Auditing a project for structural issues
 - Setting up CI quality gates or duplication thresholds
 - Auto-fixing unused exports and dependencies
-- Detecting feature flag patterns (environment gates, SDK calls, config objects)
+- Detecting feature flag patterns (environment gates, SDK calls, config objects) with `fallow flags`
 - Investigating why a specific export or file appears unused
+- Surfacing local security candidates for an agent to verify (`fallow security`)
+- Finding untested but runtime-reachable code (`fallow health --coverage-gaps`)
+- Ranking complexity hotspots, code owners, and refactoring targets (`fallow health --hotspots --ownership --targets`)
+- Gating CI on regressions with baselines (`--save-baseline` / `--save-regression-baseline`)
+- Explaining an issue type or why a function scored high (`fallow explain`, `fallow health --complexity-breakdown`)
+- Reviewing what fallow has surfaced over time (`fallow impact`)
 
 ## When NOT to Use
 
@@ -325,6 +331,91 @@ fallow dead-code --format json --quiet --include-entry-exports
 ```
 
 Reports unused exports in entry files (package.json `main`/`exports`, framework pages). By default, exports in entry files are assumed externally consumed. This flag catches typos like `meatdata` instead of `metadata`.
+
+### Detect feature flag patterns
+
+```bash
+fallow flags --format json --quiet
+fallow flags --format json --quiet --top 20
+```
+
+Reports environment-variable gates (`process.env.FEATURE_*`), SDK calls from common flag providers, and config-object patterns, with flag locations, detection confidence, and a cross-reference against dead code. Only `--top N` is command-specific.
+
+### Surface security candidates for verification
+
+```bash
+fallow security --format json --quiet
+fallow security --format json --quiet --surface
+# Pre-commit gate: review-required (exit 8) only on NEW candidates in changed lines
+git diff --cached --unified=0 | fallow security --gate new --diff-stdin --format json --quiet
+```
+
+These are unverified candidates, not confirmed vulnerabilities; an agent must verify trace, reachability, and evidence before editing. `--surface` adds a top-level `attack_surface[]` inventory for a verifier. The gate modes are `new` (candidates introduced on changed lines) and `newly-reachable` (candidates that became reachable from entry points, which needs `--changed-since <ref>`); there is no `all` mode by design. The gate fails with exit 8, distinct from the standard exit ladder.
+
+### Find untested runtime-reachable code (coverage gaps)
+
+```bash
+fallow health --format json --quiet --coverage-gaps
+```
+
+Reports `untested-file` and `untested-export` findings: runtime-reachable code with no dependency path from any discovered test root. Opt-in and requires the full analysis pipeline.
+
+### Find complexity hotspots, owners, and refactoring targets
+
+```bash
+# Files that are both complex and frequently changing (needs a git repo)
+fallow health --format json --quiet --hotspots
+# Add ownership signals (bus factor, declared CODEOWNERS owner, drift)
+fallow health --format json --quiet --hotspots --ownership
+# Ranked refactoring targets (complexity + coupling + churn + dead code)
+fallow health --format json --quiet --targets
+# Partition the report per team or package
+fallow health --format json --quiet --hotspots --group-by owner
+```
+
+`--ownership` implies `--hotspots` and `--effort` implies `--targets`. The global `--group-by` accepts `owner`, `directory`, `package`, or `section` (the `section` mode reads GitLab CODEOWNERS `[Section]` headers). Hotspots and ownership require a git repository.
+
+### Explain why a complex function scored high
+
+```bash
+fallow health --format json --quiet --complexity --complexity-breakdown
+```
+
+Adds a per-decision-point `contributions[]` array to every complexity finding (each `if`, `else-if`, loop, boolean operator, and `case` with its source line and cyclomatic/cognitive weight), so you can pinpoint the exact refactor target.
+
+### Gate CI on regressions (baselines)
+
+```bash
+# 1. Save the current issue counts as a regression baseline
+fallow dead-code --format json --quiet --save-regression-baseline .fallow/baseline.json
+# 2. In CI: fail only if issues increase beyond tolerance
+fallow dead-code --format json --quiet --regression-baseline .fallow/baseline.json --fail-on-regression --tolerance 0
+# Identity-based baseline (fail only on NEW findings, not raw counts)
+fallow dead-code --format json --quiet --save-baseline .fallow/snapshot.json
+fallow dead-code --format json --quiet --baseline .fallow/snapshot.json
+```
+
+`--save-regression-baseline` / `--regression-baseline` / `--fail-on-regression` / `--tolerance` are count-based gates; `--save-baseline` / `--baseline` are identity-based (track finding identity, fail on new). All six are global flags, so they also work on `health` and `dupes`. `audit` rejects the global baseline flags and uses `--dead-code-baseline` / `--health-baseline` / `--dupes-baseline` instead.
+
+### Explain an issue type without running analysis
+
+```bash
+fallow explain unused-export --format json
+fallow explain code-duplication
+```
+
+The issue type is a positional argument and accepts forms like `unused-export`, `fallow/unused-export`, `unused exports`, or `code duplication`. It runs no analysis and returns the rule rationale, a worked example, fix guidance, and the docs URL.
+
+### Show what fallow has surfaced over time (Impact)
+
+```bash
+# Enable once (local-only, opt-in, never uploads, never affects exit codes)
+fallow impact enable
+# Read the value report: surfacing count, trend, pre-commit containment
+fallow impact --format json --quiet
+```
+
+`fallow impact enable` is a one-time, user-owned local action; the agent-facing line is the read step. The store lives at `.fallow/impact.json` (gitignored), the report is read-only, and it is empty in ephemeral CI runners.
 
 ### Debug why something is flagged
 
