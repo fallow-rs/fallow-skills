@@ -221,31 +221,14 @@ All JSON responses include structured `actions` arrays on every finding (dead co
 
 ## Node.js Bindings
 
-When embedding fallow inside a Node.js process (editor extensions, long-running servers, custom tooling), prefer the NAPI bindings over spawning the CLI. Same analysis engine, same JSON envelopes, no subprocess or JSON parsing overhead.
-
-```bash
-npm install @fallow-cli/fallow-node
-```
-
-```ts
-import { detectDeadCode, detectDuplication, computeHealth } from '@fallow-cli/fallow-node';
-
-const deadCode = await detectDeadCode({ root: process.cwd(), explain: true });
-const dupes = await detectDuplication({ root: process.cwd(), mode: 'mild', minTokens: 30 });
-const health = await computeHealth({ root: process.cwd(), score: true, ownershipEmails: 'handle' });
-```
-
-Six async functions: `detectDeadCode`, `detectCircularDependencies`, `detectBoundaryViolations`, `detectDuplication`, `computeComplexity`, `computeHealth`. Each returns the same JSON envelope the CLI emits for `--format json`. Rejected promises throw a `FallowNodeError` with `message`, `exitCode`, and optional `code`, `help`, `context` fields that mirror the CLI's structured error surface.
-
-Enum-like fields take lowercase CLI-style literals (`"mild"`, `"cyclomatic"`, `"handle"`, `"low"`). Write-path commands (`fix`, `init`, `hooks install`, `hooks uninstall`, `license activate`, `coverage setup`) are not exposed; use the CLI for those.
-
-See <https://docs.fallow.tools/integrations/node-bindings> for the full field reference.
+Embedding fallow in a Node.js process (editor extensions, servers, custom tooling)? Use the `@fallow-cli/fallow-node` NAPI bindings instead of spawning the CLI: six async functions (`detectDeadCode`, `detectCircularDependencies`, `detectBoundaryViolations`, `detectDuplication`, `computeComplexity`, `computeHealth`) returning the same JSON envelopes as `--format json`. Read-only analysis only; use the CLI for write-path commands. Details: [Node Bindings](references/node-bindings.md).
 
 ## References
 
-- [CLI Reference](references/cli-reference.md): complete command and flag specifications
+- [CLI Reference](references/cli-reference.md): complete command and flag specifications, plus configuration field details
 - [Gotchas](references/gotchas.md): common pitfalls, edge cases, and correct usage patterns
 - [Patterns](references/patterns.md): workflow recipes for CI, monorepos, migration, and incremental adoption
+- [Node Bindings](references/node-bindings.md): embed the analysis engine in a Node.js process via NAPI
 
 ## Common Workflows
 
@@ -283,14 +266,9 @@ The `semantic` mode detects renamed variables. Other modes: `strict` (exact), `m
 ### Safe auto-fix cycle
 
 ```bash
-# 1. Preview what will be removed
-fallow fix --dry-run --format json --quiet
-
-# 2. Review the output, then apply
-fallow fix --yes --format json --quiet
-
-# 3. Verify the fix worked
-fallow dead-code --format json --quiet
+fallow fix --dry-run --format json --quiet   # 1. preview what will be removed
+fallow fix --yes --format json --quiet       # 2. review the preview, then apply
+fallow dead-code --format json --quiet       # 3. verify the fix worked
 ```
 
 The `--yes` flag is required in non-TTY environments (agent subprocesses). Without it, `fix` exits with code 2.
@@ -315,26 +293,12 @@ Excludes test/dev files (`*.test.*`, `*.spec.*`, `*.stories.*`) and only analyze
 ### Analyze specific workspaces
 
 ```bash
-# Single package
-fallow dead-code --format json --quiet --workspace my-package
-
-# Multiple packages
-fallow dead-code --format json --quiet --workspace web,admin
-
-# Glob (matched against package name AND workspace path)
-fallow dead-code --format json --quiet --workspace 'apps/*'
-
-# Exclude one workspace from a set
-fallow dead-code --format json --quiet --workspace 'apps/*,!apps/legacy'
-
-# Monorepo CI: auto-scope to workspaces containing any file changed since origin/main
-# (replaces hand-written --workspace lists that drift as the repo evolves)
-fallow dead-code --format json --quiet --changed-workspaces origin/main
+fallow dead-code --format json --quiet --workspace my-package                # single package (lists: web,admin)
+fallow dead-code --format json --quiet --workspace 'apps/*,!apps/legacy'    # glob + !-exclude
+fallow dead-code --format json --quiet --changed-workspaces origin/main     # CI: only workspaces changed since the ref
 ```
 
-Scopes output while keeping the full cross-workspace graph. Patterns are tested against BOTH the package name (from `package.json`) AND the workspace path relative to the repo root; either match counts. Use `!`-prefixed patterns to exclude.
-
-`--changed-workspaces <REF>` auto-derives the set from `git diff`. It's the CI primitive: point it at the PR base branch (e.g. `origin/main`) and fallow reports only on workspaces touched by the change. Mutually exclusive with `--workspace`. A missing ref or non-git directory is a hard error (exit 2) rather than a silent full-scope fallback, so CI never quietly widens back to the whole monorepo.
+Scopes output while keeping the full cross-workspace graph. Patterns are tested against BOTH the package name AND the workspace path relative to the repo root; either match counts. `--changed-workspaces <REF>` auto-derives the set from `git diff` (the CI primitive; mutually exclusive with `--workspace`); a missing ref or non-git directory is a hard error (exit 2) rather than a silent full-scope fallback.
 
 ### Scope to specific files (lint-staged)
 
@@ -440,30 +404,16 @@ fallow impact --format json --quiet
 ### Debug why something is flagged
 
 ```bash
-# Trace an export's usage chain
-fallow dead-code --format json --quiet --trace src/utils.ts:myFunction
-
-# Trace all edges for a file
-fallow dead-code --format json --quiet --trace-file src/utils.ts
-
-# Trace where a dependency is used
-fallow dead-code --format json --quiet --trace-dependency lodash
+fallow dead-code --format json --quiet --trace src/utils.ts:myFunction   # trace an export's usage chain
+fallow dead-code --format json --quiet --trace-file src/utils.ts        # trace all edges for a file
+fallow dead-code --format json --quiet --trace-dependency lodash        # trace where a dependency is used
 ```
 
 ### Migrate from knip or jscpd
 
 ```bash
-# Preview migration
-fallow migrate --dry-run
-
-# Apply migration (auto-mirrors source extension: knip.jsonc -> .fallowrc.jsonc, knip.json -> .fallowrc.json)
-fallow migrate
-
-# Force JSONC output regardless of source (lets editors syntax-highlight comments)
-fallow migrate --jsonc
-
-# Migrate to TOML (creates fallow.toml)
-fallow migrate --toml
+fallow migrate --dry-run   # preview
+fallow migrate             # apply; mirrors the source extension (knip.jsonc -> .fallowrc.jsonc); --jsonc / --toml force a format
 ```
 
 Auto-detects `knip.json`, `knip.jsonc`, `.knip.json`, `.knip.jsonc`, `.jscpd.json`, and package.json embedded configs.
@@ -471,11 +421,9 @@ Auto-detects `knip.json`, `knip.jsonc`, `.knip.json`, `.knip.jsonc`, `.jscpd.jso
 ### Initialize a new config
 
 ```bash
-fallow init              # creates .fallowrc.json, adds .fallow/ to .gitignore
-fallow init --toml       # creates fallow.toml, adds .fallow/ to .gitignore
+fallow init              # creates .fallowrc.json, adds .fallow/ to .gitignore (--toml for fallow.toml)
 fallow init --agents     # scaffolds a starter AGENTS.md prefilled from detected project info (never overwrites)
-fallow hooks install --target git
-fallow hooks install --target git --branch develop  # fallback base branch when no upstream is set
+fallow hooks install --target git   # pre-commit gate; --branch <ref> sets the fallback base branch
 ```
 
 ## Exit Codes
@@ -500,29 +448,16 @@ Fallow reads config from project root: `.fallowrc.json` > `.fallowrc.jsonc` > `f
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
   "entry": ["src/index.ts"],
   "ignorePatterns": ["**/*.generated.ts"],
-  "ignoreDependencies": ["autoprefixer"],
   "ignoreExportsUsedInFile": true,
-  "publicPackages": ["@myorg/shared-lib"],
   "dynamicallyLoaded": ["plugins/**/*.ts"],
   "rules": {
     "unused-files": "error",
-    "unused-exports": "warn",
-    "unused-types": "off",
-    "private-type-leaks": "warn"
+    "unused-exports": "warn"
   }
 }
 ```
 
-Rules: `"error"` (fail CI), `"warn"` (report only), `"off"` (skip detection).
-
-Config fields:
-- `ignoreExportsUsedInFile`: knip-compatible; suppress unused-export findings when the exported symbol is referenced inside the file that declares it. Boolean (`true` covers all kinds) or `{ "type": true, "interface": true }` object form for knip parity. Fallow groups type aliases and interfaces under the same `unused-types` issue, so both type-kind fields behave identically. References inside the export specifier itself (`export { foo }`, `export default foo`) do not count as same-file uses; those exports are still reported when no other in-file expression references the binding
-- `publicPackages`: workspace packages that are public libraries; exported API surface from these packages is not flagged as unused
-- `dynamicallyLoaded`: glob patterns for files loaded at runtime (plugin dirs, locale files); treated as always-used
-- `cache.dir`: override the persistent extraction cache directory. `FALLOW_CACHE_DIR` wins over this config field, and `--no-cache` disables caching entirely
-- `cache.maxSizeMb`: cap the serialized extraction cache size in megabytes. `FALLOW_CACHE_MAX_SIZE` wins over this config field
-- `usedClassMembers`: class method/property names that extend the built-in Angular/React lifecycle allowlist with framework-invoked names. Each entry is a plain string (global suppression) or a scoped object `{ extends?, implements?, members }` matching only classes with the given heritage. Strings can be exact names (`"agInit"`) or glob patterns (`"*"` matches every member, `"enter*"` prefix, `"*Handler"` suffix, `"on*Event"` combined). Use scoped rules for common names like `refresh` or `execute` to avoid false negatives on unrelated classes; global strings for unique names like `agInit`. Example: `["agInit", { "implements": "ICellRendererAngularComp", "members": ["refresh"] }, { "extends": "BaseCommand", "members": ["execute"] }, { "extends": "GrammarBaseListener", "members": ["enter*", "exit*"] }]`. Glob patterns that match zero members emit a `WARN` so dead allowlist entries surface. An unconstrained scoped rule (no `extends` or `implements`) is rejected at load time. Use plugin-level `usedClassMembers` in a `.fallow/plugins/*.jsonc` file for library-specific allowlists
-- `resolve.conditions`: additional package.json `exports` / `imports` condition names to honor during module resolution. Baseline conditions (`development`, `import`, `require`, `default`, `types`, `node`, plus `react-native` / `browser` under RN/Expo) are always included; user entries prepend ahead of them. Use for community conditions like `worker`, `edge-light`, `deno`, or custom bundler conditions. Example: `{ "resolve": { "conditions": ["worker", "edge-light"] } }`
+Rules: `"error"` (fail CI), `"warn"` (report only), `"off"` (skip detection). Other high-value fields: `ignoreDependencies`, `publicPackages` (public library packages whose exported API is never flagged), `cache.dir` / `cache.maxSizeMb`, `usedClassMembers` (extend the framework-invoked member allowlist), `resolve.conditions` (extra package.json export conditions). Field semantics and examples: [CLI Reference](references/cli-reference.md), "Configuration field notes".
 
 ### Inline suppression
 
