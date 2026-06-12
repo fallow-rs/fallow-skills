@@ -489,7 +489,6 @@ export const deprecatedHelper = () => {};
 For the full list with examples, see [references/gotchas.md](references/gotchas.md).
 
 ## Instructions
-
 1. **Identify the task** from the user's request (audit, fix, find dupes, set up CI, migrate, debug)
 2. **Run the appropriate command** with `--format json --quiet`
 3. **Use filter flags** to limit output when the user asks about specific issue types
