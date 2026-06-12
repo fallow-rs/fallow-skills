@@ -492,7 +492,7 @@ fallow health --format json --quiet --trend
 {
   "kind": "health",
   "schema_version": 7,
-  "version": "2.94.0",
+  "version": "2.95.0",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -515,6 +515,8 @@ fallow health --format json --quiet --trend
   ]
 }
 ```
+
+`health.thresholdOverrides[]` config entries can raise local cyclomatic, cognitive, or CRAP ceilings for matching files and optional exact function names. When an override affects output, health JSON includes top-level `threshold_overrides[]` state entries (`active`, `stale`, or `no_match`). Complexity findings evaluated with local ceilings include `effective_thresholds` and `threshold_source: "override"` so agents can see which thresholds drove the finding and avoid treating configured exceptions as hidden suppressions.
 
 When the unit size very-high-risk percentage is >= 3%, the JSON output includes a `large_functions` array listing functions exceeding 60 lines of code:
 
@@ -877,7 +879,7 @@ fallow audit \
 {
   "kind": "audit",
   "schema_version": 7,
-  "version": "2.94.0",
+  "version": "2.95.0",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -952,7 +954,7 @@ fallow flags --format json --quiet --workspace my-package
 ```json
 {
   "schema_version": 7,
-  "version": "2.94.0",
+  "version": "2.95.0",
   "elapsed_ms": 116,
   "feature_flags": [],
   "total_flags": 0
@@ -1052,7 +1054,7 @@ fallow security --gate newly-reachable --changed-since origin/main
 {
   "kind": "security",
   "schema_version": "4",
-  "version": "2.94.0",
+  "version": "2.95.0",
   "elapsed_ms": 42,
   "config": {
     "rules": {
@@ -1081,7 +1083,7 @@ fallow security --gate newly-reachable --changed-since origin/main
 {
   "kind": "security",
   "schema_version": "4",
-  "version": "2.94.0",
+  "version": "2.95.0",
   "elapsed_ms": 42,
   "config": {
     "rules": {
@@ -1697,7 +1699,7 @@ The HTTP layer mirrors the bash `gh_api_retry` / `curl_retry` helpers: `FALLOW_A
 {
   "kind": "dead-code",
   "schema_version": 7,
-  "version": "2.94.0",
+  "version": "2.95.0",
   "elapsed_ms": 45,
   "total_issues": 12,
   "entry_points": {
@@ -1857,7 +1859,7 @@ When `--baseline` is used in combined output, the JSON includes a `baseline_delt
 {
   "kind": "dupes",
   "schema_version": 7,
-  "version": "2.94.0",
+  "version": "2.95.0",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -1901,11 +1903,11 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "kind": "combined",
   "schema_version": 7,
-  "version": "2.94.0",
+  "version": "2.95.0",
   "elapsed_ms": 159,
   "check": {
     "schema_version": 7,
-    "version": "2.94.0",
+    "version": "2.95.0",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
