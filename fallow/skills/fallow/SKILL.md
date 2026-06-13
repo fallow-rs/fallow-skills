@@ -141,6 +141,7 @@ Run `fallow <command> --help` for the full flag list per command (see also refer
 | `test-only-dependency` | `--unused-deps` | - | - | Production deps only imported from test files (should be devDependencies) |
 | `unused-enum-member` | `--unused-enum-members` | yes | `// fallow-ignore-next-line unused-enum-member` | Enum values never referenced |
 | `unused-class-member` | `--unused-class-members` | - | `// fallow-ignore-next-line unused-class-member` | Methods and properties |
+| `unused-store-member` | `--unused-store-members` | - | `// fallow-ignore-next-line unused-store-member` | Pinia store state/getter/action (needs `pinia` dep) |
 | `unresolved-import` | `--unresolved-imports` | - | `// fallow-ignore-next-line unresolved-import` | Imports that can't be resolved |
 | `unlisted-dependency` | `--unlisted-deps` | - | - | Used packages missing from package.json. In monorepos, importing a workspace package from a workspace whose own `package.json` does not list it is reported here too; self-references stay allowed without requiring a package to depend on itself. |
 | `duplicate-export` | `--duplicate-exports` | - | `// fallow-ignore-file duplicate-export` | Same symbol exported from multiple modules |
