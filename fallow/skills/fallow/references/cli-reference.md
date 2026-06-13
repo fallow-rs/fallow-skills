@@ -147,6 +147,7 @@ By default, `fallow dupes` skips generated framework output matching `**/.next/*
 | `--skip-local` | `bool` | `false` | Only report cross-directory duplicates |
 | `--cross-language` | `bool` | `false` | Strip type annotations for TS↔JS matching |
 | `--ignore-imports` | `bool` | `false` | Exclude import declarations from clone detection |
+| `--no-ignore-imports` | `bool` | `false` | Count import declarations as clone candidates (opt out of the default import exclusion) |
 | `--top` | `string` | - | Show only the N most-duplicated clone groups (sorted by instance count desc, tiebreak: line count desc, then path/line). Summary stats reflect the full project. |
 | `--trace` | `string` | - | Deep-dive clones. `FILE:LINE` traces all clones at a location; `dup:<id>` traces a clone group by the stable fingerprint shown in the listing and on `clone_groups[].fingerprint` in JSON. Fingerprints are usually `dup:<8hex>` and widen only on rare report collisions. Trace output adds an extract-function suggestion, estimated savings, and a best-effort proposed name per group |
 
@@ -1545,6 +1546,7 @@ Available on all commands:
 | `--dupes-skip-local` | `bool` | `false` | Only report cross-directory duplicates in combined mode |
 | `--dupes-cross-language` | `bool` | `false` | Enable cross-language duplicate detection in combined mode |
 | `--dupes-ignore-imports` | `bool` | `false` | Exclude import declarations from duplicate detection in combined mode |
+| `--dupes-no-ignore-imports` | `bool` | `false` | Count import declarations as clone candidates in combined mode (opt out of the default import exclusion) |
 | `--score` | `bool` | `false` | Compute health score (0-100 with letter grade) in combined mode. Enables the health delta header in PR comments. JSON includes `health_score` object with `score`, `grade`, and `penalties` breakdown |
 | `--trend` | `bool` | `false` | Compare current health metrics against saved snapshot. Implies `--score`. Shows per-metric deltas with directional indicators. Requires at least one saved snapshot in `.fallow/snapshots/` |
 | `--save-snapshot` | `string` | - | Save vital signs snapshot for trend tracking. Default path: `.fallow/snapshots/<timestamp>.json`. Forces file-scores + hotspot computation |
