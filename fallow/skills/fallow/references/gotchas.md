@@ -462,6 +462,18 @@ Fallow marks `src/fragments/user-fields.graphql` or `src/fragments/user-fields.g
 
 ---
 
+## Tailwind v4 `@theme` Tokens Are Conservative Cleanup Candidates
+
+When `fallow health --css` reports `css_analytics.unused_theme_tokens`, treat the rows as dead-design-token candidates, not as auto-fix instructions. A Tailwind v4 `@theme` token such as `--color-brand` is considered used when fallow sees a generated utility suffix such as `bg-brand` or `text-brand`, a `var(--color-brand)` read, an `@apply` utility, a Tailwind arbitrary value such as `rounded-[--radius-card]`, or another `@theme` token that references it.
+
+The detector intentionally abstains when a Tailwind plugin or published CSS surface could consume tokens invisibly. Always run the row's `actions[].command` verification before deleting a token, and do not run `fallow fix` for these rows.
+
+## CSS Health Candidates Are Advisory
+
+`fallow health --css` also emits advisory cleanup and typo candidates in `css_analytics.unused_font_faces`, `css_analytics.unresolved_class_references`, `css_analytics.undefined_keyframes`, and `css_analytics.font_size_unit_mix`. Treat them like review prompts, not confirmed defects. Run each row's `actions[].command` before changing CSS, because fonts, classes, animations, and type scales can be driven by inline styles, JavaScript, CMS templates, or preprocessor expansion that static analysis intentionally does not execute.
+
+---
+
 ## Library Packages: Use `publicPackages` Instead of Visibility Tags
 
 In monorepos, shared library packages have exported APIs consumed by external consumers not visible to fallow. Instead of annotating every export with `/** @public */` (or `@internal`, `@beta`, `@alpha`), use the `publicPackages` config to mark entire workspace packages as public libraries. Exports and exported enum/class members from these packages are excluded from unused API detection.
