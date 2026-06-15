@@ -470,7 +470,7 @@ The detector intentionally abstains when a Tailwind plugin or published CSS surf
 
 ## CSS Health Candidates Are Advisory
 
-`fallow health --css` also emits advisory cleanup and typo candidates in `css_analytics.unused_font_faces`, `css_analytics.unresolved_class_references`, `css_analytics.undefined_keyframes`, and `css_analytics.font_size_unit_mix`. Treat them like review prompts, not confirmed defects. Run each row's `actions[].command` before changing CSS, because fonts, classes, animations, and type scales can be driven by inline styles, JavaScript, CMS templates, or preprocessor expansion that static analysis intentionally does not execute.
+`fallow health --css` also emits advisory cleanup and typo candidates in `css_analytics.unreferenced_css_classes` (a plain-CSS class defined but matched by no `class`/`className` in project markup), `css_analytics.unresolved_class_references` (the reverse: a markup class one edit away from a defined class, a likely typo), `css_analytics.unused_font_faces`, `css_analytics.undefined_keyframes`, and `css_analytics.font_size_unit_mix`. Treat them like review prompts, not confirmed defects. Run each row's `actions[].command` before changing CSS, because fonts, classes, animations, and type scales can be driven by inline styles, JavaScript, CMS templates, or preprocessor expansion that static analysis intentionally does not execute.
 
 ---
 
