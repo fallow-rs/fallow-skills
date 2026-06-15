@@ -165,6 +165,7 @@ Run `fallow <command> --help` for the full flag list per command (see also refer
 | `unused-component-prop` | `--unused-component-props` | - | `// fallow-ignore-next-line unused-component-prop` | A Vue <script setup> defineProps prop is referenced nowhere in its own component |
 | `unused-component-emit` | `--unused-component-emits` | - | `// fallow-ignore-next-line unused-component-emit` | A Vue <script setup> defineEmits event is emitted nowhere in its own component |
 | `unused-server-action` | `--unused-server-actions` | - | `// fallow-ignore-next-line unused-server-action` | A Next.js Server Action exported from a "use server" file is referenced by no code in the project |
+| `unused-load-data-key` | `--unused-load-data-keys` | - | `// fallow-ignore-next-line unused-load-data-key` | A SvelteKit load() return-object key is read by no consumer (needs @sveltejs/kit dep) |
 | `route-collision` | - | - | - | Two or more Next.js App Router route files resolve to the same URL |
 | `dynamic-segment-name-conflict` | - | - | - | Sibling Next.js dynamic route segments use different slug names at the same position |
 | `high-cyclomatic-complexity` | `--complexity` | - | `// fallow-ignore-next-line complexity` | Function has high cyclomatic complexity |

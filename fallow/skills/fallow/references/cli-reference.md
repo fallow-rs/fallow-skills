@@ -67,6 +67,7 @@ Common global flags for this command: [`--format`](#global-flags), [`--quiet`](#
 | `--unused-component-props` | A Vue <script setup> defineProps prop is referenced nowhere in its own component |
 | `--unused-component-emits` | A Vue <script setup> defineEmits event is emitted nowhere in its own component |
 | `--unused-server-actions` | A Next.js Server Action exported from a "use server" file is referenced by no code in the project |
+| `--unused-load-data-keys` | A SvelteKit load() return-object key is read by no consumer |
 | `--unresolved-imports` | Unresolved imports |
 | `--unlisted-deps` | Unlisted dependencies |
 | `--duplicate-exports` | Duplicate exports |
