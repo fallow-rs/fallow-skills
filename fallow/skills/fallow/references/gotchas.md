@@ -323,6 +323,10 @@ Conservative semantics: a method carrying any decorator NOT in the list still ge
 
 The default empty list preserves today's skip-all behavior, so existing NestJS / Angular / TypeORM projects see no change.
 
+### Angular `@Input()` / `@Output()` are still covered by the component rules
+
+The skip above applies only to generic `unused-class-member` detection. The dedicated Angular component rules (`unused-component-input` for `@Input()` / signal `input()` / `model()`, and `unused-component-output` for `@Output()` / signal `output()`, both default `warn`, gated on `@angular/core`) scope usage to the component itself: an input is dead when it is read by no code in its own class body or template (inline `template` or external `templateUrl`), and an output is dead when it is emitted (`.emit()`) nowhere in its own component. The scope is the component, not the project: an input that a parent binds via `[input]="..."` but the component itself never reads IS flagged, because the parent binding is satisfied while the value goes unused inside the component. These rules abstain on the whole component for any `extends` clause, a `{...this}` spread, JS-reserved-word names, accessor (`get` / `set`) inputs, and observable-stream `@Output`s (only `new EventEmitter()` initializers are harvested); `model()` is treated as input-only. Suppress an individual finding with `// fallow-ignore-next-line unused-component-input` or `-output`.
+
 ---
 
 ## JSDoc Visibility Tags Keep Exports Alive
