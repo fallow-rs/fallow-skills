@@ -78,6 +78,18 @@ Don't use `--changed-since` when auditing the full project. Use it for PR checks
 
 ---
 
+## Svelte Event Findings Are Project-Wide Listener Checks
+
+`unused-svelte-event` reports a Svelte `createEventDispatcher` event that has no reachable listener in the project. This is different from `unused-component-emit`, which checks whether a Vue component ever emits its declared event.
+
+```bash
+fallow dead-code --format json --quiet --unused-svelte-events
+```
+
+Dynamic event names, dispatcher values that escape the component, and projects without a declared Svelte dependency are abstained to avoid false positives.
+
+---
+
 ## Filter Flags Are Additive
 
 Issue type filter flags (`--unused-exports`, `--unused-files`, etc.) are inclusive. They select which issue types to show. Using multiple flags shows the union.

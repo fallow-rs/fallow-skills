@@ -68,6 +68,7 @@ Common global flags for this command: [`--format`](#global-flags), [`--quiet`](#
 | `--unused-component-emits` | A Vue <script setup> defineEmits event is emitted nowhere in its own component |
 | `--unused-component-inputs` | An Angular @Input() / signal input() / model() is read nowhere in its own component (class body or template); needs `@angular/core` dep |
 | `--unused-component-outputs` | An Angular @Output() / signal output() is emitted (.emit()) nowhere in its own component; needs `@angular/core` dep |
+| `--unused-svelte-events` | A Svelte createEventDispatcher event is listened to nowhere in the project |
 | `--unused-server-actions` | A Next.js Server Action exported from a "use server" file is referenced by no code in the project |
 | `--unused-load-data-keys` | A SvelteKit load() return-object key is read by no consumer |
 | `--unresolved-imports` | Unresolved imports |
