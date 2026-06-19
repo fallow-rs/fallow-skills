@@ -153,7 +153,7 @@ See [CLAUDE.md](CLAUDE.md) for repository structure, skill creation guidelines, 
 
 ## Related
 
-- [fallow](https://github.com/fallow-rs/fallow): Rust-native codebase intelligence for JavaScript and TypeScript (3-36x faster than knip)
+- [fallow](https://github.com/fallow-rs/fallow): Rust-native codebase intelligence for JavaScript and TypeScript, a single-pass alternative to knip and jscpd
 - [fallow-docs](https://docs.fallow.tools): Official documentation
 - [VS Code extension](https://marketplace.visualstudio.com/items?itemName=fallow-rs.fallow-vscode): Real-time diagnostics in your editor
 - [Agent Skills specification](https://agentskills.io): The open standard this skill follows
