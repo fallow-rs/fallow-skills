@@ -16,6 +16,7 @@ Complete command and flag specifications for all fallow CLI commands.
 - [`audit`: Changed-File Quality Gate](#audit-changed-file-quality-gate)
 - [`flags`: Feature Flag Detection](#flags-feature-flag-detection)
 - [`security`: Security Candidate Detection](#security-security-candidate-detection)
+- [`inspect`: Target Evidence Bundle](#inspect-target-evidence-bundle)
 - [`explain`: Rule Explanation](#explain-rule-explanation)
 - [`schema`: CLI Introspection](#schema-cli-introspection)
 - [`config-schema`: Config JSON Schema](#config-schema-config-json-schema)
@@ -77,7 +78,7 @@ Common global flags for this command: [`--format`](#global-flags), [`--quiet`](#
 | `--circular-deps` | Circular dependencies |
 | `--re-export-cycles` | Re-export cycles (`kind: multi-node` for barrel files re-exporting from each other in a loop, `kind: self-loop` for a barrel re-exporting from itself). File-scoped finding; chain propagation through the loop is a no-op so imports may silently come up empty. Distinct from `--circular-deps` (runtime cycles). |
 | `--boundary-violations` | Boundary violations (imports crossing architecture zone boundaries, unzoned source files when `boundaries.coverage.requireAllFiles` is set, and forbidden calls from `boundaries.calls.forbidden`; suppression token `boundary-violation`, with `boundary-call-violation` and `boundary-call-violations` accepted as aliases for the whole family) |
-| `--policy-violations` | Rule-pack policy violations (banned calls and banned imports declared via the `rulePacks` config key) |
+| `--policy-violations` | Rule-pack policy violations (banned calls, imports, and catalogue-derived effects declared via the `rulePacks` config key) |
 | `--stale-suppressions` | Stale suppression comments or `@expected-unused` JSDoc tags |
 | `--unused-catalog-entries` | Unused pnpm catalog entries |
 | `--empty-catalog-groups` | Empty named pnpm catalog groups |
@@ -1159,6 +1160,55 @@ Every finding also carries an agent-actionable `candidate { source_kind, sink, b
 
 ---
 
+## `inspect`: Target Evidence Bundle
+
+Compose one evidence bundle before editing a file or exported symbol. This is the CLI equivalent of the MCP `inspect_target` tool.
+
+### Usage
+
+```bash
+fallow inspect --file src/api.ts --format json --quiet
+fallow inspect --symbol src/api.ts:fetchUser --format json --quiet
+```
+
+### Target Flags
+
+| Flag | Description |
+|------|-------------|
+| `--file <PATH>` | Inspect one project-relative file |
+| `--symbol <FILE:EXPORT>` | Inspect one exported symbol. Supporting dead-code, duplication, complexity, and security evidence is file-scoped in the first version |
+
+Common global flags: `--format`, `--quiet`, `--root`, `--config`, `--workspace`, `--production`, `--no-cache`, `--threads`.
+
+### JSON Output Structure
+
+```json
+{
+  "kind": "inspect_target",
+  "target": { "type": "file", "file": "src/api.ts" },
+  "identity": {
+    "file": "src/api.ts",
+    "is_reachable": true,
+    "is_entry_point": false,
+    "export_count": 3,
+    "import_count": 2,
+    "imported_by_count": 1
+  },
+  "evidence": {
+    "trace_file": { "status": "ok", "scope": "file", "data": {} },
+    "dead_code": { "status": "ok", "scope": "file", "data": {} },
+    "duplication": { "status": "ok", "scope": "project_filtered_to_file", "data": {} },
+    "complexity": { "status": "ok", "scope": "project_filtered_to_file", "data": {} },
+    "security": { "status": "ok", "scope": "file", "data": {} }
+  },
+  "warnings": []
+}
+```
+
+Each evidence section carries `status` and `scope`. Non-fatal child-analysis failures become section-level errors and warnings, so callers can still use the remaining evidence.
+
+---
+
 ## `explain`: Rule Explanation
 
 Print rule rationale, examples, fix guidance, and docs URL for one issue type without running analysis.
@@ -1645,7 +1695,7 @@ Set `FALLOW_FORMAT=json` and `FALLOW_QUIET=1` in your agent environment to avoid
 | `human` | Colored terminal output | Interactive use |
 | `json` | Machine-readable JSON | Agent integration, CI pipelines |
 | `sarif` | Static Analysis Results Interchange Format | GitHub Code Scanning, SARIF-compatible tools |
-| `compact` | Grep-friendly: `type:path:line:name` per line | Quick filtering |
+| `compact` | Grep-friendly: one issue per line. Dupes lines include `code-duplication:path:start-end:fingerprint=dup:<id>,...` | Quick filtering |
 | `markdown` | Markdown tables | Documentation, PR comments |
 | `codeclimate` / `gitlab-codequality` | CodeClimate JSON array | GitLab Code Quality, CodeClimate-compatible tools |
 | `pr-comment-github` / `pr-comment-gitlab` | Sticky PR/MR comment markdown with HTML-comment marker for upsert | Posted by the action / template `comment.sh` scripts |
