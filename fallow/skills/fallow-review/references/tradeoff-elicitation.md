@@ -21,10 +21,14 @@ agent-layer aid whose discipline is the prompt's, not a fallow-grade guarantee.
 
 ## The honesty contract (non-negotiable)
 
-1. **Anchor to the diff.** Ground every trade-off in a line PRESENT in the provided
-   diff. If you cannot point at a changed `file:line`, drop it, with ONE exception:
-   the cross-cutting slot in rule 7. No trade-offs about code that is not in the
-   diff.
+1. **Anchor to the diff.** Every item's `anchor` must be a line PRESENT in the
+   provided diff: the changed line that is the LOCUS of the trade-off. If no changed
+   line is the locus, drop it, with ONE exception: the cross-cutting slot in rule 7.
+   The `tradeoff` and `question` text MAY name out-of-diff code as the affected
+   party, an in-diff change whose consequence reaches an untouched file is exactly
+   the kind of trade-off worth surfacing (anchor to the changed line, name the
+   untouched file in the prose). What you may NOT do is anchor an item to a line
+   that is not in the diff.
 2. **Three layers, kept separate and neutral, per item:**
    - `observed` (FACT): what the change does, readable straight from the diff. State
      it neutrally. Do NOT use contrastive framing that implies a verdict ("returns
@@ -57,12 +61,14 @@ agent-layer aid whose discipline is the prompt's, not a fallow-grade guarantee.
 6. **Do not duplicate fallow.** Read `digest.decisions.decisions[]` from the guide
    first; if fallow already framed it (public-API contract, boundary crossing, new
    dependency), do not re-raise it. You add the part fallow cannot see.
-7. **One cross-cutting slot.** The most consequential trade-off in a large diff is
-   often the one with no single anchor line (an interaction between a changed line
-   and an invariant the diff does not touch). You MAY emit at most ONE item whose
-   `anchor` is `cross-cutting` instead of a `file:line`, for exactly that case. It
-   must set `confidence: "low"` and name the specific files/invariants it spans in
-   `observed`. This is the only sanctioned exception to rule 1.
+7. **One cross-cutting slot.** Use this ONLY when NO single changed line is the
+   locus, when the trade-off emerges from the COMBINATION of several changes, or
+   from something the diff does NOT do, so there is genuinely nothing to anchor to.
+   If a changed line IS the cause and an untouched invariant is the consequence,
+   that is NOT this slot: anchor to the changed line (rule 1) and name the
+   interaction in `tradeoff`. For the truly anchorless case you MAY emit at most ONE
+   item with `anchor: "cross-cutting"`, `confidence: "low"`, naming the spanned
+   files/invariants in `observed`. If in doubt, anchor locally; this slot is rare.
 
 ## Inputs to gather
 
@@ -142,7 +148,10 @@ A single envelope: the echoed snapshot hash, an `abstained` flag, and the
 ```
 
 - `id`: stable per item, `to:<anchor>:<lens>`, so a consumer can dedupe across
-  re-runs and keep a human's dismissal sticky.
+  re-runs and keep a human's dismissal sticky. Two trade-offs may legitimately share
+  one anchor line through different lenses (e.g. a new parameter that is both an
+  api-ergonomics and a compatibility question); the `lens` segment keeps their ids
+  distinct, and that is intended, not a duplicate to collapse.
 - `anchor`: a real changed `file:line`, or the literal `cross-cutting` (rule 7 only).
 - `consequence`: `low` / `medium` / `high`, how much it matters if the call is
   wrong (impact). This is what you rank and cap on.
