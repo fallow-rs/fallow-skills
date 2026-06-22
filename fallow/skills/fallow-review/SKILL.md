@@ -61,6 +61,20 @@ Run the trade-off elicitation prompt in `references/tradeoff-elicitation.md` ove
 
 This is the model-inferred companion to the deterministic surface: fallow owns what it can prove, the prompt covers the rest, and the fencing keeps the two from being confused. Today those rails are enforced by the agent self-checking against the diff it holds, NOT by fallow, so this is an agent-layer aid, not a fallow-grade guarantee. The planned `change_anchors` extension will emit a per-changed-region anchor set so fallow can post-validate these broader anchors the same way it validates `signal_id`s today; gate any "fallow-grade honesty" claim on that landing.
 
+### Running it as a review step
+
+When a review surface (the fallow review app, or you in the terminal) wants the trade-off surface alongside the deterministic decisions:
+
+1. Fetch the guide and read the diff:
+   ```bash
+   fallow review --base <ref> --walkthrough-guide --format json > guide.json
+   git diff <ref>...HEAD            # or: git diff --cached  for staged work
+   ```
+2. Run the `references/tradeoff-elicitation.md` prompt over the diff plus `guide.json`.
+3. Emit the envelope (the `{ graph_snapshot_hash, abstained, tradeoffs[] }` shape) to `.fallow-review/tradeoffs.json` in the repo root, the sibling of `.fallow-review/feed.jsonl`, so a review surface can render it.
+
+This step is deliberately NOT part of the post-validate agent-contract loop below. The trade-off envelope is never round-tripped through `fallow review --walkthrough-file` (which only validates emitted `signal_id`s), so it carries NO fallow-grade guarantee: every item stays `deterministic: false`, agent-self-checked against the diff, not graph-validated. Do not present it as fallow-validated.
+
 ## The agent-contract loop
 
 The loop lets an agent produce judgments that fallow post-validates against the live graph. The verifier is the graph, not a second model.
