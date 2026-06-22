@@ -53,6 +53,14 @@ Each decision is a framed question anchored to a `signal_id` fallow deterministi
 
 A decision may carry `previous_signal_id` when its anchor file was renamed in the change: that is the `signal_id` the same decision would have had at the old path, so a review surface can re-attach a prior reviewer comment across a `git mv`.
 
+## Eliciting the broader trade-offs (taste ownership)
+
+The decision surface above is the DETERMINISTIC slice: only the trade-offs fallow can prove from the graph (the three categories). Real architectural trade-offs are broader, abstraction level, error-handling strategy, data-model shape, eager-vs-lazy, state ownership, extensibility-vs-YAGNI, testability, trust boundaries, and none of those are graph-detectable. Surfacing them needs a model reading the diff, not a static pass.
+
+Run the trade-off elicitation prompt in `references/tradeoff-elicitation.md` over the diff plus the guide. It applies TASTE OWNERSHIP: the model makes each choice legible and frames the open question; the human decides. It never prescribes the answer, never blocks. The honesty rails are non-negotiable, anchor every trade-off to a line present in the diff (no findings about code that is not there), keep `observed` (fact) / `tradeoff` (inference) / `question` (decision) separate, fence every item as `deterministic: false`, prefer capturing your own write-time rationale over reconstructing someone else's, abstain when nothing rises to a real decision, and never repeat what fallow's deterministic surface already framed.
+
+This is the model-inferred companion to the deterministic surface: fallow owns what it can prove, the prompt covers the rest, and the fencing keeps the two from being confused. (A future fallow extension will emit a per-changed-region anchor set so fallow can post-validate these broader anchors the same way it validates `signal_id`s today; until then the agent self-checks each anchor against the diff it holds.)
+
 ## The agent-contract loop
 
 The loop lets an agent produce judgments that fallow post-validates against the live graph. The verifier is the graph, not a second model.
