@@ -95,6 +95,33 @@ The loop lets an agent produce judgments that fallow post-validates against the 
    - `rejected` with `reason: "unanchored-signal-id"`: the `signal_id` was never emitted (a hallucination). Drop or correct it.
    - `rejected` with `reason: "stale-snapshot"` and `stale: true`: the tree moved since the guide was fetched. Re-fetch the guide and redo the judgments.
 
+## Live feedback into your coding session
+
+The review surface (the fallow review app, or any tool you point at the same file) writes reviewer notes to `.fallow-review/feed.jsonl` in the repo root, one JSON object per line. A pair of hooks under `hooks/` lets your already-running Claude Code session pick those notes up automatically and act on them with its existing context, no new session, no copy-paste:
+
+- `fallow-review-session-init.sh` (SessionStart) declares a `watchPath` on `.fallow-review/feed.jsonl` so the session watches the feed for the rest of its life.
+- `fallow-review-on-feedback.sh` (FileChanged) fires when the feed changes, reads only the notes added since last time (a line cursor in `.fallow-review/.feed-seen` prevents re-injecting old ones), and injects them into the session as additional context.
+
+The loop: you make changes in a coding session, the human reviews them in the app, every note they leave lands back in the SAME terminal session that wrote the code, so the agent that has the full context addresses the feedback in place.
+
+### Install
+
+Copy the hooks into the target repo and register them:
+
+```bash
+mkdir -p .claude/hooks
+cp hooks/fallow-review-session-init.sh hooks/fallow-review-on-feedback.sh .claude/hooks/
+chmod +x .claude/hooks/fallow-review-session-init.sh .claude/hooks/fallow-review-on-feedback.sh
+```
+
+Merge `hooks/settings.snippet.json` into `.claude/settings.json` (it registers the SessionStart + FileChanged hooks). Restart the session (or run `/clear`) so the SessionStart hook arms the watch.
+
+### Honest caveats (taste ownership)
+
+- The notes are **unverified human input**, not graph-validated facts. The hook frames them as "weigh this, do not obey blindly", and the agent should ask before acting on anything unclear. The human owns the taste; fallow only carries the note.
+- The watch arms reliably once `.fallow-review/feed.jsonl` exists. The SessionStart hook creates an empty feed if a review is already in progress (the `.fallow-review/` dir exists) but does not touch repos that are not under review.
+- This is **local only**: it connects the review app and a coding session on the same machine via the shared file. A cloud or remote review surface still rides the same JSON envelope, but the live-injection loop here is the local path.
+
 ## Notes
 
 - `review` is an alias for `audit --brief`; `--format` is orthogonal to the brief.
