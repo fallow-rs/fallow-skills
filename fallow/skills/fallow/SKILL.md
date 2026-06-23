@@ -13,7 +13,6 @@ metadata:
 Codebase intelligence for JavaScript and TypeScript. The free static layer reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, feature flag patterns, and opt-in security candidates. Runtime coverage merges production execution data into the same `fallow health` report for hot-path review, cold-path deletion confidence, and stale-flag evidence, with a single local capture available by default and continuous/cloud runtime monitoring available as an optional mode. 122 framework plugins, zero configuration, sub-second static analysis.
 
 ## When to Use
-
 - Finding cleanup opportunities (unused files, exports, types, enum/class members)
 - Finding unused or unlisted dependencies
 - Detecting code duplication and clones
@@ -32,7 +31,6 @@ Codebase intelligence for JavaScript and TypeScript. The free static layer repor
 - Reviewing what fallow has surfaced over time (`fallow impact`)
 
 ## When NOT to Use
-
 - Runtime error analysis or debugging
 - Type checking (use `tsc` for that)
 - Linting style or formatting issues (use ESLint, Biome, Prettier)
