@@ -17,6 +17,8 @@ Complete command and flag specifications for all fallow CLI commands.
 - [`flags`: Feature Flag Detection](#flags-feature-flag-detection)
 - [`security`: Security Candidate Detection](#security-security-candidate-detection)
 - [`inspect`: Target Evidence Bundle](#inspect-target-evidence-bundle)
+- [`trace`: Symbol Call Chains](#trace-symbol-call-chains)
+- [`decision-surface`: Structural Decisions](#decision-surface-structural-decisions)
 - [`explain`: Rule Explanation](#explain-rule-explanation)
 - [`schema`: CLI Introspection](#schema-cli-introspection)
 - [`config-schema`: Config JSON Schema](#config-schema-config-json-schema)
@@ -1036,6 +1038,7 @@ The second rule family is a data-driven `tainted-sink` catalogue: syntactic dang
 | `secret-pii-log` | 532 | source-backed secrets or request PII reaching logs |
 | `hardcoded-secret` | 798 | provider-prefix credentials and high-entropy literals assigned to secret-shaped identifiers (include-required) |
 | `secret-to-network` | 201 | a non-public `process.env` / `import.meta.env` secret reaching a network call body (`fetch` / `axios` / `got` / ...) via same-identifier flow (include-required) |
+| `llm-call-injection` | 1427 | an untrusted source reaching the prompt/messages argument of a known LLM-call sink (taint-path gated, pinned to distinctive LLM SDK call shapes) |
 | `xpath-injection` | 643 | `xpath.select` / `select1` with a non-literal expression |
 
 Build-config and test files are excluded from candidate generation. Security rule families default to `off` and are surfaced only by `fallow security`, never under bare `fallow` or the `audit` gate. Scope which catalogue categories run with `security.categories` include / exclude lists in config. Add project-local request object names with `security.requestReceivers`; it extends the built-in `req` / `request` / `ctx` / `context` / `event` allowlist for HTTP `query`, `params`, and `body` reads. The setting is additive only and does not gate `*.searchParams`. `hardcoded-secret` and `secret-to-network` are intentionally include-required and only run when listed in `security.categories.include` (`secret-to-network` is opt-in because legitimate auth is also a secret reaching a network call). Public-by-convention env vars (`NEXT_PUBLIC_`, `VITE_`, ...) are never treated as secrets.
@@ -1212,6 +1215,48 @@ Common global flags: `--format`, `--quiet`, `--root`, `--config`, `--workspace`,
 ```
 
 Each evidence section carries `status` and `scope`. Non-fatal child-analysis failures become section-level errors and warnings, so callers can still use the remaining evidence.
+
+---
+
+## `trace`: Symbol Call Chains
+
+Walk the callers and callees of one exported symbol through the module graph. Callers are the modules that import the symbol (walked up); callees are the symbol's module's import-symbol edges plus its intra-module call sites (walked down). Best-effort and syntactic per ADR-001: resolved and unresolved callees are reported honestly, never silently dropped. This is its own surface, never folded into the ranked review brief.
+
+The target is a positional argument, formatted as `FILE:SYMBOL` (for example `src/utils.ts:formatDate`). When neither `--callers` nor `--callees` is given, both directions are walked.
+
+```bash
+fallow trace src/utils.ts:formatDate
+fallow trace src/utils.ts:formatDate --callers --depth 3
+```
+
+<!-- generated:flags:trace:start -->
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--callers` | `bool` | `false` | Walk UP to callers (modules that import the symbol). When neither `--callers` nor `--callees` is set, both directions are walked |
+| `--callees` | `bool` | `false` | Walk DOWN to callees (the symbol's module's import-symbol edges plus unresolved call sites). When neither flag is set, both are walked |
+| `--depth` | `string` | - | Chain depth bound for both directions (default 2). Symbol-level is best-effort, so a shallow bound keeps the trace legible |
+
+Common global flags for this command: [`--format`](#global-flags), [`--quiet`](#global-flags), [`--root`](#global-flags), [`--config`](#global-flags).
+<!-- generated:flags:trace:end -->
+
+---
+
+## `decision-surface`: Structural Decisions
+
+Surface only the consequential structural decisions a change embeds (the apex of the review brief): a ranked, capped (3 to 5, default 4) set of coupling/boundary, public-API/contract, and dependency decisions, each framed as a judgment question with the routed expert to ask, plus a trade-off clause and the count of in-repo consumers that already depend on the anchor. Runs the same changed-code analysis as `fallow review` but emits only the decisions, separable and cheap. Always exits 0 (advisory, never a gate); every decision is suppressible with `// fallow-ignore`. Use `--base` / `--changed-since` to pick the comparison point, exactly like `fallow audit`.
+
+```bash
+fallow decision-surface --base main
+fallow decision-surface --base main --format json --quiet
+```
+
+<!-- generated:flags:decision-surface:start -->
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--max-decisions` | `string` | `4` | Cap on the number of surfaced decisions (the working-memory limit). Default 4; clamped to the 3-5 band (4 plus or minus 1) |
+
+Common global flags for this command: [`--changed-since`](#global-flags), [`--format`](#global-flags), [`--quiet`](#global-flags), [`--workspace`](#global-flags), [`--root`](#global-flags), [`--config`](#global-flags).
+<!-- generated:flags:decision-surface:end -->
 
 ---
 
