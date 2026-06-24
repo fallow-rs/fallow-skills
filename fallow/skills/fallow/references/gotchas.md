@@ -67,7 +67,7 @@ The `--changed-since` flag limits analysis to files modified since a git ref. It
 # This only shows issues in files changed since main
 fallow dead-code --format json --quiet --changed-since main
 
-# Same for duplication — only clone groups involving changed files
+# Same for duplication, only clone groups involving changed files
 fallow dupes --format json --quiet --changed-since main
 
 # This shows ALL issues in the project
@@ -577,7 +577,7 @@ Fallow detects production dependencies that are only imported from test files (`
 // src/handlers.test.ts
 import { setupServer } from 'msw/node';  // Flagged as test-only dependency
 
-// src/app.ts — no imports of "msw" here
+// src/app.ts: no imports of "msw" here
 ```
 
 ```bash
@@ -596,8 +596,8 @@ The `test-only-dependencies` rule defaults to `warn`. Suppress with `"test-only-
 
 These are separate features and can be used independently or together:
 
-- **`FALLOW_COMMENT: "true"`** — posts a single summary comment on the MR with issue counts and a findings table
-- **`FALLOW_REVIEW: "true"`** — posts inline code review comments on the exact MR diff lines where issues were found
+- **`FALLOW_COMMENT: "true"`**: posts a single summary comment on the MR with issue counts and a findings table
+- **`FALLOW_REVIEW: "true"`**: posts inline code review comments on the exact MR diff lines where issues were found
 
 ```yaml
 # WRONG: expecting inline review comments from FALLOW_COMMENT
@@ -658,7 +658,7 @@ variables:
   FALLOW_CHANGED_SINCE: "origin/main"
 
 # CORRECT: let the template auto-detect
-# (no FALLOW_CHANGED_SINCE needed — it reads the MR target branch)
+# (no FALLOW_CHANGED_SINCE needed, it reads the MR target branch)
 ```
 
 Override `FALLOW_CHANGED_SINCE` only when you need a specific ref (e.g., a release branch) or want to disable auto-detection by setting it to an empty string.
@@ -669,4 +669,4 @@ Override `FALLOW_CHANGED_SINCE` only when you need a specific ref (e.g., a relea
 
 The GitLab CI template auto-detects the project's package manager from lockfiles (`package-lock.json` for npm, `pnpm-lock.yaml` for pnpm, `yarn.lock` for yarn). MR comments and review comments use the correct commands for the detected manager.
 
-This means review comments will show `pnpm remove lodash` instead of `npm uninstall lodash` in a pnpm project. No configuration is needed — detection is automatic.
+This means review comments will show `pnpm remove lodash` instead of `npm uninstall lodash` in a pnpm project. No configuration is needed; detection is automatic.

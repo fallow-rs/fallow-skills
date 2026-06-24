@@ -30,7 +30,7 @@ fallow/                     # Codebase intelligence skill (quality, cleanup, dup
 
 ### SKILL.md Requirements
 
-- Under 500 lines — keep focused, put details in references
+- Under 500 lines: keep focused, put details in references
 - Include "When to Use" and "When NOT to Use" sections
 - Include step-by-step workflows for common tasks
 - Use progressive disclosure: SKILL.md links to reference files, references don't chain
@@ -38,9 +38,9 @@ fallow/                     # Codebase intelligence skill (quality, cleanup, dup
 
 ### Reference Files
 
-- `cli-reference.md` — command specs, flags, output formats
-- `gotchas.md` — common pitfalls with WRONG/CORRECT examples
-- `patterns.md` — recipes and common workflows
+- `cli-reference.md`: command specs, flags, output formats
+- `gotchas.md`: common pitfalls with WRONG/CORRECT examples
+- `patterns.md`: recipes and common workflows
 
 ### Naming Conventions
 

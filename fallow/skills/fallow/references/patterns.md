@@ -222,7 +222,7 @@ fallow:
     FALLOW_FAIL_ON_ISSUES: "true"
 ```
 
-Generates Code Quality reports (inline MR annotations) automatically. In MR pipelines, `--changed-since` is automatically set to the target branch — no manual configuration needed.
+Generates Code Quality reports (inline MR annotations) automatically. In MR pipelines, `--changed-since` is automatically set to the target branch; no manual configuration needed.
 
 If runners cannot reach `raw.githubusercontent.com`, run `fallow ci-template gitlab --vendor`, commit the generated `ci/` and `action/` files, and use GitLab's local include syntax:
 
@@ -494,9 +494,9 @@ fallow dupes --format json --quiet
 | jscpd | fallow |
 |-------|--------|
 | Default (exact tokens) | `strict` |
-| — | `mild` (fallow default, syntax normalized) |
-| — | `weak` (literal normalization) |
-| — | `semantic` (variable rename detection) |
+| n/a | `mild` (fallow default, syntax normalized) |
+| n/a | `weak` (literal normalization) |
+| n/a | `semantic` (variable rename detection) |
 
 ---
 
