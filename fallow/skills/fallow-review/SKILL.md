@@ -4,7 +4,7 @@ description: Review AI-generated or human-written code changes with fallow's gra
 license: MIT
 metadata:
   author: Bart Waardenburg
-  version: 1.0.0
+  version: 1.1.0
   homepage: https://docs.fallow.tools
 ---
 
@@ -116,6 +116,47 @@ The loop lets an agent produce judgments that fallow post-validates against the 
    - `accepted`: the `signal_id` was emitted and the snapshot matches; the agent's `framing` is fenced as non-deterministic (`deterministic: false`) and never gates.
    - `rejected` with `reason: "unanchored-signal-id"`: the `signal_id` was never emitted (a hallucination). Drop or correct it.
    - `rejected` with `reason: "stale-snapshot"` and `stale: true`: the tree moved since the guide was fetched. Re-fetch the guide and redo the judgments.
+
+## Human-in-the-loop walkthrough (terminal, no app)
+
+The agent-contract loop above carries the AGENT's framing. The SAME loop carries a HUMAN's verdict with the identical graph-validated, anti-hallucination guarantee, so a terminal reviewer with no review app can leave notes that fallow anchors and round-trips. This is the no-app path the review app's `.fallow-review/feed.jsonl` otherwise owns: the contract is the existing `--walkthrough-guide` / `--walkthrough-file` round-trip, not a new surface.
+
+The human owns the taste; you only carry the note. fallow validates the ANCHOR (the signal or changed region exists), never the note's correctness; every carried note stays `deterministic: false` and never gates.
+
+1. **Render the tour and read the anchors:**
+
+   ```bash
+   fallow review --base origin/main --walkthrough                       # the staged human tour
+   fallow review --base origin/main --walkthrough-guide --format json > guide.json
+   ```
+
+   `guide.json` carries the decision `signal_id`s (the framed structural questions), a per-changed-region `change_anchors` set (each `{ "change_anchor": "chg:<hex>", "file", "start_line", "line_count" }`), and the `graph_snapshot_hash` staleness pin. Surface the tour to the human and collect, per item they choose to flag, a short verdict/note.
+
+2. **Carry each human note as a judgment** (echo the hash verbatim; cite a `signal_id` fallow emitted for a flagged decision, or a `change_anchor` for any other changed region the human notes):
+
+   ```json
+   {
+     "graph_snapshot_hash": "<echo from guide.json>",
+     "judgments": [
+       { "signal_id": "<an emitted decision signal>", "framing": "<the human's verdict/note>", "concern": "<optional>" },
+       { "change_anchor": "<an emitted chg: id>", "framing": "<the human's note on this region>", "concern": "<optional>" }
+     ]
+   }
+   ```
+
+3. **Validate the capture:**
+
+   ```bash
+   fallow review --base origin/main --walkthrough-file judgment.json --format json
+   ```
+
+   - `accepted` (with `anchor_kind: "signal"` or `"change"`): the anchor was emitted and the snapshot matches; the human's `framing` is fenced `deterministic: false`.
+   - `rejected` `unanchored-signal-id` / `unknown-change-anchor`: the human cited something fallow never emitted. Re-anchor to a real signal or region; do not invent one.
+   - `stale: true` (`stale-snapshot`): the tree moved since `guide.json` was fetched. Re-fetch the guide, re-capture, resubmit.
+
+4. **Act:** relay the accepted human verdicts into the coding session in place, or append them to `.fallow-review/feed.jsonl` so the live-injection hooks (below) carry them to the session that wrote the code. Either way the note arrives anchored and fenced, never as a fallow-grade fact.
+
+The guarantee matches the review app's: the human cannot anchor a note to a signal or region fallow did not emit, and a note left against a moved tree is refused rather than silently mis-mapped. The terminal is a first-class capture surface, no app required.
 
 ## Live feedback into your coding session
 
