@@ -4,14 +4,14 @@
     <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/fallow-rs/fallow/main/assets/logo.svg">
     <img src="https://raw.githubusercontent.com/fallow-rs/fallow/main/assets/logo.svg" alt="fallow" width="290">
   </picture><br>
-  <strong>Agent skills for the JavaScript and TypeScript codebase intelligence layer.</strong><br><br>
+  <strong>Agent skills for the JavaScript, TypeScript, and styling codebase intelligence layer.</strong><br><br>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
   <a href="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml"><img src="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
   <a href="https://agentskills.io"><img src="https://img.shields.io/badge/Agent_Skills-compatible-8A2BE2" alt="Agent Skills"></a>
   <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v2.104.0-orange" alt="fallow v2.104.0"></a>
 </p>
 
-Agent skills for [fallow](https://github.com/fallow-rs/fallow), Rust-native codebase intelligence for JavaScript and TypeScript. The free static layer reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, and architecture boundary violations in milliseconds. The optional paid runtime layer (Fallow Runtime) adds production execution evidence so agents can delete cold code, flag hot-path changes, and retire stale flags with proof. 118 framework plugins, zero configuration. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
+Agent skills for [fallow](https://github.com/fallow-rs/fallow), Rust-native codebase intelligence for JavaScript, TypeScript, and styling. The static layer reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, and design-system styling drift in milliseconds. Optional runtime intelligence adds production execution evidence so agents can delete cold code, flag hot-path changes, and retire stale flags with proof. 123 framework plugins, zero configuration. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
 
 > **Linters enforce style. Formatters enforce consistency. Fallow enforces relevance.** Linters work file by file. TypeScript works type by type. Neither builds the full module graph, so neither can see what nothing depends on. Fallow does, in milliseconds. These skills teach agents *how* to use fallow effectively: which commands to run, what flags to use, how to interpret output, and how to avoid common pitfalls.
 
@@ -90,7 +90,7 @@ See the [installation guide](https://docs.fallow.tools/installation) for all opt
 
 | Skill | Description | Trigger phrases |
 |---|---|---|
-| [fallow](fallow/) | Codebase intelligence for JS/TS: quality, changed-code risk, cleanup opportunities, circular deps, duplication, complexity, and (with Runtime) hot-path and cold-path evidence | "check code health", "audit this PR", "find cleanup opportunities", "find duplicates", "what code actually runs" |
+| [fallow](fallow/) | Codebase intelligence for JS/TS and styling: quality, changed-code risk, cleanup opportunities, circular deps, duplication, complexity, design-system drift, and runtime evidence | "check code health", "audit this PR", "find cleanup opportunities", "find duplicates", "what code actually runs" |
 
 ## What's Included
 
@@ -153,7 +153,7 @@ See [CLAUDE.md](CLAUDE.md) for repository structure, skill creation guidelines, 
 
 ## Related
 
-- [fallow](https://github.com/fallow-rs/fallow): Rust-native codebase intelligence for JavaScript and TypeScript, a single-pass alternative to knip and jscpd
+- [fallow](https://github.com/fallow-rs/fallow): Rust-native codebase intelligence for JavaScript, TypeScript, and styling, a single-pass complement to knip, jscpd, and CSS quality checks
 - [fallow-docs](https://docs.fallow.tools): Official documentation
 - [VS Code extension](https://marketplace.visualstudio.com/items?itemName=fallow-rs.fallow-vscode): Real-time diagnostics in your editor
 - [Agent Skills specification](https://agentskills.io): The open standard this skill follows
