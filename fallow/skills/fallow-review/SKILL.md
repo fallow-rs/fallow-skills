@@ -1,6 +1,6 @@
 ---
 name: fallow-review
-description: Review AI-generated or human-written code changes with fallow's graph-grounded review brief. Subtracts deterministic concerns (unused code, complexity, duplication) from the loop, ranks what to look at by blast radius and risk, and surfaces the few consequential structural decisions (new public-API contracts, coupling/boundary crossings, new dependencies) as framed judgment questions anchored to verifiable signals. Drives a closed agent-contract loop: fetch the walkthrough guide, return a judgment, and have fallow post-validate it against the live graph (hallucinated or stale judgments are rejected). Use when asked to review a PR, review a branch, review a diff, do a code review, or check changed code before merge.
+description: Review AI-generated or human-written code changes with fallow's graph-grounded review brief. Subtracts deterministic concerns (unused code, complexity, duplication, styling) from the loop, ranks what to look at by blast radius and risk, and surfaces the few consequential structural decisions (new public-API contracts, coupling/boundary crossings, new dependencies) as framed judgment questions anchored to verifiable signals. Drives a closed agent-contract loop: fetch the walkthrough guide, return a judgment, and have fallow post-validate it against the live graph (hallucinated or stale judgments are rejected). Use when asked to review a PR, review a branch, review a diff, do a code review, or check changed code before merge.
 license: MIT
 metadata:
   author: Bart Waardenburg
@@ -14,7 +14,7 @@ metadata:
 
 The four jobs it does, in order:
 
-- **subtract**: dead code, complexity, and duplication for the changed files are reported and kept OUT of the judgment loop, so attention is not spent on what a deterministic check already owns.
+- **subtract**: dead code, complexity, duplication, and styling for the changed files are reported and kept OUT of the judgment loop, so attention is not spent on what a deterministic check already owns.
 - **focus**: changed-file units are ranked by a composite attention score (fan-in/out, risk zone, change shape) with a `review-here` / `not-prioritized` label and a full `deprioritized` escape-hatch list, so nothing is hidden.
 - **structure**: the decision surface lifts the handful of consequential STRUCTURAL decisions out of the diff and frames each as a judgment question, capped to a working-memory-sized set, each anchored to a `signal_id` fallow emitted.
 - **direct**: the walkthrough guide hands an agent a graph-derived digest, the review direction, a graph-snapshot pin, and the exact judgment schema to return.
