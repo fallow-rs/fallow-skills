@@ -11,7 +11,7 @@
   <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v3.0.0-orange" alt="fallow v3.0.0"></a>
 </p>
 
-Agent skills for [fallow](https://github.com/fallow-rs/fallow), Rust-native codebase intelligence for JavaScript, TypeScript, and styling. The static layer reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, and design-system styling drift in milliseconds. Optional runtime intelligence adds production execution evidence so agents can delete cold code, flag hot-path changes, and retire stale flags with proof. 123 framework plugins, zero configuration. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
+Agent skills for [fallow](https://github.com/fallow-rs/fallow), codebase intelligence for TypeScript and JavaScript. The static layer reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, and design-system styling drift in milliseconds. Optional runtime intelligence adds production execution evidence so agents can delete cold code, flag hot-path changes, and retire stale flags with proof. 123 framework plugins, zero configuration. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
 
 > **Linters enforce style. Formatters enforce consistency. Fallow enforces relevance.** Linters work file by file. TypeScript works type by type. Neither builds the full module graph, so neither can see what nothing depends on. Fallow does, in milliseconds. These skills teach agents *how* to use fallow effectively: which commands to run, what flags to use, how to interpret output, and how to avoid common pitfalls.
 
@@ -153,7 +153,7 @@ See [CLAUDE.md](CLAUDE.md) for repository structure, skill creation guidelines, 
 
 ## Related
 
-- [fallow](https://github.com/fallow-rs/fallow): Rust-native codebase intelligence for JavaScript, TypeScript, and styling, a single-pass complement to knip, jscpd, and CSS quality checks
+- [fallow](https://github.com/fallow-rs/fallow): codebase intelligence for TypeScript and JavaScript, a single pass over code and styles
 - [fallow-docs](https://docs.fallow.tools): Official documentation
 - [VS Code extension](https://marketplace.visualstudio.com/items?itemName=fallow-rs.fallow-vscode): Real-time diagnostics in your editor
 - [Agent Skills specification](https://agentskills.io): The open standard this skill follows
