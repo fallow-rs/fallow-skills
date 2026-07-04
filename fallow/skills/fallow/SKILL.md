@@ -1,6 +1,6 @@
 ---
 name: fallow
-description: Codebase intelligence for JavaScript, TypeScript, and styling. Static analysis reports changed-code risk, cleanup opportunities, duplication, circular dependencies, complexity hotspots, architecture boundaries, design-system drift, feature flags, and opt-in security candidates. Runtime coverage can merge production execution data for hot-path review, cold-path deletion confidence, and stale-flag evidence. 123 framework plugins, zero configuration, sub-second static analysis. Use when asked to audit PR risk, find unused code or dependencies, detect duplicates, check styling consistency, inspect architecture boundaries, merge runtime coverage, auto-fix supported issues, or run fallow.
+description: Codebase intelligence for TypeScript and JavaScript. Static analysis of code and styles reports changed-code risk, cleanup opportunities, duplication, circular dependencies, complexity hotspots, architecture boundaries, design-system drift, feature flags, and opt-in security candidates. Runtime coverage can merge production execution data for hot-path review, cold-path deletion confidence, and stale-flag evidence. 123 framework plugins, zero configuration, sub-second static analysis. Use when asked to audit PR risk, find unused code or dependencies, detect duplicates, check styling consistency, inspect architecture boundaries, merge runtime coverage, auto-fix supported issues, or run fallow.
 license: MIT
 metadata:
   author: Bart Waardenburg
@@ -8,9 +8,9 @@ metadata:
   homepage: https://docs.fallow.tools
 ---
 
-# Fallow: codebase intelligence for JavaScript, TypeScript, and styling
+# Fallow: codebase intelligence for TypeScript and JavaScript
 
-Codebase intelligence for JavaScript, TypeScript, and styling. The static layer reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, design-system styling drift, feature flag patterns, and opt-in security candidates. Runtime coverage merges production execution data into the same `fallow health` report for hot-path review, cold-path deletion confidence, and stale-flag evidence, with a single local capture available by default and continuous/cloud runtime monitoring available as an optional mode. 123 framework plugins, zero configuration, sub-second static analysis.
+Codebase intelligence for TypeScript and JavaScript. The static layer analyzes code and styles and reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, design-system styling drift, feature flag patterns, and opt-in security candidates. Runtime coverage merges production execution data into the same `fallow health` report for hot-path review, cold-path deletion confidence, and stale-flag evidence, with a single local capture available by default and continuous/cloud runtime monitoring available as an optional mode. 123 framework plugins, zero configuration, sub-second static analysis.
 
 ## When to Use
 - Find cleanup opportunities: unused files, exports, types, members, dependencies, or stale flags.
