@@ -242,9 +242,10 @@ fallow:
   variables:
     FALLOW_COMMENT: "true"
     FALLOW_SUMMARY_SCOPE: "diff"
+    FALLOW_PR_COMMENT_LAYOUT: "gate-only"
 ```
 
-Posts a summary comment on the MR with issue counts and findings. In MR pipelines, `--changed-since` is auto-detected from `$CI_MERGE_REQUEST_TARGET_BRANCH_NAME`, so only issues from changed files are reported. `FALLOW_SUMMARY_SCOPE: "diff"` also hides project-level dependency/catalog/override findings whose anchor line is outside the diff. Requires `GITLAB_TOKEN` CI/CD variable (project access token with `api` scope); `CI_JOB_TOKEN` is read-only for MR notes in the official GitLab API.
+Posts a summary comment on the MR with issue counts and findings. In MR pipelines, `--changed-since` is auto-detected from `$CI_MERGE_REQUEST_TARGET_BRANCH_NAME`, so only issues from changed files are reported. `FALLOW_SUMMARY_SCOPE: "diff"` also hides project-level dependency/catalog/override findings whose anchor line is outside the diff. `FALLOW_PR_COMMENT_LAYOUT: "gate-only"` keeps the sticky comment compact when GitLab Code Quality is the primary review surface. Requires `GITLAB_TOKEN` CI/CD variable (project access token with `api` scope); `CI_JOB_TOKEN` is read-only for MR notes in the official GitLab API.
 
 ### GitLab CI: With Inline Code Review Comments
 
@@ -272,12 +273,13 @@ fallow:
   variables:
     FALLOW_COMMENT: "true"
     FALLOW_SUMMARY_SCOPE: "diff"
+    FALLOW_PR_COMMENT_LAYOUT: "gate-only"
     FALLOW_REVIEW: "true"
     FALLOW_REVIEW_GUIDANCE: "true"
     FALLOW_FAIL_ON_ISSUES: "true"
 ```
 
-Posts both a summary comment and inline review comments on the MR. `FALLOW_SUMMARY_SCOPE: "diff"` only affects the sticky summary; inline review comments remain anchored to diff lines. The template auto-detects the package manager (npm/pnpm/yarn) from lockfiles, so review comments show the correct commands for the project (e.g., `pnpm remove` instead of `npm uninstall`).
+Posts both a summary comment and inline review comments on the MR. `FALLOW_SUMMARY_SCOPE: "diff"` and `FALLOW_PR_COMMENT_LAYOUT` only affect the sticky summary; inline review comments remain anchored to diff lines. The template auto-detects the package manager (npm/pnpm/yarn) from lockfiles, so review comments show the correct commands for the project (e.g., `pnpm remove` instead of `npm uninstall`).
 
 ### GitLab CI: With Health Score and Trend
 
