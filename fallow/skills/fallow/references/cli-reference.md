@@ -532,7 +532,7 @@ fallow health --format json --quiet --trend
 }
 ```
 
-`health.thresholdOverrides[]` config entries can raise local cyclomatic, cognitive, or CRAP ceilings for matching files and optional exact function names. When an override affects output, health JSON includes top-level `threshold_overrides[]` state entries (`active`, `stale`, or `no_match`). Complexity findings evaluated with local ceilings include `effective_thresholds` and `threshold_source: "override"` so agents can see which thresholds drove the finding and avoid treating configured exceptions as hidden suppressions.
+`health.thresholdOverrides[]` config entries can raise local cyclomatic, cognitive, CRAP, or unit-size (large-function line-count) ceilings for matching files and optional exact function names. When an override affects output, health JSON includes top-level `threshold_overrides[]` state entries (`active`, `stale`, or `no_match`). Complexity findings evaluated with local ceilings include `effective_thresholds` and `threshold_source: "override"` so agents can see which thresholds drove the finding and avoid treating configured exceptions as hidden suppressions.
 
 When the unit size very-high-risk percentage is >= 3%, the JSON output includes a `large_functions` array listing functions exceeding 60 lines of code:
 
