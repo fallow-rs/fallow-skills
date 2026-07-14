@@ -350,15 +350,17 @@ Adds a per-decision-point `contributions[]` array to every complexity finding (e
 ### Gate CI on regressions (baselines)
 ```bash
 # 1. Save the current issue counts as a regression baseline
-fallow dead-code --format json --quiet --save-regression-baseline .fallow/baseline.json
+fallow dead-code --format json --quiet --save-regression-baseline
 # 2. In CI: fail only if issues increase beyond tolerance
-fallow dead-code --format json --quiet --regression-baseline .fallow/baseline.json --fail-on-regression --tolerance 0
+fallow dead-code --format json --quiet --fail-on-regression --tolerance 0
 # Identity-based baseline (fail only on NEW findings, not raw counts)
 fallow dead-code --format json --quiet --save-baseline .fallow/snapshot.json
 fallow dead-code --format json --quiet --baseline .fallow/snapshot.json
 ```
 
-`--save-regression-baseline` / `--regression-baseline` / `--fail-on-regression` / `--tolerance` are count-based gates; `--save-baseline` / `--baseline` are identity-based (track finding identity, fail on new). All six are global flags, so they also work on `health` and `dupes`. `audit` rejects the global baseline flags and uses `--dead-code-baseline` / `--health-baseline` / `--dupes-baseline` instead.
+`--save-regression-baseline` / `--regression-baseline` / `--fail-on-regression` / `--tolerance` are count-based gates for `dead-code` and bare combined mode. `--save-baseline` / `--baseline` are identity-based (track finding identity, fail on new). `audit` rejects the global baseline flags and uses `--dead-code-baseline` / `--health-baseline` / `--dupes-baseline` instead.
+
+With no path, `--save-regression-baseline` updates `regression.baseline` in the discovered fallow config, or creates `.fallowrc.json` when none exists. Pass a path only when a standalone baseline file is preferred.
 
 ### Explain an issue type without running analysis
 ```bash

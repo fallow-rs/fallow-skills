@@ -130,8 +130,9 @@ fallow dead-code --format json --quiet --trace src/utils.ts:myFunction
 fallow dead-code --format json --quiet --save-baseline fallow-baselines/dead-code.json
 fallow dead-code --format json --quiet --baseline fallow-baselines/dead-code.json --fail-on-issues
 
-# Regression detection: save baseline on main, compare on PRs
+# Regression detection: update regression.baseline in the discovered config
 fallow dead-code --format json --quiet --save-regression-baseline
+# Then compare on PRs
 fallow dead-code --format json --quiet --fail-on-regression --tolerance 2%
 
 # Scope to specific files (e.g., lint-staged)
@@ -1667,8 +1668,8 @@ Available on all commands:
 | `--report-path-prefix` | `string` | - | Prefix prepended to every path in the CI-facing formats (`github-annotations`, `github-summary`, `codeclimate`, `review-github`, `review-gitlab`). CI platforms address files by repository-root-relative path, so when the analyzed project lives in a subdirectory (e.g. `packages/app/`), paths need that offset. fallow detects the offset via the git toplevel automatically; this flag overrides the detection. Pass an empty string to disable rebasing and emit paths relative to `--root` |
 | `--fail-on-regression` | `bool` | `false` | Fail if issue count increased beyond tolerance vs a regression baseline |
 | `--tolerance` | `string` | `0` | Allowed increase: `"2%"` (percentage) or `"5"` (absolute). Default: `"0"` |
-| `--regression-baseline` | `string` | - | Path to regression baseline file (default: `.fallow/regression-baseline.json`) |
-| `--save-regression-baseline` | `string` | - | Save current issue counts as a regression baseline |
+| `--regression-baseline` | `string` | - | Path to a standalone regression baseline file. Without it, fallow uses `regression.baseline` from the config |
+| `--save-regression-baseline` | `string` | - | Save current issue counts. With no path, update `regression.baseline` in the discovered fallow config or create `.fallowrc.json`; with a path, write a standalone baseline file |
 | `--only` | `dead-code\|dupes\|health` | - | Run only specific analyses (e.g., `--only dead-code,dupes`). Values: `dead-code` (alias: `check`), `dupes`, `health` |
 | `--skip` | `dead-code\|dupes\|health` | - | Skip specific analyses (e.g., `--skip health`). Values: `dead-code` (alias: `check`), `dupes`, `health` |
 | `--dupes-mode` | `strict\|mild\|weak\|semantic` | - | Override duplication detection mode in combined mode |
