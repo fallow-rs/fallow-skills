@@ -26,7 +26,15 @@ npx skills add fallow-rs/fallow-skills
 ### Claude Code
 
 ```bash
-/install fallow-rs/fallow-skills
+/plugin marketplace add fallow-rs/fallow-skills
+/plugin install fallow@fallow-skills
+```
+
+### OpenAI Codex
+
+```bash
+codex plugin marketplace add fallow-rs/fallow-skills
+codex plugin add fallow@fallow-skills
 ```
 
 ### Agent-specific CLI shortcuts
