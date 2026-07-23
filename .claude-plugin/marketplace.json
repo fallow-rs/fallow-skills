@@ -5,15 +5,15 @@
     "email": "bart@fallow.tools"
   },
   "metadata": {
-    "description": "Agent skills for TypeScript and JavaScript codebase intelligence using fallow",
-    "version": "1.2.0"
+    "description": "Agent skills for TypeScript and JavaScript codebase intelligence and local Impact summaries using fallow",
+    "version": "1.2.1"
   },
   "plugins": [
     {
       "name": "fallow",
       "source": "./fallow",
-      "description": "Codebase intelligence for TypeScript and JavaScript using fallow",
-      "version": "1.2.0",
+      "description": "Codebase intelligence and local Impact summaries for TypeScript and JavaScript using fallow",
+      "version": "1.2.1",
       "author": {
         "name": "Bart Waardenburg",
         "email": "bart@fallow.tools"

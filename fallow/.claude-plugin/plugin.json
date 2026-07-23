@@ -1,7 +1,7 @@
 {
   "name": "fallow",
-  "version": "1.2.0",
-  "description": "Codebase intelligence for TypeScript and JavaScript using fallow",
+  "version": "1.2.1",
+  "description": "Codebase intelligence and local Impact summaries for TypeScript and JavaScript using fallow",
   "author": {
     "name": "Bart Waardenburg",
     "email": "bart@fallow.tools"
