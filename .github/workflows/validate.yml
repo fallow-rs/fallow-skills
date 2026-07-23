@@ -6,25 +6,30 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
 
       - name: Validate JSON files
         run: |
           echo "Validating JSON files..."
-          for f in $(find . -name "*.json" -not -path "./node_modules/*"); do
+          while IFS= read -r -d '' f; do
             echo "  Checking $f"
             python3 -c "import json; json.load(open('$f'))" || exit 1
-          done
+          done < <(find . -name "*.json" -not -path "./node_modules/*" -print0)
           echo "All JSON files are valid."
 
       - name: Validate SKILL.md frontmatter
         run: |
           echo "Validating SKILL.md files..."
-          for f in $(find . -name "SKILL.md"); do
+          while IFS= read -r -d '' f; do
             echo "  Checking $f"
             head -1 "$f" | grep -q "^---$" || { echo "ERROR: $f missing frontmatter"; exit 1; }
             awk '/^---$/{n++; next} n==1{print}' "$f" | grep -q "^name:" || { echo "ERROR: $f missing 'name' in frontmatter"; exit 1; }
@@ -41,7 +46,7 @@ jobs:
               echo "ERROR: $f name '$skill_name' must be lowercase letters, numbers, and hyphens"
               exit 1
             fi
-          done
+          done < <(find . -name "SKILL.md" -print0)
           echo "All SKILL.md files are valid."
 
       - name: Validate skills.sh discovery
@@ -160,3 +165,23 @@ jobs:
             exit 1
           fi
           echo "Versions in sync: $MARKETPLACE_VERSION"
+
+      - name: Test source contract validator
+        run: node --test scripts/*.test.mjs
+
+      - name: Read pinned Fallow source revision
+        id: source-lock
+        run: echo "commit=$(node -p 'require(\"./source-lock.json\").commit')" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout pinned public Fallow source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          repository: fallow-rs/fallow
+          ref: ${{ steps.source-lock.outputs.commit }}
+          path: .source/fallow
+          persist-credentials: false
+
+      - name: Verify public skill source and privacy boundary
+        env:
+          FALLOW_SOURCE_DIR: ${{ github.workspace }}/.source/fallow
+        run: node scripts/check-source-contract.mjs

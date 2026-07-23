@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/fallow-rs/fallow",
+  "commit": "166bbb1c0665da928497acfde6afe6620224cc1b",
+  "sourceRoot": "npm/fallow/skills/fallow",
+  "targetRoot": "fallow/skills/fallow",
+  "transforms": {
+    "SKILL.md": "strip-unsupported-metadata"
+  }
+}

@@ -103,6 +103,11 @@ See the [installation guide](https://docs.fallow.tools/installation) for all opt
 
 ## What's Included
 
+This repository contains portable skills for users of the released product.
+Fallow's maintainer workflows stay in the main source repository, and public
+user documentation stays in
+[`fallow-rs/docs`](https://github.com/fallow-rs/docs).
+
 ### fallow
 
 | Category | What it does |
@@ -164,7 +169,10 @@ The skill provides agents with:
 
 ## Contributing
 
-See [CLAUDE.md](CLAUDE.md) for repository structure, skill creation guidelines, and quality standards.
+See [AGENTS.md](AGENTS.md) for repository structure and quality standards.
+`source-lock.json` pins the public Fallow contract used by the `fallow` skill.
+CI checks that pin against a clean source checkout and rejects contract or
+privacy-boundary drift.
 
 ## Related
 
