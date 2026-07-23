@@ -13,10 +13,6 @@ description: >-
   PR, review a branch, review a diff, do a code review, or check changed code
   before merge.
 license: MIT
-metadata:
-  author: Bart Waardenburg
-  version: 1.1.1
-  homepage: https://docs.fallow.tools
 ---
 
 # Fallow Review: graph-grounded code review

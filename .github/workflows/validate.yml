@@ -103,6 +103,16 @@ jobs:
               if path.name in {".mcp.json", ".app.json"}
           ]
           assert not unsupported, f"Unsupported skills-only files: {unsupported}"
+
+          for skill in ("fallow", "fallow-review"):
+              skill_root = root / "skills" / skill
+              frontmatter = (skill_root / "SKILL.md").read_text().split("---", 2)[1]
+              assert "\nmetadata:" not in frontmatter
+              openai_config = skill_root / "agents/openai.yaml"
+              assert openai_config.is_file(), f"Missing Codex skill interface: {openai_config}"
+              config_text = openai_config.read_text()
+              for field in ("interface:", "display_name:", "short_description:", "default_prompt:"):
+                  assert field in config_text, f"Missing {field} in {openai_config}"
           PY
 
       - name: Inspect Codex submission archive
@@ -143,13 +153,9 @@ jobs:
           MARKETPLACE_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['plugins'][0]['version'])")
           CLAUDE_VERSION=$(python3 -c "import json; print(json.load(open('fallow/.claude-plugin/plugin.json'))['version'])")
           CODEX_VERSION=$(python3 -c "import json; print(json.load(open('fallow/.codex-plugin/plugin.json'))['version'])")
-          FALLOW_SKILL_VERSION=$(awk '/^metadata:/{metadata=1; next} metadata && /^  version:/{print $2; exit}' fallow/skills/fallow/SKILL.md)
-          REVIEW_SKILL_VERSION=$(awk '/^metadata:/{metadata=1; next} metadata && /^  version:/{print $2; exit}' fallow/skills/fallow-review/SKILL.md)
           if [ "$MARKETPLACE_METADATA_VERSION" != "$MARKETPLACE_VERSION" ] || \
              [ "$MARKETPLACE_VERSION" != "$CLAUDE_VERSION" ] || \
-             [ "$MARKETPLACE_VERSION" != "$CODEX_VERSION" ] || \
-             [ "$MARKETPLACE_VERSION" != "$FALLOW_SKILL_VERSION" ] || \
-             [ "$MARKETPLACE_VERSION" != "$REVIEW_SKILL_VERSION" ]; then
+             [ "$MARKETPLACE_VERSION" != "$CODEX_VERSION" ]; then
             echo "ERROR: Plugin versions do not match"
             exit 1
           fi
