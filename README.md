@@ -8,7 +8,7 @@
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
   <a href="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml"><img src="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
   <a href="https://agentskills.io"><img src="https://img.shields.io/badge/Agent_Skills-compatible-8A2BE2" alt="Agent Skills"></a>
-  <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v3.8.1-orange" alt="fallow v3.8.1"></a>
+  <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v3.9.0-orange" alt="fallow v3.9.0"></a>
 </p>
 
 Agent skills for [fallow](https://github.com/fallow-rs/fallow), codebase intelligence for TypeScript and JavaScript. The static layer reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, and design-system styling drift in milliseconds. Optional runtime intelligence adds production execution evidence so agents can delete cold code, flag hot-path changes, and retire stale flags with proof. 123 framework plugins, zero configuration. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io).
@@ -35,6 +35,33 @@ npx skills add fallow-rs/fallow-skills
 ```bash
 codex plugin marketplace add fallow-rs/fallow-skills
 codex plugin add fallow@fallow-skills
+```
+
+### Fallow Impact statusline
+
+Fallow Impact can show the latest whole-project issue count, the comparable
+trend, and everything cleared while tracking:
+
+```text
+fallow impact  7 issues in last full scan · 5 fewer than prior · 4.9k cleared while tracking
+```
+
+Claude Code users can add the compact branded segment while preserving an
+existing command-based statusline:
+
+```text
+/fallow:impact-statusline setup user compose
+```
+
+Use `project` instead of `user` for private project-local configuration. The
+setup previews the exact line before it changes settings, stores the previous
+value for safe removal, and never enables Impact. Run
+`/fallow:impact-statusline remove user` to restore the previous setting.
+
+Codex and other agents can use the same stable local surface directly:
+
+```bash
+fallow impact statusline
 ```
 
 ### Agent-specific CLI shortcuts

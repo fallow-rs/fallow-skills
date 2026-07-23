@@ -153,6 +153,7 @@ jobs:
               assert ".codex-plugin/plugin.json" in names
               assert any(name.startswith("skills/") and name.endswith("/SKILL.md") for name in names)
               assert ".claude-plugin/plugin.json" not in names
+              assert not any(name.startswith(("bin/", "commands/")) for name in names)
               assert not any(name.startswith("/") or ".." in Path(name).parts for name in names)
               assert not any(name.endswith((".mcp.json", ".app.json")) for name in names)
           assert archive.stat().st_size <= 100_000_000
@@ -191,7 +192,7 @@ jobs:
           current_version=$(python3 scripts/plugin_release.py newer-than "$base_version")
           echo "Plugin version changed from $base_version to $current_version."
 
-      - name: Test source contract validator
+      - name: Test JavaScript tooling
         run: node --test scripts/*.test.mjs
 
       - name: Read pinned Fallow source revision

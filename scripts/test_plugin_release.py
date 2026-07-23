@@ -49,6 +49,8 @@ class PluginReleaseTest(unittest.TestCase):
         self._write("fallow/skills/fallow/SKILL.md", "---\nname: fallow\n---\n")
         self._write("fallow/skills/fallow/hooks/run.sh", "#!/bin/sh\nexit 0\n", 0o755)
         self._write("fallow/assets/icon.png", "png")
+        self._write("fallow/bin/claude-helper.mjs", "#!/usr/bin/env node\n", 0o755)
+        self._write("fallow/commands/claude-command.md", "# Claude only\n")
         self._write("fallow/private-notes.txt", "must not be packaged")
 
     def tearDown(self):
