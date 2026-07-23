@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fallow Review"
+  short_description: "Review code changes with graph-grounded risk"
+  default_prompt: "Use $fallow-review to review these code changes and prioritize attention by blast radius, structural risk, and graph evidence."
