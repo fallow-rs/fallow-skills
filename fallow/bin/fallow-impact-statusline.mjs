@@ -16,7 +16,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SCHEMA_VERSION = 1;
@@ -238,41 +238,75 @@ const looksLikeManagedSetting = (value) =>
   value.command.includes(RUNTIME_FILENAME) &&
   value.command.includes(" render --state ");
 
+const fallowCandidates = () => {
+  const names =
+    process.platform === "win32"
+      ? ["fallow.exe", "fallow.cmd", "fallow.bat", "fallow"]
+      : ["fallow"];
+  const candidates = [];
+  const seen = new Set();
+  for (const entry of (process.env.PATH ?? "").split(delimiter)) {
+    const directory = entry === "" ? process.cwd() : entry;
+    for (const name of names) {
+      const candidate = join(directory, name);
+      if (seen.has(candidate) || !existsSync(candidate)) {
+        continue;
+      }
+      seen.add(candidate);
+      candidates.push(candidate);
+    }
+  }
+  return candidates;
+};
+
 const preflight = (root) => {
-  const versionRun = spawnSync("fallow", ["--version"], {
-    encoding: "utf8",
-    timeout: PREFLIGHT_TIMEOUT_MS,
-    windowsHide: true,
-  });
-  if (versionRun.error?.code === "ENOENT") {
-    fail(`Fallow ${MINIMUM_FALLOW_VERSION} or newer is required, but fallow is not on PATH`);
-  }
-  if (versionRun.error || versionRun.status !== 0) {
-    fail(`Could not run fallow --version`);
-  }
-  const version = parseFallowVersion(versionRun.stdout);
-  if (version === null || compareVersions(version, MINIMUM_FALLOW_VERSION) < 0) {
-    fail(
-      `Fallow ${MINIMUM_FALLOW_VERSION} or newer is required, found ${version ?? "an unknown version"}`,
-    );
+  const foundVersions = [];
+  let compatibleWithoutStatusline = false;
+  for (const candidate of fallowCandidates()) {
+    const versionRun = spawnSync(candidate, ["--version"], {
+      encoding: "utf8",
+      timeout: PREFLIGHT_TIMEOUT_MS,
+      windowsHide: true,
+    });
+    if (versionRun.error || versionRun.status !== 0) {
+      continue;
+    }
+    const version = parseFallowVersion(versionRun.stdout);
+    if (version === null) {
+      continue;
+    }
+    foundVersions.push(version);
+    if (compareVersions(version, MINIMUM_FALLOW_VERSION) < 0) {
+      continue;
+    }
+
+    const statuslineRun = spawnSync(candidate, ["--root", root, "impact", "statusline"], {
+      encoding: "utf8",
+      timeout: PREFLIGHT_TIMEOUT_MS,
+      windowsHide: true,
+    });
+    const lines = statuslineRun.stdout?.trimEnd().split("\n") ?? [];
+    if (
+      statuslineRun.error ||
+      statuslineRun.status !== 0 ||
+      statuslineRun.stderr !== "" ||
+      lines.length !== 1 ||
+      !lines[0].startsWith("fallow impact  ")
+    ) {
+      compatibleWithoutStatusline = true;
+      continue;
+    }
+    return { binary: realpathSync(candidate), preview: lines[0], version };
   }
 
-  const statuslineRun = spawnSync("fallow", ["--root", root, "impact", "statusline"], {
-    encoding: "utf8",
-    timeout: PREFLIGHT_TIMEOUT_MS,
-    windowsHide: true,
-  });
-  const lines = statuslineRun.stdout?.trimEnd().split("\n") ?? [];
-  if (
-    statuslineRun.error ||
-    statuslineRun.status !== 0 ||
-    statuslineRun.stderr !== "" ||
-    lines.length !== 1 ||
-    !lines[0].startsWith("fallow impact  ")
-  ) {
+  if (compatibleWithoutStatusline) {
     fail("Installed Fallow does not provide a silent one-line Impact statusline");
   }
-  return { preview: lines[0], version };
+  if (foundVersions.length === 0) {
+    fail(`Fallow ${MINIMUM_FALLOW_VERSION} or newer is required, but fallow is not on PATH`);
+  }
+  const newest = foundVersions.toSorted(compareVersions).at(-1);
+  fail(`Fallow ${MINIMUM_FALLOW_VERSION} or newer is required, found ${newest}`);
 };
 
 const loadManagedState = (path) => {
@@ -284,6 +318,7 @@ const loadManagedState = (path) => {
     state.schemaVersion !== SCHEMA_VERSION ||
     (state.scope !== "user" && state.scope !== "project") ||
     typeof state.root !== "string" ||
+    (state.fallowBinary !== undefined && typeof state.fallowBinary !== "string") ||
     typeof state.managed !== "object" ||
     state.managed === null ||
     typeof state.previous !== "object" ||
@@ -327,6 +362,7 @@ const inspect = ({ scope, root }) => {
           ? "compose"
           : "replace",
     minimumFallowVersion: MINIMUM_FALLOW_VERSION,
+    fallowBinary: check.binary,
     fallowVersion: check.version,
     preview: check.preview,
   };
@@ -384,6 +420,7 @@ const install = ({ scope, root, mode, confirm }) => {
       scope,
       root,
       mode,
+      fallowBinary: check.binary,
       previous,
       managed,
       installedFallowVersion: check.version,
@@ -600,7 +637,7 @@ const render = async (statePath) => {
           shell: true,
         });
   const fallowRun = runCaptured({
-    command: "fallow",
+    command: state.fallowBinary ?? "fallow",
     args: ["--root", root, "impact", "statusline"],
     input: "",
     cwd: root,

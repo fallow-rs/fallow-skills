@@ -1,5 +1,13 @@
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -102,8 +110,57 @@ test("inspect is read-only and previews the exact CLI output", () => {
   assert.equal(result.status, "ready");
   assert.equal(result.preview, FULL_LINE);
   assert.equal(result.suggestedMode, "replace");
+  assert.equal(result.fallowBinary, realpathSync(current.fallow));
   assert.equal(result.fallowVersion, MINIMUM_FALLOW_VERSION);
   assert.equal(existsSync(join(current.home, ".claude", "settings.json")), false);
+});
+
+test("setup skips an older PATH entry and pins the compatible binary", () => {
+  const current = fixture();
+  const oldBin = join(current.root, "old-bin");
+  mkdirSync(oldBin, { recursive: true });
+  const oldFallow = join(oldBin, "fallow");
+  writeFileSync(oldFallow, "#!/bin/sh\nprintf 'fallow 2.87.0\\n'\n");
+  chmodSync(oldFallow, 0o755);
+  current.env.PATH = `${oldBin}:${current.env.PATH}`;
+
+  const inspected = parseOutput(
+    runHelper(current, ["inspect", "--scope", "user", "--root", current.project]),
+  );
+  assert.equal(inspected.fallowBinary, realpathSync(current.fallow));
+  assert.equal(inspected.fallowVersion, MINIMUM_FALLOW_VERSION);
+
+  parseOutput(
+    runHelper(current, [
+      "install",
+      "--scope",
+      "user",
+      "--root",
+      current.project,
+      "--mode",
+      "replace",
+      "--confirm",
+    ]),
+  );
+  const paths = pathsFor({ scope: "user", root: current.project, home: current.home });
+  const state = JSON.parse(readFileSync(paths.state, "utf8"));
+  assert.equal(state.fallowBinary, realpathSync(current.fallow));
+
+  const settings = JSON.parse(readFileSync(paths.settings, "utf8"));
+  const rendered = spawnSync(settings.statusLine.command, {
+    cwd: current.project,
+    encoding: "utf8",
+    env: {
+      ...current.env,
+      PATH: oldBin,
+      NO_COLOR: "1",
+      FALLOW_STATUSLINE_DEBUG: "1",
+    },
+    input: JSON.stringify({ cwd: current.project }),
+    shell: true,
+  });
+  assert.equal(rendered.status, 0, rendered.stderr);
+  assert.equal(rendered.stdout, `${FULL_LINE}\n`);
 });
 
 test("replace setup installs a stable runtime and renders a compact plain line", () => {
@@ -336,6 +393,7 @@ test("an orphaned managed command can be repaired without composing itself", () 
 
 test("setup refuses an older Fallow binary without changing settings", () => {
   const current = fixture({ version: "3.8.1" });
+  current.env.PATH = dirname(current.fallow);
   const install = runHelper(current, [
     "install",
     "--scope",

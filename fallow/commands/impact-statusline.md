@@ -51,8 +51,10 @@ Do not modify files.
    next Claude interaction.
 
 The helper preserves the previous setting and refuses to overwrite later
-manual changes. If the preview says `fallow impact  off`, tell the user they may
-run `fallow impact enable` themselves. Do not run it.
+manual changes. It skips stale Fallow binaries earlier on `PATH` and pins the
+first compatible installation, so later statusline renders use the same CLI.
+If the preview says `fallow impact  off`, tell the user they may run
+`fallow impact enable` themselves. Do not run it.
 
 ## Remove
 
