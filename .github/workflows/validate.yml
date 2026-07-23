@@ -171,7 +171,9 @@ jobs:
 
       - name: Read pinned Fallow source revision
         id: source-lock
-        run: echo "commit=$(node -p 'require(\"./source-lock.json\").commit')" >> "$GITHUB_OUTPUT"
+        run: |
+          node -e 'process.stdout.write("commit=" + require("./source-lock.json").commit + "\n")' \
+            >> "$GITHUB_OUTPUT"
 
       - name: Checkout pinned public Fallow source
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
