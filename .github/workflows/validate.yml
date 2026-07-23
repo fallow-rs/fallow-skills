@@ -52,6 +52,81 @@ jobs:
             XDG_CACHE_HOME="$RUNNER_TEMP/skills-cache" \
             npx -y skills@1.5.3 add . --list
 
+      - name: Validate Claude plugin
+        run: npx -y @anthropic-ai/claude-code@2.1.218 plugin validate . --strict
+
+      - name: Validate Codex plugin
+        run: |
+          python3 - <<'PY'
+          import json
+          import struct
+          from pathlib import Path
+
+          root = Path("fallow")
+          manifest = json.loads((root / ".codex-plugin/plugin.json").read_text())
+          interface = manifest["interface"]
+
+          assert manifest["name"] == "fallow"
+          assert manifest["skills"] == "./skills/"
+          assert len(manifest["name"]) <= 64
+          assert len(manifest["description"]) <= 1024
+          assert len(manifest["author"]["name"]) <= 120
+          assert len(interface["displayName"]) <= 30
+          assert "\n" not in interface["shortDescription"]
+          assert len(interface["shortDescription"]) <= 30
+          assert len(interface["longDescription"]) <= 4000
+          assert len(interface["developerName"]) <= 80
+          assert interface["category"] == "Developer Tools"
+          assert len(interface["capabilities"]) <= 20
+          assert 1 <= len(interface["defaultPrompt"]) <= 3
+          assert all(len(prompt) <= 128 for prompt in interface["defaultPrompt"])
+
+          for field in ("composerIcon", "logo"):
+              asset = root / interface[field]
+              assert asset.is_file(), f"Missing {field}: {asset}"
+              assert asset.stat().st_size <= 5 * 1024 * 1024
+              with asset.open("rb") as handle:
+                  assert handle.read(8) == b"\x89PNG\r\n\x1a\n"
+                  handle.read(8)
+                  width, height = struct.unpack(">II", handle.read(8))
+              assert width == height
+              assert 48 <= width <= 4096
+
+          marketplace = json.loads(Path(".agents/plugins/marketplace.json").read_text())
+          entry = marketplace["plugins"][0]
+          assert entry["name"] == manifest["name"]
+          assert entry["source"] == {"source": "local", "path": "./fallow"}
+          assert entry["policy"]["installation"] == "AVAILABLE"
+
+          unsupported = [
+              path for path in root.rglob("*")
+              if path.name in {".mcp.json", ".app.json"}
+          ]
+          assert not unsupported, f"Unsupported skills-only files: {unsupported}"
+          PY
+
+      - name: Inspect Codex submission archive
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          root = Path("fallow")
+          archive = Path("/tmp/fallow-plugin.zip")
+          files = sorted(path for path in root.rglob("*") if path.is_file())
+          with ZipFile(archive, "w", ZIP_DEFLATED) as bundle:
+              for path in files:
+                  bundle.write(path, path.relative_to(root))
+
+          with ZipFile(archive) as bundle:
+              names = bundle.namelist()
+              assert ".codex-plugin/plugin.json" in names
+              assert any(name.startswith("skills/") and name.endswith("/SKILL.md") for name in names)
+              assert not any(name.startswith("/") or ".." in Path(name).parts for name in names)
+              assert not any(name.endswith((".mcp.json", ".app.json")) for name in names)
+          assert archive.stat().st_size <= 100 * 1024 * 1024
+          PY
+
       - name: Check for hardcoded paths
         run: |
           echo "Checking for hardcoded paths..."
@@ -65,9 +140,10 @@ jobs:
         run: |
           echo "Checking version sync..."
           MARKETPLACE_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['plugins'][0]['version'])")
-          PLUGIN_VERSION=$(python3 -c "import json; print(json.load(open('fallow/.claude-plugin/plugin.json'))['version'])")
-          if [ "$MARKETPLACE_VERSION" != "$PLUGIN_VERSION" ]; then
-            echo "ERROR: Version mismatch - marketplace fallow plugin ($MARKETPLACE_VERSION) != fallow plugin.json ($PLUGIN_VERSION)"
+          CLAUDE_VERSION=$(python3 -c "import json; print(json.load(open('fallow/.claude-plugin/plugin.json'))['version'])")
+          CODEX_VERSION=$(python3 -c "import json; print(json.load(open('fallow/.codex-plugin/plugin.json'))['version'])")
+          if [ "$MARKETPLACE_VERSION" != "$CLAUDE_VERSION" ] || [ "$MARKETPLACE_VERSION" != "$CODEX_VERSION" ]; then
+            echo "ERROR: Plugin versions do not match"
             exit 1
           fi
           echo "Versions in sync: $MARKETPLACE_VERSION"

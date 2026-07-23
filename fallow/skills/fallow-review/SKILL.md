@@ -1,6 +1,17 @@
 ---
 name: fallow-review
-description: Review AI-generated or human-written code changes with fallow's graph-grounded review brief. Subtracts deterministic concerns (unused code, complexity, duplication, styling) from the loop, ranks what to look at by blast radius and risk, and surfaces the few consequential structural decisions (new public-API contracts, coupling/boundary crossings, new dependencies) as framed judgment questions anchored to verifiable signals. Drives a closed agent-contract loop: fetch the walkthrough guide, return a judgment, and have fallow post-validate it against the live graph (hallucinated or stale judgments are rejected). Use when asked to review a PR, review a branch, review a diff, do a code review, or check changed code before merge.
+description: >-
+  Review AI-generated or human-written code changes with fallow's
+  graph-grounded review brief. Subtracts deterministic concerns (unused code,
+  complexity, duplication, styling) from the loop, ranks what to look at by
+  blast radius and risk, and surfaces the few consequential structural
+  decisions (new public-API contracts, coupling/boundary crossings, new
+  dependencies) as framed judgment questions anchored to verifiable signals.
+  Drives a closed agent-contract loop: fetch the walkthrough guide, return a
+  judgment, and have fallow post-validate it against the live graph
+  (hallucinated or stale judgments are rejected). Use when asked to review a
+  PR, review a branch, review a diff, do a code review, or check changed code
+  before merge.
 license: MIT
 metadata:
   author: Bart Waardenburg

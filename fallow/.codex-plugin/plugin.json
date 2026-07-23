@@ -1,0 +1,46 @@
+{
+  "name": "fallow",
+  "version": "1.0.0",
+  "description": "Codebase intelligence for TypeScript and JavaScript using fallow",
+  "author": {
+    "name": "Bart Waardenburg",
+    "email": "bart@fallow.tools",
+    "url": "https://github.com/fallow-rs"
+  },
+  "homepage": "https://fallow.tools",
+  "repository": "https://github.com/fallow-rs/fallow-skills",
+  "license": "MIT",
+  "keywords": [
+    "fallow",
+    "dead-code",
+    "duplication",
+    "complexity",
+    "static-analysis",
+    "javascript",
+    "typescript"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Fallow",
+    "shortDescription": "JS/TS codebase intelligence",
+    "longDescription": "Fallow gives Codex a fast, local static analysis layer for TypeScript and JavaScript. It helps review changed-code risk, find unused code and dependencies, detect duplication and complexity hotspots, inspect architecture boundaries, and prioritize safe cleanup.",
+    "developerName": "Bart Waardenburg",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Static analysis",
+      "Code review",
+      "Local workflow"
+    ],
+    "websiteURL": "https://fallow.tools",
+    "privacyPolicyURL": "https://fallow.tools/privacy",
+    "termsOfServiceURL": "https://fallow.tools/terms",
+    "defaultPrompt": [
+      "Audit this codebase for changed-code risk and cleanup opportunities.",
+      "Review this branch with fallow and prioritize what needs attention.",
+      "Find unused code, dependencies, and duplication in this project."
+    ],
+    "brandColor": "#1C1B1C",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/icon.png"
+  }
+}
