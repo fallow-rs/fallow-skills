@@ -15,8 +15,11 @@ const LOCK_PATH = "source-lock.json";
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/u;
 const PRIVATE_MARKERS = [
   /(?:^|[^\w-])\.internal\//u,
-  /(?:^|[^A-Za-z0-9-])github\.com\.?(?::\d+)?(?::|\/)+fallow-rs\/fallow-cloud(?:\.git)?(?=$|[^A-Za-z0-9._-])/iu,
+  /(?:^|[^\w@-])decisions\//u,
+  /(?:^|[\s([{"'=`])internal\//u,
+  /(?:(?:(?:https?|git):)?\/\/(?:www\.)?github\.com\/|ssh:\/\/git@github\.com\/|git@github\.com:)fallow-rs\/fallow-cloud(?:\.git)?(?=$|[/?#:\s`),.])/iu,
   /\/Users\/[^/\s]+\/[^/\s]+/u,
+  /~\/Sites\/[^/\s]+/u,
   /[A-Za-z]:\\Users\\[^\\\s]+\\/u,
   /-----BEGIN (?:EC |OPENSSH |RSA )?PRIVATE KEY-----/u,
   /gh[pousr]_[A-Za-z0-9]{36,}/u,
