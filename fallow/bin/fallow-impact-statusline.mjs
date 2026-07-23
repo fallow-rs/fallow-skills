@@ -499,6 +499,9 @@ const runCaptured = ({ command, args = [], input, cwd, shell = false, noColor = 
       const output = Buffer.concat(chunks).toString("utf8").trimEnd();
       finish(code === 0 ? output : "");
     });
+    child.stdin.on("error", () => {
+      // A fast command may exit before consuming stdin. Its exit code remains authoritative.
+    });
     child.stdin.end(input);
   });
 
