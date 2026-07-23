@@ -143,7 +143,13 @@ jobs:
           MARKETPLACE_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['plugins'][0]['version'])")
           CLAUDE_VERSION=$(python3 -c "import json; print(json.load(open('fallow/.claude-plugin/plugin.json'))['version'])")
           CODEX_VERSION=$(python3 -c "import json; print(json.load(open('fallow/.codex-plugin/plugin.json'))['version'])")
-          if [ "$MARKETPLACE_METADATA_VERSION" != "$MARKETPLACE_VERSION" ] || [ "$MARKETPLACE_VERSION" != "$CLAUDE_VERSION" ] || [ "$MARKETPLACE_VERSION" != "$CODEX_VERSION" ]; then
+          FALLOW_SKILL_VERSION=$(awk '/^metadata:/{metadata=1; next} metadata && /^  version:/{print $2; exit}' fallow/skills/fallow/SKILL.md)
+          REVIEW_SKILL_VERSION=$(awk '/^metadata:/{metadata=1; next} metadata && /^  version:/{print $2; exit}' fallow/skills/fallow-review/SKILL.md)
+          if [ "$MARKETPLACE_METADATA_VERSION" != "$MARKETPLACE_VERSION" ] || \
+             [ "$MARKETPLACE_VERSION" != "$CLAUDE_VERSION" ] || \
+             [ "$MARKETPLACE_VERSION" != "$CODEX_VERSION" ] || \
+             [ "$MARKETPLACE_VERSION" != "$FALLOW_SKILL_VERSION" ] || \
+             [ "$MARKETPLACE_VERSION" != "$REVIEW_SKILL_VERSION" ]; then
             echo "ERROR: Plugin versions do not match"
             exit 1
           fi

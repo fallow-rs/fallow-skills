@@ -4,7 +4,7 @@ description: Codebase intelligence for TypeScript and JavaScript. Static analysi
 license: MIT
 metadata:
   author: Bart Waardenburg
-  version: 1.0.0
+  version: 1.1.1
   homepage: https://docs.fallow.tools
 ---
 
