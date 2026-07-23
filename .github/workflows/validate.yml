@@ -9,6 +9,7 @@ on:
     branches: [main]
 
 permissions: {}
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -187,11 +188,7 @@ jobs:
 
           base_version=$(git show "$BASE_SHA:fallow/.codex-plugin/plugin.json" |
             python3 -c 'import json, sys; print(json.load(sys.stdin)["version"])')
-          current_version=$(python3 scripts/plugin_release.py check)
-          if [ "$base_version" = "$current_version" ]; then
-            echo "::error::Public plugin content changed without a plugin version bump"
-            exit 1
-          fi
+          current_version=$(python3 scripts/plugin_release.py newer-than "$base_version")
           echo "Plugin version changed from $base_version to $current_version."
 
       - name: Test source contract validator
@@ -215,6 +212,7 @@ jobs:
         env:
           FALLOW_SOURCE_DIR: ${{ github.workspace }}/.source/fallow
         run: node scripts/check-source-contract.mjs
+
       - name: Upload OpenAI submission archive
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -263,11 +261,17 @@ jobs:
         run: |
           set -euo pipefail
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            release_args=()
+            if [ "$(python3 scripts/plugin_release.py \
+              is-prerelease "${RELEASE_TAG#v}")" = "true" ]; then
+              release_args+=(--prerelease)
+            fi
             gh release create "$RELEASE_TAG" \
               "$ARCHIVE#OpenAI skills-only submission ZIP" \
               --verify-tag \
               --title "$RELEASE_TAG" \
-              --generate-notes
+              --generate-notes \
+              "${release_args[@]}"
             exit 0
           fi
 

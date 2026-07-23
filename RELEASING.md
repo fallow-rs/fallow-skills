@@ -3,6 +3,8 @@
 Fallow uses one explicit semantic version across its Claude marketplace entry,
 Claude manifest, and Codex manifest. Keep those versions synchronized so the
 same source commit identifies the same public plugin release everywhere.
+Claude's `plugin.json` remains the runtime authority. The marketplace copy is
+retained as matching directory metadata and is checked against that authority.
 
 ## Prepare a release
 
@@ -30,10 +32,12 @@ same source commit identifies the same public plugin release everywhere.
    ```
 
 The tag workflow refuses a tag that does not match every manifest version. A
-plugin-content pull request also fails validation when its version still
-matches the base branch. A valid tag must point to `main` and creates a GitHub release with
+plugin-content pull request also fails unless its version has higher semantic
+precedence than the base branch. A valid tag must point to `main`. The workflow
+then creates a GitHub release with
 `fallow-plugin-1.2.0-openai.zip` attached. An existing asset is compared
 byte-for-byte on workflow retries and is never silently replaced.
+Prerelease versions such as `1.2.0-rc.1` create GitHub prereleases.
 
 ## Anthropic
 
@@ -43,8 +47,8 @@ the version changes. Third-party marketplaces do not enable auto-update by
 default, so users can enable it in the marketplace settings or update manually:
 
 ```text
-/plugin marketplace update fallow-skills
-/plugin update fallow@fallow-skills
+claude plugin marketplace update fallow-skills
+claude plugin update fallow@fallow-skills
 ```
 
 See Anthropic's
@@ -61,7 +65,16 @@ The package intentionally contains the Codex manifest and only the skills,
 hooks, and visual assets referenced by it. It excludes the Claude manifest,
 MCP configuration, app configuration, screenshots, and unrelated repository
 files. OpenAI requires the plugin name to remain stable and the manifest version
-to change for a new release.
+to change for a new release. See the
+[skills-only archive validation rules](https://learn.chatgpt.com/docs/plugin-submission-errors)
+for these update constraints.
+
+Before submitting the update:
+
+1. Summarize the changes since the previous submitted version in release notes.
+2. Confirm exactly five retained positive and three retained negative test cases
+   still describe the current skills and expected behavior.
+3. Recheck the listing, policies, regional availability, and attestations.
 
 After approval and publication:
 

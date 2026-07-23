@@ -19,9 +19,9 @@ EXTRACTED_LIMIT = 512 * 1024 * 1024
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 PLUGIN_ROOT = Path("fallow")
 SEMVER = re.compile(
-    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
-    r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
-    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+    r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)"
+    r"(?:-(?P<prerelease>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+    r"(?:\+(?P<build>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
 )
 VERSION_FILES = (
     Path(".claude-plugin/marketplace.json"),
@@ -45,10 +45,58 @@ def _load_json(path: Path) -> dict[str, object]:
     return value
 
 
-def _validate_version(version: object) -> str:
-    if not isinstance(version, str) or not SEMVER.fullmatch(version):
+def _parse_version(version: object) -> tuple[tuple[int, int, int], tuple[str, ...] | None]:
+    if not isinstance(version, str):
         raise ReleaseError(f"Invalid semantic version: {version!r}")
+    match = SEMVER.fullmatch(version)
+    if match is None:
+        raise ReleaseError(f"Invalid semantic version: {version!r}")
+    prerelease_value = match.group("prerelease")
+    prerelease = tuple(prerelease_value.split(".")) if prerelease_value else None
+    if prerelease and any(
+        identifier.isdigit() and len(identifier) > 1 and identifier.startswith("0")
+        for identifier in prerelease
+    ):
+        raise ReleaseError(f"Invalid semantic version: {version!r}")
+    core = tuple(int(match.group(field)) for field in ("major", "minor", "patch"))
+    return core, prerelease
+
+
+def _validate_version(version: object) -> str:
+    _parse_version(version)
     return version
+
+
+def compare_versions(left: str, right: str) -> int:
+    """Compare SemVer precedence, ignoring build metadata."""
+    left_core, left_prerelease = _parse_version(left)
+    right_core, right_prerelease = _parse_version(right)
+    if left_core != right_core:
+        return 1 if left_core > right_core else -1
+    if left_prerelease is None or right_prerelease is None:
+        if left_prerelease == right_prerelease:
+            return 0
+        return 1 if left_prerelease is None else -1
+
+    for left_identifier, right_identifier in zip(left_prerelease, right_prerelease):
+        if left_identifier == right_identifier:
+            continue
+        left_numeric = left_identifier.isdigit()
+        right_numeric = right_identifier.isdigit()
+        if left_numeric and right_numeric:
+            return 1 if int(left_identifier) > int(right_identifier) else -1
+        if left_numeric != right_numeric:
+            return -1 if left_numeric else 1
+        return 1 if left_identifier > right_identifier else -1
+    if len(left_prerelease) == len(right_prerelease):
+        return 0
+    return 1 if len(left_prerelease) > len(right_prerelease) else -1
+
+
+def is_prerelease(version: str) -> bool:
+    """Return whether a valid semantic version has prerelease identifiers."""
+    _, prerelease = _parse_version(version)
+    return prerelease is not None
 
 
 def _manifest_versions(repo_root: Path) -> tuple[str, ...]:
@@ -88,8 +136,22 @@ def check_versions(repo_root: Path, expected_version: str | None = None) -> str:
     return version
 
 
+def check_newer_version(repo_root: Path, base_version: str) -> str:
+    """Return the synchronized version when it has higher SemVer precedence."""
+    version = check_versions(repo_root)
+    if compare_versions(version, base_version) <= 0:
+        raise ReleaseError(
+            f"Plugin version {version} must have higher precedence than {base_version}"
+        )
+    return version
+
+
+def _replace_file(source: Path, destination: Path) -> None:
+    source.replace(destination)
+
+
 def set_version(repo_root: Path, version: str) -> None:
-    """Update every explicit plugin version while preserving JSON formatting."""
+    """Update synchronized versions, preserving formatting and rolling back on failure."""
     version = _validate_version(version)
     old_version = check_versions(repo_root)
     replacements: dict[Path, str] = {}
@@ -111,6 +173,7 @@ def set_version(repo_root: Path, version: str) -> None:
         replacements[path] = updated
 
     staged: list[tuple[Path, Path]] = []
+    backups: list[tuple[Path, Path]] = []
     try:
         for path, contents in replacements.items():
             mode = stat.S_IMODE(path.stat().st_mode)
@@ -125,10 +188,33 @@ def set_version(repo_root: Path, version: str) -> None:
                 temporary = Path(handle.name)
                 temporary.chmod(mode)
                 staged.append((temporary, path))
-        for temporary, destination in staged:
-            temporary.replace(destination)
+            with tempfile.NamedTemporaryFile(
+                dir=path.parent,
+                prefix=f".{path.name}.backup.",
+                delete=False,
+            ) as backup_handle:
+                backup_handle.write(path.read_bytes())
+                backup = Path(backup_handle.name)
+                backup.chmod(mode)
+                backups.append((backup, path))
+        try:
+            for temporary, destination in staged:
+                _replace_file(temporary, destination)
+        except OSError as error:
+            rollback_errors: list[str] = []
+            for backup, destination in backups:
+                try:
+                    _replace_file(backup, destination)
+                except OSError as rollback_error:
+                    rollback_errors.append(f"{destination}: {rollback_error}")
+            if rollback_errors:
+                raise ReleaseError(
+                    "Version update failed and rollback was incomplete: "
+                    + "; ".join(rollback_errors)
+                ) from error
+            raise ReleaseError("Version update failed; original manifests restored") from error
     finally:
-        for temporary, _ in staged:
+        for temporary, _ in (*staged, *backups):
             temporary.unlink(missing_ok=True)
 
     check_versions(repo_root, version)
@@ -180,13 +266,13 @@ def _submission_files(plugin_root: Path) -> tuple[str, set[Path]]:
     version = _validate_version(manifest.get("version"))
 
     for field in ("mcpServers", "apps"):
-        if manifest.get(field):
+        if field in manifest:
             raise ReleaseError(f"Skills-only submissions may not define {field}")
 
     interface = manifest.get("interface", {})
     if not isinstance(interface, dict):
         raise ReleaseError("Manifest interface must be an object")
-    if interface.get("screenshots"):
+    if "screenshots" in interface:
         raise ReleaseError("Skills-only submissions may not include interface.screenshots")
 
     skills = _resolve_component(plugin_root, manifest.get("skills"), "skills")
@@ -201,11 +287,12 @@ def _submission_files(plugin_root: Path) -> tuple[str, set[Path]]:
         )
     for field in ("composerIcon", "logo"):
         if interface.get(field):
-            files.update(
-                _collect_component(
-                    _resolve_component(plugin_root, interface[field], f"interface.{field}")
+            asset = _resolve_component(plugin_root, interface[field], f"interface.{field}")
+            if not asset.is_file():
+                raise ReleaseError(
+                    f"interface.{field} must reference one regular visual asset"
                 )
-            )
+            files.add(asset)
     return version, files
 
 
@@ -264,6 +351,12 @@ def build_archive(
 
     if not output_dir.is_absolute():
         output_dir = repo_root / output_dir
+    try:
+        output_dir.resolve().relative_to(plugin_root.resolve(strict=True))
+    except ValueError:
+        pass
+    else:
+        raise ReleaseError("Output directory must be outside the plugin root")
     output_dir.mkdir(parents=True, exist_ok=True)
     archive = output_dir / f"fallow-plugin-{synchronized_version}-openai.zip"
 
@@ -303,6 +396,16 @@ def _parser() -> argparse.ArgumentParser:
     check = commands.add_parser("check", help="validate synchronized plugin versions")
     check.add_argument("--expected-version")
 
+    newer = commands.add_parser(
+        "newer-than", help="require a synchronized version newer than the base version"
+    )
+    newer.add_argument("base_version")
+
+    prerelease = commands.add_parser(
+        "is-prerelease", help="print whether a semantic version is a prerelease"
+    )
+    prerelease.add_argument("version")
+
     set_version_parser = commands.add_parser(
         "set-version", help="update every explicit plugin version"
     )
@@ -319,6 +422,10 @@ def main() -> int:
     try:
         if args.command == "check":
             print(check_versions(args.repo_root, args.expected_version))
+        elif args.command == "newer-than":
+            print(check_newer_version(args.repo_root, args.base_version))
+        elif args.command == "is-prerelease":
+            print("true" if is_prerelease(args.version) else "false")
         elif args.command == "set-version":
             set_version(args.repo_root, args.version)
             print(args.version)

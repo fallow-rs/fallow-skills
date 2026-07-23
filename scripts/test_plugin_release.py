@@ -4,9 +4,18 @@ import stat
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from zipfile import ZipFile
 
-from plugin_release import ReleaseError, build_archive, check_versions, set_version
+from plugin_release import (
+    ReleaseError,
+    build_archive,
+    check_newer_version,
+    check_versions,
+    compare_versions,
+    is_prerelease,
+    set_version,
+)
 
 
 class PluginReleaseTest(unittest.TestCase):
@@ -73,21 +82,37 @@ class PluginReleaseTest(unittest.TestCase):
             )
             mode = bundle.getinfo("skills/fallow/hooks/run.sh").external_attr >> 16
             self.assertTrue(mode & stat.S_IXUSR)
-            self.assertTrue(all(info.date_time == (1980, 1, 1, 0, 0, 0) for info in bundle.infolist()))
+            self.assertTrue(
+                all(
+                    info.date_time == (1980, 1, 1, 0, 0, 0)
+                    for info in bundle.infolist()
+                )
+            )
 
     def test_expected_version_must_match(self):
         with self.assertRaisesRegex(ReleaseError, "Expected plugin version 2.0.0"):
             build_archive(self.root, Path("dist"), "2.0.0")
 
-    def test_unsupported_mcp_configuration_is_rejected(self):
+    def test_all_present_unsupported_configuration_is_rejected(self):
         manifest_path = self.root / "fallow/.codex-plugin/plugin.json"
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        manifest["mcpServers"] = "./.mcp.json"
-        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-        self._write("fallow/.mcp.json", "{}")
+        original = json.loads(manifest_path.read_text(encoding="utf-8"))
+        cases = (
+            ("mcpServers", {}, "may not define mcpServers"),
+            ("apps", {}, "may not define apps"),
+            ("screenshots", [], "may not include interface.screenshots"),
+        )
+        for field, value, message in cases:
+            with self.subTest(field=field):
+                manifest = json.loads(json.dumps(original))
+                if field == "screenshots":
+                    manifest["interface"][field] = value
+                else:
+                    manifest[field] = value
+                manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
-        with self.assertRaisesRegex(ReleaseError, "may not define mcpServers"):
-            build_archive(self.root, Path("dist"))
+                with self.assertRaisesRegex(ReleaseError, message):
+                    build_archive(self.root, Path(f"dist-{field}"))
+        manifest_path.write_text(json.dumps(original), encoding="utf-8")
 
     def test_symlinked_skill_content_is_rejected(self):
         target = self.root / "outside.txt"
@@ -121,6 +146,70 @@ class PluginReleaseTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ReleaseError, "not synchronized"):
             set_version(self.root, "2.0.0")
+
+    def test_semver_validation_and_precedence(self):
+        valid = ("1.2.3", "1.2.3-0", "1.2.3-alpha.1", "1.2.3+build.01")
+        for version in valid:
+            with self.subTest(valid=version):
+                set_version(self.root, version)
+
+        invalid = ("01.2.3", "1.2.3-01", "1.2.3-alpha.01", "1.2.3-alpha_1")
+        for version in invalid:
+            with self.subTest(invalid=version):
+                with self.assertRaisesRegex(ReleaseError, "Invalid semantic version"):
+                    set_version(self.root, version)
+
+        precedence = (
+            ("1.2.3", "1.2.3-rc.1", 1),
+            ("1.2.3-alpha.2", "1.2.3-alpha.1", 1),
+            ("1.2.3-alpha", "1.2.3-alpha.1", -1),
+            ("1.2.3-alpha", "1.2.3-1", 1),
+            ("1.2.3+build.2", "1.2.3+build.1", 0),
+            ("1.2.2", "1.2.3", -1),
+        )
+        for current, base, expected in precedence:
+            with self.subTest(current=current, base=base):
+                self.assertEqual(compare_versions(current, base), expected)
+
+        self.assertTrue(is_prerelease("1.2.3-rc.1+build-1"))
+        self.assertFalse(is_prerelease("1.2.3+build-1"))
+
+    def test_newer_version_rejects_equal_precedence_and_downgrades(self):
+        self.assertEqual(check_newer_version(self.root, "1.2.2"), "1.2.3")
+        for base in ("1.2.3", "1.2.3+other-build", "2.0.0"):
+            with self.subTest(base=base):
+                with self.assertRaisesRegex(ReleaseError, "higher precedence"):
+                    check_newer_version(self.root, base)
+
+    def test_set_version_rolls_back_after_replacement_failure(self):
+        originals = {
+            path: (self.root / path).read_bytes()
+            for path in (
+                ".claude-plugin/marketplace.json",
+                "fallow/.claude-plugin/plugin.json",
+                "fallow/.codex-plugin/plugin.json",
+            )
+        }
+        replacements = 0
+
+        def fail_second_new_file(source, destination):
+            nonlocal replacements
+            if ".backup." not in source.name:
+                replacements += 1
+                if replacements == 2:
+                    raise OSError("injected replacement failure")
+            source.replace(destination)
+
+        with patch("plugin_release._replace_file", side_effect=fail_second_new_file):
+            with self.assertRaisesRegex(ReleaseError, "original manifests restored"):
+                set_version(self.root, "2.0.0")
+
+        for relative_path, contents in originals.items():
+            self.assertEqual((self.root / relative_path).read_bytes(), contents)
+
+    def test_output_directory_must_not_be_inside_plugin(self):
+        with self.assertRaisesRegex(ReleaseError, "outside the plugin root"):
+            build_archive(self.root, Path("fallow/skills/generated"))
 
 
 if __name__ == "__main__":
