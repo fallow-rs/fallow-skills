@@ -173,6 +173,8 @@ See [AGENTS.md](AGENTS.md) for repository structure and quality standards.
 `source-lock.json` pins the public Fallow contract used by the `fallow` skill.
 CI checks that pin against a clean source checkout and rejects contract or
 privacy-boundary drift.
+Maintainers can find the versioning, packaging, and store update procedure in
+[RELEASING.md](RELEASING.md).
 
 ## Related
 
