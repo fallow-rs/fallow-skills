@@ -125,7 +125,11 @@ test("rejects public skill content drift", async (t) => {
 
 test("rejects a private repository marker in tracked public content", async (t) => {
   const input = await fixture(t);
-  await write(input.repositoryRoot, "README.md", "https://github.com/fallow-rs/fallow-cloud");
+  await write(
+    input.repositoryRoot,
+    "README.md",
+    `Clone ${"git@github.com:" + "fallow-rs/fallow-cloud.git"}`,
+  );
 
   await assert.rejects(
     validateSourceContract({

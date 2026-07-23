@@ -15,7 +15,7 @@ const LOCK_PATH = "source-lock.json";
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/u;
 const PRIVATE_MARKERS = [
   /(?:^|[^\w-])\.internal\//u,
-  /https?:\/\/github\.com\/fallow-rs\/fallow-cloud(?:[/?#]|$)/iu,
+  /(?:^|[^A-Za-z0-9-])github\.com\.?(?::\d+)?(?::|\/)+fallow-rs\/fallow-cloud(?:\.git)?(?=$|[^A-Za-z0-9._-])/iu,
   /\/Users\/[^/\s]+\/[^/\s]+/u,
   /[A-Za-z]:\\Users\\[^\\\s]+\\/u,
   /-----BEGIN (?:EC |OPENSSH |RSA )?PRIVATE KEY-----/u,
