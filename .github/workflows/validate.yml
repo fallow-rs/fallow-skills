@@ -1,20 +1,24 @@
 name: Validate
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
+    tags: ["v*.*.*"]
   pull_request:
     branches: [main]
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Validate JSON files
@@ -22,7 +26,7 @@ jobs:
           echo "Validating JSON files..."
           while IFS= read -r -d '' f; do
             echo "  Checking $f"
-            python3 -c "import json; json.load(open('$f'))" || exit 1
+            python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$f"
           done < <(find . -name "*.json" -not -path "./node_modules/*" -print0)
           echo "All JSON files are valid."
 
@@ -120,26 +124,38 @@ jobs:
                   assert field in config_text, f"Missing {field} in {openai_config}"
           PY
 
-      - name: Inspect Codex submission archive
+      - name: Test plugin release tooling
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+
+      - name: Build and inspect OpenAI submission archive
+        id: package
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
         run: |
-          python3 - <<'PY'
+          expected_args=()
+          if [ "$REF_TYPE" = "tag" ]; then
+            expected_args=(--expected-version "${REF_NAME#v}")
+          fi
+          archive=$(python3 scripts/plugin_release.py package "${expected_args[@]}")
+          archive_name=$(basename "$archive" .zip)
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+          echo "archive_name=$archive_name" >> "$GITHUB_OUTPUT"
+
+          ARCHIVE="$archive" python3 - <<'PY'
+          import os
           from pathlib import Path
-          from zipfile import ZIP_DEFLATED, ZipFile
+          from zipfile import ZipFile
 
-          root = Path("fallow")
-          archive = Path("/tmp/fallow-plugin.zip")
-          files = sorted(path for path in root.rglob("*") if path.is_file())
-          with ZipFile(archive, "w", ZIP_DEFLATED) as bundle:
-              for path in files:
-                  bundle.write(path, path.relative_to(root))
-
+          archive = Path(os.environ["ARCHIVE"])
           with ZipFile(archive) as bundle:
               names = bundle.namelist()
               assert ".codex-plugin/plugin.json" in names
               assert any(name.startswith("skills/") and name.endswith("/SKILL.md") for name in names)
+              assert ".claude-plugin/plugin.json" not in names
               assert not any(name.startswith("/") or ".." in Path(name).parts for name in names)
               assert not any(name.endswith((".mcp.json", ".app.json")) for name in names)
-          assert archive.stat().st_size <= 100 * 1024 * 1024
+          assert archive.stat().st_size <= 100_000_000
           PY
 
       - name: Check for hardcoded paths
@@ -152,19 +168,28 @@ jobs:
           echo "No hardcoded paths found."
 
       - name: Check version sync
+        run: python3 scripts/plugin_release.py check
+
+      - name: Require a version bump for plugin content changes
+        if: github.ref_type != 'tag' && github.event_name != 'workflow_dispatch'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          echo "Checking version sync..."
-          MARKETPLACE_METADATA_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['metadata']['version'])")
-          MARKETPLACE_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['plugins'][0]['version'])")
-          CLAUDE_VERSION=$(python3 -c "import json; print(json.load(open('fallow/.claude-plugin/plugin.json'))['version'])")
-          CODEX_VERSION=$(python3 -c "import json; print(json.load(open('fallow/.codex-plugin/plugin.json'))['version'])")
-          if [ "$MARKETPLACE_METADATA_VERSION" != "$MARKETPLACE_VERSION" ] || \
-             [ "$MARKETPLACE_VERSION" != "$CLAUDE_VERSION" ] || \
-             [ "$MARKETPLACE_VERSION" != "$CODEX_VERSION" ]; then
-            echo "ERROR: Plugin versions do not match"
-            exit 1
+          set -euo pipefail
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            echo "No comparison commit is available; skipping content version check."
+            exit 0
           fi
-          echo "Versions in sync: $MARKETPLACE_VERSION"
+          if git diff --quiet "$BASE_SHA" "$GITHUB_SHA" -- \
+            fallow .claude-plugin/marketplace.json; then
+            echo "No public plugin content changed."
+            exit 0
+          fi
+
+          base_version=$(git show "$BASE_SHA:fallow/.codex-plugin/plugin.json" |
+            python3 -c 'import json, sys; print(json.load(sys.stdin)["version"])')
+          current_version=$(python3 scripts/plugin_release.py newer-than "$base_version")
+          echo "Plugin version changed from $base_version to $current_version."
 
       - name: Test source contract validator
         run: node --test scripts/*.test.mjs
@@ -187,3 +212,81 @@ jobs:
         env:
           FALLOW_SOURCE_DIR: ${{ github.workspace }}/.source/fallow
         run: node scripts/check-source-contract.mjs
+
+      - name: Upload OpenAI submission archive
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.package.outputs.archive_name }}
+          path: ${{ steps.package.outputs.archive }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify tag belongs to main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Release tags must point to a commit on main"
+            exit 1
+          fi
+
+      - name: Build tagged OpenAI submission archive
+        id: package
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          archive=$(python3 scripts/plugin_release.py package \
+            --expected-version "${RELEASE_TAG#v}")
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+          echo "archive_file=$(basename "$archive")" >> "$GITHUB_OUTPUT"
+
+      - name: Publish immutable-by-convention release asset
+        env:
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+          ARCHIVE_FILE: ${{ steps.package.outputs.archive_file }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            release_args=()
+            if [ "$(python3 scripts/plugin_release.py \
+              is-prerelease "${RELEASE_TAG#v}")" = "true" ]; then
+              release_args+=(--prerelease)
+            fi
+            gh release create "$RELEASE_TAG" \
+              "$ARCHIVE#OpenAI skills-only submission ZIP" \
+              --verify-tag \
+              --title "$RELEASE_TAG" \
+              --generate-notes \
+              "${release_args[@]}"
+            exit 0
+          fi
+
+          if gh release view "$RELEASE_TAG" --json assets \
+            --jq '.assets[].name' | grep -Fxq "$ARCHIVE_FILE"; then
+            existing_dir=$(mktemp -d)
+            gh release download "$RELEASE_TAG" \
+              --pattern "$ARCHIVE_FILE" \
+              --dir "$existing_dir"
+            cmp "$ARCHIVE" "$existing_dir/$ARCHIVE_FILE" || {
+              echo "::error::Existing release asset differs from the tagged source"
+              exit 1
+            }
+            echo "Release asset already exists and is byte-identical."
+          else
+            gh release upload "$RELEASE_TAG" \
+              "$ARCHIVE#OpenAI skills-only submission ZIP"
+          fi
