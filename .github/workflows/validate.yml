@@ -139,10 +139,11 @@ jobs:
       - name: Check version sync
         run: |
           echo "Checking version sync..."
+          MARKETPLACE_METADATA_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['metadata']['version'])")
           MARKETPLACE_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['plugins'][0]['version'])")
           CLAUDE_VERSION=$(python3 -c "import json; print(json.load(open('fallow/.claude-plugin/plugin.json'))['version'])")
           CODEX_VERSION=$(python3 -c "import json; print(json.load(open('fallow/.codex-plugin/plugin.json'))['version'])")
-          if [ "$MARKETPLACE_VERSION" != "$CLAUDE_VERSION" ] || [ "$MARKETPLACE_VERSION" != "$CODEX_VERSION" ]; then
+          if [ "$MARKETPLACE_METADATA_VERSION" != "$MARKETPLACE_VERSION" ] || [ "$MARKETPLACE_VERSION" != "$CLAUDE_VERSION" ] || [ "$MARKETPLACE_VERSION" != "$CODEX_VERSION" ]; then
             echo "ERROR: Plugin versions do not match"
             exit 1
           fi

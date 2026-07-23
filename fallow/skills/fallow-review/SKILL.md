@@ -169,7 +169,11 @@ The human owns the taste; you only carry the note. fallow validates the ANCHOR (
 
 The guarantee matches the review app's: the human cannot anchor a note to a signal or region fallow did not emit, and a note left against a moved tree is refused rather than silently mis-mapped. The terminal is a first-class capture surface, no app required.
 
-## Live feedback into your coding session
+## Live feedback into your coding session (Claude Code only)
+
+This optional integration applies only when `fallow-review` runs inside Claude
+Code. Codex and other agents must skip this section and use the terminal
+round-trip above.
 
 The review surface (the fallow review app, or any tool you point at the same file) writes reviewer notes to `.fallow-review/feed.jsonl` in the repo root, one JSON object per line. A pair of hooks under `hooks/` lets your already-running Claude Code session pick those notes up automatically and act on them with its existing context, no new session, no copy-paste:
 
@@ -180,11 +184,15 @@ The loop: you make changes in a coding session, the human reviews them in the ap
 
 ### Install
 
-Copy the hooks into the target repo and register them:
+For a Claude Code marketplace installation, copy the hooks from the resolved
+plugin root into the target repo and register them:
 
 ```bash
 mkdir -p .claude/hooks
-cp hooks/fallow-review-session-init.sh hooks/fallow-review-on-feedback.sh .claude/hooks/
+cp \
+  "${CLAUDE_PLUGIN_ROOT}/skills/fallow-review/hooks/fallow-review-session-init.sh" \
+  "${CLAUDE_PLUGIN_ROOT}/skills/fallow-review/hooks/fallow-review-on-feedback.sh" \
+  .claude/hooks/
 chmod +x .claude/hooks/fallow-review-session-init.sh .claude/hooks/fallow-review-on-feedback.sh
 ```
 

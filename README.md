@@ -52,34 +52,34 @@ tmp=$(mktemp -d)
 git clone https://github.com/fallow-rs/fallow-skills.git "$tmp/fallow-skills"
 ```
 
-Copy the `fallow` skill directory into your agent's skills folder:
+Copy both skill directories into your agent's skills folder:
 
 ```bash
 # OpenAI Codex, Amp, and agents using the shared Agent Skills location
 mkdir -p ~/.agents/skills
-cp -R "$tmp/fallow-skills/fallow/skills/fallow" ~/.agents/skills/fallow
+cp -R "$tmp/fallow-skills/fallow/skills/." ~/.agents/skills/
 
 # Claude Code
 mkdir -p ~/.claude/skills
-cp -R "$tmp/fallow-skills/fallow/skills/fallow" ~/.claude/skills/fallow
+cp -R "$tmp/fallow-skills/fallow/skills/." ~/.claude/skills/
 
 # Cursor
 mkdir -p ~/.cursor/skills
-cp -R "$tmp/fallow-skills/fallow/skills/fallow" ~/.cursor/skills/fallow
+cp -R "$tmp/fallow-skills/fallow/skills/." ~/.cursor/skills/
 
 # Windsurf
 mkdir -p ~/.codeium/windsurf/skills
-cp -R "$tmp/fallow-skills/fallow/skills/fallow" ~/.codeium/windsurf/skills/fallow
+cp -R "$tmp/fallow-skills/fallow/skills/." ~/.codeium/windsurf/skills/
 
 # GitHub Copilot
 mkdir -p .github/skills
-cp -R "$tmp/fallow-skills/fallow/skills/fallow" .github/skills/fallow
+cp -R "$tmp/fallow-skills/fallow/skills/." .github/skills/
 ```
 
 <details>
 <summary>Other agents</summary>
 
-Use `npx skills add fallow-rs/fallow-skills --all` for installer-managed discovery, or copy `fallow/skills/fallow` into your agent's skills location as `fallow`. This skill follows the open [Agent Skills](https://agentskills.io) specification and works with any compatible agent.
+Use `npx skills add fallow-rs/fallow-skills --all` for installer-managed discovery, or copy the directories under `fallow/skills/` into your agent's skills location. These skills follow the open [Agent Skills](https://agentskills.io) specification and work with any compatible agent.
 
 </details>
 
@@ -98,7 +98,8 @@ See the [installation guide](https://docs.fallow.tools/installation) for all opt
 
 | Skill | Description | Trigger phrases |
 |---|---|---|
-| [fallow](fallow/) | Codebase intelligence for JS and TS, code and styles: quality, changed-code risk, cleanup opportunities, circular deps, duplication, complexity, design-system drift, and runtime evidence | "check code health", "audit this PR", "find cleanup opportunities", "find duplicates", "what code actually runs" |
+| [fallow](fallow/skills/fallow/) | Codebase intelligence for JS and TS, code and styles: quality, changed-code risk, cleanup opportunities, circular deps, duplication, complexity, design-system drift, and runtime evidence | "check code health", "audit this PR", "find cleanup opportunities", "find duplicates", "what code actually runs" |
+| [fallow-review](fallow/skills/fallow-review/) | Graph-grounded review of changed-code risk, blast radius, and consequential structural decisions | "review this branch", "review this PR", "check changed code before merge" |
 
 ## What's Included
 
@@ -114,11 +115,17 @@ See the [installation guide](https://docs.fallow.tools/installation) for all opt
 | **Monorepo** | Per-workspace analysis with cross-package resolution |
 | **Debug** | Trace export usage chains, file edges, and dependency usage |
 
+### fallow-review
+
+Reviews a branch or pull request with fallow's graph-grounded review brief. It
+subtracts deterministic findings, focuses attention by blast radius and risk,
+and frames consequential structural decisions for human judgment.
+
 ### Reference Documentation
 
-- **[CLI Reference](fallow/references/cli-reference.md)**: all 10 commands, flags, JSON output structure, config format
-- **[Gotchas](fallow/references/gotchas.md)**: 19 pitfalls with WRONG/CORRECT examples
-- **[Patterns](fallow/references/patterns.md)**: 14 workflow recipes for CI, monorepos, migration, incremental adoption
+- **[CLI Reference](fallow/skills/fallow/references/cli-reference.md)**: all commands, flags, JSON output structure, config format
+- **[Gotchas](fallow/skills/fallow/references/gotchas.md)**: common pitfalls with WRONG/CORRECT examples
+- **[Patterns](fallow/skills/fallow/references/patterns.md)**: workflow recipes for CI, monorepos, migration, and incremental adoption
 
 ## Example Prompts
 
