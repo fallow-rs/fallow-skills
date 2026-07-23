@@ -18,6 +18,7 @@ import {
 const COMMIT = "1234567890abcdef1234567890abcdef12345678";
 const PUBLIC_FILES = [
   "fallow/skills/fallow/SKILL.md",
+  "fallow/skills/fallow/agents/openai.yaml",
   "fallow/skills/fallow/references/cli-reference.md",
   "source-lock.json",
 ];
@@ -48,6 +49,11 @@ const fixture = async (t) => {
   await write(sourceDir, "npm/fallow/skills/fallow/SKILL.md", sourceSkill);
   await write(
     sourceDir,
+    "npm/fallow/skills/fallow/agents/openai.yaml",
+    "interface:\n  display_name: Fallow\n",
+  );
+  await write(
+    sourceDir,
     "npm/fallow/skills/fallow/references/cli-reference.md",
     "# CLI\n",
   );
@@ -55,6 +61,11 @@ const fixture = async (t) => {
     repositoryRoot,
     "fallow/skills/fallow/SKILL.md",
     stripUnsupportedMetadata(sourceSkill),
+  );
+  await write(
+    repositoryRoot,
+    "fallow/skills/fallow/agents/openai.yaml",
+    "interface:\n  display_name: Fallow\n",
   );
   await write(
     repositoryRoot,
@@ -105,7 +116,11 @@ test("accepts an exact source contract plus the declared transform", async (t) =
     publicFiles: PUBLIC_FILES,
   });
 
-  assert.deepEqual(result.files, ["references/cli-reference.md", "SKILL.md"]);
+  assert.deepEqual(result.files, [
+    "agents/openai.yaml",
+    "references/cli-reference.md",
+    "SKILL.md",
+  ]);
 });
 
 test("rejects public skill content drift", async (t) => {

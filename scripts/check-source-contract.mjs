@@ -147,9 +147,7 @@ export const validateSourceContract = async ({
   const sourceRoot = await validateContainedRoot(sourceDir, lock.sourceRoot);
   const targetRoot = await validateContainedRoot(repositoryRoot, lock.targetRoot);
   const sourceFiles = await filesUnder(sourceRoot);
-  const targetContractFiles = (await filesUnder(targetRoot)).filter(
-    (path) => path === "SKILL.md" || path.startsWith("references/"),
-  );
+  const targetContractFiles = await filesUnder(targetRoot);
   if (sourceFiles.join("\0") !== targetContractFiles.join("\0")) {
     throw new Error(
       `Public skill inventory drift: source=[${sourceFiles.join(", ")}], ` +
