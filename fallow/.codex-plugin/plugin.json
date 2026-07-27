@@ -1,6 +1,6 @@
 {
   "name": "fallow",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "Codebase intelligence for TypeScript and JavaScript using fallow",
   "author": {
     "name": "Bart Waardenburg",
@@ -21,9 +21,9 @@
   ],
   "skills": "./skills/",
   "interface": {
-    "displayName": "Fallow",
-    "shortDescription": "JS/TS codebase intelligence",
-    "longDescription": "Fallow gives Codex a fast, local static analysis layer for TypeScript and JavaScript. It helps review changed-code risk, find unused code and dependencies, detect duplication and complexity hotspots, inspect architecture boundaries, and prioritize safe cleanup. Fallow Impact also summarizes the latest whole-project issue trend and findings cleared over time.",
+    "displayName": "Fallow Code Analysis",
+    "shortDescription": "Local JS/TS code analysis",
+    "longDescription": "Fallow gives Codex fast, local codebase analysis for TypeScript and JavaScript. Audit changed-code risk, find dead code and unused dependencies, detect duplication and complexity hotspots, inspect architecture boundaries, and prioritize safe cleanup. Fallow Impact explains the latest full-project issue count, its comparable trend, and findings cleared while tracking.",
     "developerName": "Bart Waardenburg",
     "category": "Developer Tools",
     "capabilities": [
@@ -32,7 +32,7 @@
       "Local workflow",
       "Impact summaries"
     ],
-    "websiteURL": "https://fallow.tools",
+    "websiteURL": "https://fallow.tools/plugins?utm_source=openai&utm_medium=plugin-directory",
     "privacyPolicyURL": "https://fallow.tools/privacy",
     "termsOfServiceURL": "https://fallow.tools/terms",
     "defaultPrompt": [
