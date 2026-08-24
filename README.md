@@ -121,6 +121,16 @@ npx fallow                   # or run without installing
 
 See the [installation guide](https://docs.fallow.tools/installation) for all options including `cargo install fallow-cli`.
 
+## Privacy and network behavior
+
+- Fallow analysis and Impact summaries run locally by default.
+- Installing or invoking Fallow through `npm`, `npx`, or `cargo` may download the Fallow CLI.
+- Product telemetry is off by default and never collects source code, paths, or project names. The plugin never enables it, only the user may opt in, and `fallow telemetry disable` turns it off again.
+- Cloud commands make network requests only when the user explicitly asks for them and configures the required credentials.
+- The Claude Code statusline helper previews changes, requires confirmation, and preserves the previous setting for safe removal.
+
+See the plugin-specific [privacy and behavior summary](fallow/README.md) for the exact Claude Code and Codex surfaces.
+
 ## Available Skills
 
 | Skill | Description | Trigger phrases |
