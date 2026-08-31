@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+set -e
+
+# Catch, before the commit exists, the two things that mechanically redden main.
+#
+# Deliberately narrow. CI validates far more than this (SKILL.md frontmatter,
+# plugin manifests, the vendored source contract against the pinned fallow
+# commit), and an earlier version of this hook tried to mirror all of it. That
+# was worse than nothing: its frontmatter check silently never ran, so it
+# reported success while checking naught. A hook that appears to protect and
+# does not is the failure mode to avoid here, so this only covers what it can
+# check correctly and locally, with no external checkout and no judgement call.
+#
+# Not covered on purpose:
+#   - the source contract, which needs a fallow checkout at the pinned commit
+#     (FALLOW_SOURCE_DIR); unavailable locally, so CI owns it.
+#   - SKILL.md frontmatter and plugin validation, which CI runs against the
+#     real tree with the real validators.
+
+if ! command -v python3 > /dev/null 2>&1; then
+  echo "pre-commit: python3 is missing; skipping the plugin version checks (CI still enforces them)." >&2
+  exit 0
+fi
+
+# --diff-filter deliberately includes D. A deletion-only commit still changes
+# plugin content, and filtering it out made an earlier version of this hook go
+# blind on exactly that shape.
+staged=$(git diff --cached --name-only --diff-filter=ACMRD)
+
+[ -z "$staged" ] && exit 0
+
+manifests_changed=$(printf '%s\n' "$staged" | grep -E '^(fallow/\.codex-plugin/plugin\.json|fallow/\.claude-plugin/plugin\.json|\.claude-plugin/marketplace\.json)$' || true)
+content_changed=$(printf '%s\n' "$staged" | grep -E '^fallow/' || true)
+
+[ -z "$manifests_changed" ] && [ -z "$content_changed" ] && exit 0
+
+# 1. The four manifest versions must agree. Pure local consistency, no
+#    judgement, and the repo already owns the check, so call it rather than
+#    re-implement a second copy that can drift from the one CI uses.
+if ! sync_error=$(python3 -c '
+import sys
+sys.path.insert(0, "scripts")
+from plugin_release import ReleaseError, check_versions
+from pathlib import Path
+try:
+    print(check_versions(Path(".")))
+except ReleaseError as error:
+    sys.stderr.write(str(error) + "\n")
+    raise SystemExit(1)
+' 2>&1); then
+  echo "pre-commit: $sync_error" >&2
+  echo "All four manifests must carry the same version: fallow/.codex-plugin/plugin.json," >&2
+  echo "fallow/.claude-plugin/plugin.json, and both entries in .claude-plugin/marketplace.json." >&2
+  exit 1
+fi
+version="$sync_error"
+
+# 2. Changing plugin content without raising the version reddens main on the
+#    bump gate. Which version to pick is a judgement call, so refuse with the
+#    current value rather than inventing the next one.
+[ -z "$content_changed" ] && exit 0
+
+# Compare against the MERGE BASE, not origin/main. Diffing against the branch
+# tip refuses any commit made while the local branch is behind a fetched
+# origin/main, which is a false positive that blocks unrelated work and whose
+# advice would put a bogus bump into the commit.
+base=$(git merge-base HEAD origin/main 2>/dev/null || true)
+[ -z "$base" ] && exit 0
+
+base_version=$(git show "$base:fallow/.codex-plugin/plugin.json" 2>/dev/null \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin).get("version",""))' 2>/dev/null || true)
+[ -z "$base_version" ] && exit 0
+
+if [ "$version" = "$base_version" ]; then
+  echo "pre-commit: this commit changes plugin content under fallow/ but leaves the" >&2
+  echo "version at $version, which is what the base already carries. The release gate" >&2
+  echo "compares against the parent commit and will refuse it." >&2
+  echo "" >&2
+  echo "Raise the version in all four manifests, then commit again. Deciding the next" >&2
+  echo "version is yours to make, so this hook will not pick one for you." >&2
+  exit 1
+fi

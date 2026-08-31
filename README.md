@@ -213,6 +213,23 @@ privacy-boundary drift.
 Maintainers can find the versioning, packaging, and store update procedure in
 [RELEASING.md](RELEASING.md).
 
+### Enable the commit hook
+
+A fresh clone runs no hooks. Turn them on once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The pre-commit hook catches the two things that mechanically fail CI: the four
+plugin manifests disagreeing on a version, and plugin content changing without
+the version being raised. It checks nothing else. CI still owns SKILL.md
+frontmatter, plugin validation, and the vendored source contract, which needs a
+fallow checkout at the pinned commit and so cannot be verified locally.
+
+The hook never picks a version for you. Choosing the next one is a judgement
+call, so it reports the current value and stops.
+
 ## Related
 
 - [fallow](https://github.com/fallow-rs/fallow): codebase intelligence for TypeScript and JavaScript, a single pass over code and styles
