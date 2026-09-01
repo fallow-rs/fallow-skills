@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Agent skills for local-first TypeScript and JavaScript codebase intelligence and Impact summaries using fallow",
-    "version": "1.2.40"
+    "version": "1.2.41"
   },
   "plugins": [
     {
@@ -14,7 +14,7 @@
       "displayName": "Fallow Code Analysis",
       "source": "./fallow",
       "description": "Local-first codebase intelligence and Impact summaries for TypeScript and JavaScript using fallow",
-      "version": "1.2.40",
+      "version": "1.2.41",
       "author": {
         "name": "Bart Waardenburg",
         "email": "bart@fallow.tools"
