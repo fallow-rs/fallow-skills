@@ -151,6 +151,9 @@ jobs:
           assert archive.stat().st_size <= 100_000_000
           PY
 
+      # Not redundant with the PRIVATE_MARKERS guard in check-source-contract.mjs:
+      # that pattern needs two path segments after /Users/, so a bare username
+      # such as /Users/<name> in docs or manifests only fails here.
       - name: Check for hardcoded paths
         run: |
           echo "Checking for hardcoded paths..."
