@@ -72,37 +72,6 @@ npx skills add fallow-rs/fallow-skills --agent amp
 gemini skills install https://github.com/fallow-rs/fallow-skills.git
 ```
 
-### Manual install
-
-```bash
-tmp=$(mktemp -d)
-git clone https://github.com/fallow-rs/fallow-skills.git "$tmp/fallow-skills"
-```
-
-Copy both skill directories into your agent's skills folder:
-
-```bash
-# OpenAI Codex, Amp, and agents using the shared Agent Skills location
-mkdir -p ~/.agents/skills
-cp -R "$tmp/fallow-skills/fallow/skills/." ~/.agents/skills/
-
-# Claude Code
-mkdir -p ~/.claude/skills
-cp -R "$tmp/fallow-skills/fallow/skills/." ~/.claude/skills/
-
-# Cursor
-mkdir -p ~/.cursor/skills
-cp -R "$tmp/fallow-skills/fallow/skills/." ~/.cursor/skills/
-
-# Windsurf
-mkdir -p ~/.codeium/windsurf/skills
-cp -R "$tmp/fallow-skills/fallow/skills/." ~/.codeium/windsurf/skills/
-
-# GitHub Copilot
-mkdir -p .github/skills
-cp -R "$tmp/fallow-skills/fallow/skills/." .github/skills/
-```
-
 <details>
 <summary>Other agents</summary>
 
@@ -123,13 +92,9 @@ See the [installation guide](https://docs.fallow.tools/installation) for all opt
 
 ## Privacy and network behavior
 
-- Fallow analysis and Impact summaries run locally by default.
-- Installing or invoking Fallow through `npm`, `npx`, or `cargo` may download the Fallow CLI.
-- Product telemetry is off by default and never collects source code, paths, or project names. The plugin never enables it, only the user may opt in, and `fallow telemetry disable` turns it off again.
-- Cloud commands make network requests only when the user explicitly asks for them and configures the required credentials.
-- The Claude Code statusline helper previews changes, requires confirmation, and preserves the previous setting for safe removal.
-
-See the plugin-specific [privacy and behavior summary](fallow/README.md) for the exact Claude Code and Codex surfaces.
+Analysis runs locally by default and telemetry is off unless the user opts in.
+The plugin [README](fallow/README.md) lists the exact network, telemetry, and
+statusline behavior for the Claude Code and Codex surfaces.
 
 ## Available Skills
 
