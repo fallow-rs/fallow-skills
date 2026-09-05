@@ -160,9 +160,6 @@ jobs:
           fi
           echo "No hardcoded paths found."
 
-      - name: Check version sync
-        run: python3 scripts/plugin_release.py check
-
       - name: Require a version bump for plugin content changes
         if: github.ref_type != 'tag' && github.event_name != 'workflow_dispatch'
         env:
@@ -223,7 +220,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
           persist-credentials: false

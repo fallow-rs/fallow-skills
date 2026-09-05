@@ -3,19 +3,12 @@ set -e
 
 # Catch, before the commit exists, the two things that mechanically redden main.
 #
-# Deliberately narrow. CI validates far more than this (SKILL.md frontmatter,
-# plugin manifests, the vendored source contract against the pinned fallow
-# commit), and an earlier version of this hook tried to mirror all of it. That
-# was worse than nothing: its frontmatter check silently never ran, so it
-# reported success while checking naught. A hook that appears to protect and
-# does not is the failure mode to avoid here, so this only covers what it can
-# check correctly and locally, with no external checkout and no judgement call.
-#
-# Not covered on purpose:
-#   - the source contract, which needs a fallow checkout at the pinned commit
-#     (FALLOW_SOURCE_DIR); unavailable locally, so CI owns it.
-#   - SKILL.md frontmatter and plugin validation, which CI runs against the
-#     real tree with the real validators.
+# Deliberately narrow. CI validates far more (SKILL.md frontmatter, plugin
+# manifests, the vendored source contract against the pinned fallow commit,
+# which needs a checkout at FALLOW_SOURCE_DIR that is unavailable locally). An
+# earlier version of this hook tried to mirror all of it and its frontmatter
+# check silently never ran, reporting success while checking nothing. So this
+# only covers what it can check correctly and locally, with no judgement call.
 
 if ! command -v python3 > /dev/null 2>&1; then
   echo "pre-commit: python3 is missing; skipping the plugin version checks (CI still enforces them)." >&2
