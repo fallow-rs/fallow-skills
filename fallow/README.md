@@ -1,9 +1,7 @@
 # Fallow Code Analysis
 
 Fallow provides local-first codebase intelligence for TypeScript and
-JavaScript. It includes skills for whole-project analysis and graph-grounded
-review, plus an optional Claude Code command for a compact Fallow Impact
-statusline.
+JavaScript.
 
 ## Included surfaces
 

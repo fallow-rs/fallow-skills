@@ -60,7 +60,7 @@ gemini skills install https://github.com/fallow-rs/fallow-skills.git
 <details>
 <summary>Other agents</summary>
 
-Use `npx skills add fallow-rs/fallow-skills --all` for installer-managed discovery, or copy the directories under `fallow/skills/` into your agent's skills location. These skills follow the open [Agent Skills](https://agentskills.io) specification and work with any compatible agent.
+Use `npx skills add fallow-rs/fallow-skills --all` for installer-managed discovery, or copy the directories under `fallow/skills/` into your agent's skills location.
 
 </details>
 
@@ -88,26 +88,7 @@ statusline behavior for the Claude Code and Codex surfaces.
 | [fallow](fallow/skills/fallow/) | Codebase intelligence for JS and TS, code and styles: quality, changed-code risk, cleanup opportunities, circular deps, duplication, complexity, design-system drift, and runtime evidence | "check code health", "audit this PR", "find cleanup opportunities", "find duplicates", "what code actually runs" |
 | [fallow-review](fallow/skills/fallow-review/) | Graph-grounded review of changed-code risk, blast radius, and consequential structural decisions | "review this branch", "review this PR", "check changed code before merge" |
 
-## What's Included
-
-This repository contains portable skills for users of the released product.
-Fallow's maintainer workflows stay in the main source repository, and public
-user documentation stays in
-[`fallow-rs/docs`](https://github.com/fallow-rs/docs).
-
-### fallow
-
-Vendored byte-for-byte from the fallow source repository at the commit pinned
-in `source-lock.json`. Its [SKILL.md](fallow/skills/fallow/SKILL.md) carries
-the command table and the guardrails agents follow.
-
-### fallow-review
-
-Reviews a branch or pull request with fallow's graph-grounded review brief. It
-subtracts deterministic findings, focuses attention by blast radius and risk,
-and frames consequential structural decisions for human judgment.
-
-### Reference Documentation
+## Reference Documentation
 
 - **[CLI Reference](fallow/skills/fallow/references/cli-reference.md)**: all commands, flags, JSON output structure, config format
 - **[Gotchas](fallow/skills/fallow/references/gotchas.md)**: common pitfalls with WRONG/CORRECT examples
@@ -145,9 +126,9 @@ Agent summarizes findings with file paths and line numbers
 ## Contributing
 
 See [AGENTS.md](AGENTS.md) for repository structure and quality standards.
-`source-lock.json` pins the public Fallow contract used by the `fallow` skill.
-CI checks that pin against a clean source checkout and rejects contract or
-privacy-boundary drift.
+The `fallow` skill is vendored byte-for-byte from the fallow source repository
+at the commit pinned in `source-lock.json`; CI checks that pin against a clean
+source checkout and rejects contract or privacy-boundary drift.
 Maintainers can find the versioning, packaging, and store update procedure in
 [RELEASING.md](RELEASING.md).
 
@@ -159,14 +140,8 @@ A fresh clone runs no hooks. Turn them on once per clone:
 git config core.hooksPath .githooks
 ```
 
-The pre-commit hook catches the two things that mechanically fail CI: the four
-plugin manifests disagreeing on a version, and plugin content changing without
-the version being raised. It checks nothing else. CI still owns SKILL.md
-frontmatter, plugin validation, and the vendored source contract, which needs a
-fallow checkout at the pinned commit and so cannot be verified locally.
-
-The hook never picks a version for you. Choosing the next one is a judgement
-call, so it reports the current value and stops.
+The hook only checks manifest version agreement and the bump rule; see
+[.githooks/pre-commit](.githooks/pre-commit) for why it stops there.
 
 ## Related
 
