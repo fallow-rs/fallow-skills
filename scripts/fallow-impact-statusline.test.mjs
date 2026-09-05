@@ -99,8 +99,12 @@ const install = (current, mode) =>
     "--confirm",
   ]);
 
-const installedCommand = (current) =>
-  JSON.parse(readFileSync(current.settingsPath, "utf8")).statusLine.command;
+const inspect = (current) =>
+  runHelper(current, ["inspect", "--scope", "user", "--root", current.project]);
+
+const readSettings = (current) => JSON.parse(readFileSync(current.settingsPath, "utf8"));
+
+const installedCommand = (current) => readSettings(current).statusLine.command;
 
 const renderStatusline = (current, extraEnv = {}) =>
   spawnSync(installedCommand(current), {
@@ -143,9 +147,7 @@ test("project state paths are stable and do not expose the project path", () => 
 
 test("inspect is read-only and previews the exact CLI output", () => {
   const current = fixture();
-  const result = parseOutput(
-    runHelper(current, ["inspect", "--scope", "user", "--root", current.project]),
-  );
+  const result = parseOutput(inspect(current));
   assert.equal(result.status, "ready");
   assert.equal(result.preview, FULL_LINE);
   assert.equal(result.suggestedMode, "replace");
@@ -163,9 +165,7 @@ test("setup skips an older PATH entry and pins the compatible binary", () => {
   chmodSync(oldFallow, 0o755);
   current.env.PATH = `${oldBin}:${current.env.PATH}`;
 
-  const inspected = parseOutput(
-    runHelper(current, ["inspect", "--scope", "user", "--root", current.project]),
-  );
+  const inspected = parseOutput(inspect(current));
   assert.equal(inspected.fallowBinary, realpathSync(current.fallow));
   assert.equal(inspected.fallowVersion, MINIMUM_FALLOW_VERSION);
 
@@ -209,7 +209,7 @@ test("replace setup installs a stable runtime and renders a compact plain line",
   const installed = parseOutput(install(current, "replace"));
   assert.equal(installed.status, "installed");
 
-  const settings = JSON.parse(readFileSync(current.settingsPath, "utf8"));
+  const settings = readSettings(current);
   assert.equal(settings.statusLine.type, "command");
   assert.ok(settings.statusLine.command.includes("fallow-impact-statusline/user/statusline.mjs"));
   assert.ok(!settings.statusLine.command.includes("/fallow/bin/"));
@@ -238,7 +238,7 @@ test("compose preserves multiline output and removal restores the exact prior se
 
   const installed = parseOutput(install(current, "compose"));
   assert.equal(installed.mode, "compose");
-  const managed = JSON.parse(readFileSync(current.settingsPath, "utf8")).statusLine;
+  const managed = readSettings(current).statusLine;
   assert.equal(managed.padding, 2);
   assert.equal(managed.refreshInterval, 5);
 
@@ -247,7 +247,7 @@ test("compose preserves multiline output and removal restores the exact prior se
   writeFileSync(current.fallow, "#!/bin/sh\nexit 1\n");
   assertRendered(renderStatusline(current), "model opus\ncontext 42%\n");
 
-  const reordered = JSON.parse(readFileSync(current.settingsPath, "utf8"));
+  const reordered = readSettings(current);
   reordered.statusLine = {
     refreshInterval: managed.refreshInterval,
     padding: managed.padding,
@@ -260,7 +260,7 @@ test("compose preserves multiline output and removal restores the exact prior se
     runHelper(current, ["remove", "--scope", "user", "--root", current.project, "--confirm"]),
   );
   assert.equal(removed.status, "removed");
-  assert.deepEqual(JSON.parse(readFileSync(current.settingsPath, "utf8")), {
+  assert.deepEqual(readSettings(current), {
     permissions: { allow: ["Read"] },
     statusLine: previous,
   });
@@ -269,7 +269,7 @@ test("compose preserves multiline output and removal restores the exact prior se
 test("removal refuses to overwrite a statusline changed after setup", () => {
   const current = fixture();
   parseOutput(install(current, "replace"));
-  const settings = JSON.parse(readFileSync(current.settingsPath, "utf8"));
+  const settings = readSettings(current);
   settings.statusLine = { type: "command", command: "my-new-statusline" };
   writeJson(current.settingsPath, settings);
 
@@ -283,7 +283,7 @@ test("removal refuses to overwrite a statusline changed after setup", () => {
   ]);
   assert.notEqual(removal.status, 0);
   assert.match(removal.stderr, /changed after Fallow setup/u);
-  assert.deepEqual(JSON.parse(readFileSync(current.settingsPath, "utf8")).statusLine, {
+  assert.deepEqual(readSettings(current).statusLine, {
     type: "command",
     command: "my-new-statusline",
   });
@@ -303,9 +303,7 @@ test("an orphaned managed command can be repaired without composing itself", () 
   const paths = pathsFor({ scope: "user", root: current.project, home: current.home });
   unlinkSync(paths.state);
 
-  const inspection = parseOutput(
-    runHelper(current, ["inspect", "--scope", "user", "--root", current.project]),
-  );
+  const inspection = parseOutput(inspect(current));
   assert.equal(inspection.status, "repair-required");
   assert.equal(inspection.suggestedMode, "replace");
 

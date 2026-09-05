@@ -18,6 +18,7 @@ import {
 import { homedir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
 const SCHEMA_VERSION = 1;
 const MINIMUM_FALLOW_VERSION = "3.9.0";
@@ -107,31 +108,6 @@ const writeFileAtomic = (path, contents, mode) => {
 const writeJsonAtomic = (path, value) => {
   const mode = existsSync(path) ? statSync(path).mode & 0o777 : 0o600;
   writeFileAtomic(path, stableJson(value), mode);
-};
-
-const deepEqual = (left, right) => {
-  if (Object.is(left, right)) {
-    return true;
-  }
-  if (
-    left === null ||
-    right === null ||
-    typeof left !== "object" ||
-    typeof right !== "object" ||
-    Array.isArray(left) !== Array.isArray(right)
-  ) {
-    return false;
-  }
-  if (Array.isArray(left)) {
-    return (
-      left.length === right.length && left.every((value, index) => deepEqual(value, right[index]))
-    );
-  }
-  const leftKeys = Object.keys(left).toSorted();
-  const rightKeys = Object.keys(right).toSorted();
-  return (
-    deepEqual(leftKeys, rightKeys) && leftKeys.every((key) => deepEqual(left[key], right[key]))
-  );
 };
 
 const compareVersions = (left, right) => {
@@ -352,7 +328,7 @@ const inspect = ({ scope, root }) => {
   const settings = readSettings(paths.settings);
   const existing = Object.hasOwn(settings, "statusLine") ? settings.statusLine : null;
   const state = loadManagedState(paths.state);
-  const managed = state !== null && deepEqual(existing, state.managed);
+  const managed = state !== null && isDeepStrictEqual(existing, state.managed);
   const orphaned = state === null && looksLikeManagedSetting(existing);
   const existingCommand =
     existing !== null &&
@@ -405,7 +381,7 @@ const install = ({ scope, root, mode, confirm }) => {
       ? { present: false, value: null }
       : { present: currentPresent, value: current };
     if (oldState !== null) {
-      if (!deepEqual(current, oldState.managed)) {
+      if (!isDeepStrictEqual(current, oldState.managed)) {
         fail("The configured statusLine changed after Fallow setup; refusing to overwrite it");
       }
       previous = oldState.previous;
@@ -476,7 +452,7 @@ const remove = ({ scope, root, confirm }) => {
     }
     const settings = readSettings(paths.settings);
     const current = Object.hasOwn(settings, "statusLine") ? settings.statusLine : null;
-    if (!deepEqual(current, state.managed)) {
+    if (!isDeepStrictEqual(current, state.managed)) {
       fail("The configured statusLine changed after Fallow setup; refusing to overwrite it");
     }
     const restored = { ...settings };

@@ -19,13 +19,13 @@ Impact on the user's behalf.
 - `project` means the private, gitignored `.claude/settings.local.json` in
   `${CLAUDE_PROJECT_DIR}`. Never edit the shared `.claude/settings.json`.
 
-Use this helper:
+Command forms:
 
 ```text
-node "${CLAUDE_PLUGIN_ROOT}/bin/fallow-impact-statusline.mjs"
+node "${CLAUDE_PLUGIN_ROOT}/bin/fallow-impact-statusline.mjs" inspect --scope user --root "${CLAUDE_PROJECT_DIR}"
+node "${CLAUDE_PLUGIN_ROOT}/bin/fallow-impact-statusline.mjs" install --scope user --root "${CLAUDE_PROJECT_DIR}" --mode compose --confirm
+node "${CLAUDE_PLUGIN_ROOT}/bin/fallow-impact-statusline.mjs" remove --scope user --root "${CLAUDE_PROJECT_DIR}" --confirm
 ```
-
-Always pass `--root "${CLAUDE_PROJECT_DIR}"` and the selected `--scope`.
 
 ## Status
 
@@ -50,24 +50,9 @@ Do not modify files.
 6. Report the settings path and tell the user the statusline appears on the
    next Claude interaction.
 
-The helper preserves the previous setting and refuses to overwrite later
-manual changes. It skips stale Fallow binaries earlier on `PATH` and pins the
-first compatible installation. Each render prefers the current `fallow` on
-`PATH` and falls back to the pinned binary when that entry is missing, too old,
-or cannot read the Impact store, so upgrading Fallow never leaves a stale line.
 If the preview says `fallow impact  off`, tell the user they may run
 `fallow impact enable` themselves. Do not run it.
 
 ## Remove
 
-Run `remove --confirm`. The helper restores the exact previous statusline when
-Fallow still owns the configured value. If the setting changed after setup, it
-refuses the removal instead of overwriting the user's newer configuration.
-
-## Command forms
-
-```text
-node "${CLAUDE_PLUGIN_ROOT}/bin/fallow-impact-statusline.mjs" inspect --scope user --root "${CLAUDE_PROJECT_DIR}"
-node "${CLAUDE_PLUGIN_ROOT}/bin/fallow-impact-statusline.mjs" install --scope user --root "${CLAUDE_PROJECT_DIR}" --mode compose --confirm
-node "${CLAUDE_PLUGIN_ROOT}/bin/fallow-impact-statusline.mjs" remove --scope user --root "${CLAUDE_PROJECT_DIR}" --confirm
-```
+Run `remove --confirm` and report the result.
