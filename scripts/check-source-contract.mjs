@@ -28,7 +28,6 @@ const PRIVATE_MARKERS = [
 ];
 
 const toPosixPath = (path) => path.split(sep).join("/");
-const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 
 const filesUnder = async (root, directory = "") => {
   const files = [];
@@ -132,7 +131,7 @@ export const validateSourceContract = async ({
   verifyCommit = true,
   publicFiles,
 }) => {
-  const lock = await readJson(join(repositoryRoot, LOCK_PATH));
+  const lock = JSON.parse(await readFile(join(repositoryRoot, LOCK_PATH), "utf8"));
   if (
     lock.schemaVersion !== 1 ||
     lock.repository !== "https://github.com/fallow-rs/fallow" ||

@@ -114,7 +114,6 @@ class PluginReleaseTest(unittest.TestCase):
 
                 with self.assertRaisesRegex(ReleaseError, message):
                     build_archive(self.root, Path(f"dist-{field}"))
-        manifest_path.write_text(json.dumps(original), encoding="utf-8")
 
     def test_symlinked_skill_content_is_rejected(self):
         target = self.root / "outside.txt"
