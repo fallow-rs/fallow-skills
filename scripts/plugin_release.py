@@ -18,6 +18,7 @@ ENTRY_COUNT_LIMIT = 5_000
 EXTRACTED_LIMIT = 512 * 1024 * 1024
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 PLUGIN_ROOT = Path("fallow")
+REPO_ROOT = Path(__file__).resolve().parents[1]
 SEMVER = re.compile(
     r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)"
     r"(?:-(?P<prerelease>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
@@ -225,7 +226,7 @@ def _resolve_component(plugin_root: Path, value: object, field: str) -> Path:
         raise ReleaseError(f"{field} must be a ./-prefixed plugin-relative path")
     relative = value[2:-1] if value.endswith("/") else value[2:]
     parts = relative.split("/")
-    if not parts or any(part in {"", ".", ".."} for part in parts):
+    if any(part in {"", ".", ".."} for part in parts):
         raise ReleaseError(f"{field} contains an unsafe path: {value}")
 
     candidate = plugin_root.joinpath(*parts)
@@ -385,12 +386,6 @@ def build_archive(
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--repo-root",
-        type=Path,
-        default=Path(__file__).resolve().parents[1],
-        help=argparse.SUPPRESS,
-    )
     commands = parser.add_subparsers(dest="command", required=True)
 
     check = commands.add_parser("check", help="validate synchronized plugin versions")
@@ -421,16 +416,16 @@ def main() -> int:
     args = _parser().parse_args()
     try:
         if args.command == "check":
-            print(check_versions(args.repo_root, args.expected_version))
+            print(check_versions(REPO_ROOT, args.expected_version))
         elif args.command == "newer-than":
-            print(check_newer_version(args.repo_root, args.base_version))
+            print(check_newer_version(REPO_ROOT, args.base_version))
         elif args.command == "is-prerelease":
             print("true" if is_prerelease(args.version) else "false")
         elif args.command == "set-version":
-            set_version(args.repo_root, args.version)
+            set_version(REPO_ROOT, args.version)
             print(args.version)
         else:
-            print(build_archive(args.repo_root, args.output_dir, args.expected_version))
+            print(build_archive(REPO_ROOT, args.output_dir, args.expected_version))
     except ReleaseError as error:
         raise SystemExit(f"plugin-release: {error}") from error
     return 0
