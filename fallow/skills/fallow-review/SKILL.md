@@ -62,11 +62,9 @@ A decision may carry `previous_signal_id` when its anchor file was renamed in th
 
 ## Eliciting the broader trade-offs (taste ownership)
 
-The decision surface above is the DETERMINISTIC slice: only the trade-offs fallow can prove from the graph (the three categories). Real architectural trade-offs are broader, abstraction level, error-handling strategy, data-model shape, eager-vs-lazy, state ownership, extensibility-vs-YAGNI, testability, trust boundaries, and none of those are graph-detectable. Surfacing them needs a model reading the diff, not a static pass.
+The decision surface above is the DETERMINISTIC slice: only the trade-offs fallow can prove from the graph (the three categories). Real architectural trade-offs are broader (abstraction level, error-handling strategy, data-model shape, eager-vs-lazy, state ownership, extensibility-vs-YAGNI, testability, trust boundaries), and none of those are graph-detectable. Surfacing them needs a model reading the diff, not a static pass.
 
-Run the trade-off elicitation prompt in `references/tradeoff-elicitation.md` over the diff plus the guide. It applies TASTE OWNERSHIP: the model makes each choice legible and frames a genuinely open question; the human decides. It never prescribes the answer (not even via a leading "..., or should you X?"), never blocks. The honesty rails: anchor every trade-off to a line present in the diff (with one sanctioned cross-cutting slot), keep `observed` (neutral fact) / `tradeoff` (inference) / `question` (open decision) separate, fence every item as `deterministic: false`, mark provenance honestly (`captured` is a hint, not a trust score), rank by `consequence` and keep the top five or honestly abstain, never repeat what fallow's deterministic surface already framed, and when an item lists `options` it names at least two moves with real costs, always including "keep as is", and picks none of them (one move is a prescription, so it is omitted).
-
-This is the model-inferred companion to the deterministic surface: fallow owns what it can prove, the prompt covers the rest, and the fencing keeps the two from being confused. The framing prose (the `observed` / `tradeoff` / `question` discipline) is still agent-enforced. The ANCHOR is now fallow-validated: the guide emits a per-changed-region `change_anchors` set, and a judgment may cite a `change_anchor` instead of a `signal_id`. fallow post-validates it on reentry and rejects an anchor it never emitted (`unknown-change-anchor`), recording `anchor_kind: "change"` to mark it as the WEAKER, region-level anchor (it proves the region changed, not that a finding exists there, which is `anchor_kind: "signal"`).
+Run the trade-off elicitation prompt in `references/tradeoff-elicitation.md` over the diff plus the guide. It applies TASTE OWNERSHIP: the model makes each choice legible and frames a genuinely open question; the human decides. The prompt carries the honesty contract (diff anchoring, the `observed` / `tradeoff` / `question` split, `deterministic: false` fencing, provenance, the top-five cap with honest abstention, no duplication of the deterministic surface, `options` that never pick). fallow owns what it can prove, the prompt covers the rest, and the fencing keeps the two from being confused.
 
 ### Running it as a review step
 
@@ -178,10 +176,7 @@ The human owns the taste; you only carry the note. fallow validates the ANCHOR (
    fallow review --base origin/main --walkthrough-file judgment.json --format json
    ```
 
-   - `accepted` (with `anchor_kind: "signal"` or `"change"`): the anchor was emitted and the snapshot matches; the human's `framing` is fenced `deterministic: false`.
-   - `rejected` `unanchored-signal-id` / `unknown-change-anchor`: the human cited something fallow never emitted. Re-anchor to a real signal or region; do not invent one.
-   - `rejected` `invalid-action` with `invalid_value`: the action label is outside the vocabulary. Reported only once the anchor resolved, so fix the anchor first, then the label.
-   - `stale: true` (`stale-snapshot`): the tree moved since `guide.json` was fetched. Re-fetch the guide, re-capture, resubmit.
+   The response sorts as in the agent-contract loop, with two additions: `accepted` carries `anchor_kind` (`"signal"` or `"change"`), and a `change_anchor` fallow never emitted rejects as `unknown-change-anchor`. Re-anchor to a real signal or region; do not invent one.
 
 4. **Act:** relay the accepted human verdicts into the coding session in place, or append them to `.fallow-review/feed.jsonl` so the live-injection hooks (below) carry them to the session that wrote the code. Feed lines may carry `action` too, so the receiving agent can triage: `block` and `address` are required, `consider` is optional, `fyi` needs no change. Either way the note arrives anchored and fenced, never as a fallow-grade fact.
 
@@ -236,5 +231,4 @@ Merge `hooks/settings.snippet.json` into `.claude/settings.json` (it registers t
 ## Notes
 
 - `review` is an alias for `audit --brief`; `--format` is orthogonal to the brief.
-- The decision surface, focus map, and walkthrough are all in the JSON envelope, so a cloud or local review surface can render them and carry reviewer comments back to the coding agent in context.
-- See the `fallow` skill for whole-project analysis, and `references/cli-reference.md` for the full flag list.
+- See the `fallow` skill for whole-project analysis, and its `references/cli-reference.md` for the full flag list.

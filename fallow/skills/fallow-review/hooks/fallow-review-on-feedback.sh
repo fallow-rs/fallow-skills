@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# fallow review , FileChanged hook.
+# fallow review: FileChanged hook.
 #
 # Fires when .fallow-review/feed.jsonl changes (the review app appended reviewer
 # notes). Injects ONLY the new notes since last time into the live session as
@@ -33,7 +33,6 @@ fi
 # If the feed shrank (a new review replaced it), start over.
 [ "$seen" -gt "$total" ] && seen=0
 
-# Nothing new to surface.
 [ "$total" -le "$seen" ] && exit 0
 
 # Render each new note as a readable bullet; fromjson? skips any malformed line.

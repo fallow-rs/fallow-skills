@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# fallow review , SessionStart hook.
+# fallow review: SessionStart hook.
 #
 # Declares a watchPath on the review app's feedback feed so that reviewer notes
 # (written by the fallow review app to .fallow-review/feed.jsonl) are injected

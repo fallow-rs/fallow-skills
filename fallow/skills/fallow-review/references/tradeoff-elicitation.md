@@ -225,11 +225,3 @@ A single envelope: the echoed snapshot hash, an `abstained` flag, and the
 - It does not repeat fallow's deterministic decisions; it covers the part the graph
   cannot see.
 - It never tells the human what to choose.
-
-## What is enforced, and by whom
-
-The `options` rules, the render order, and "cite a number or path" are agent-enforced:
-the model checks its own output against this prompt. Only the anchor (`signal_id` or
-`change_anchor`), the `graph_snapshot_hash`, and, once the engine ships it, the
-`action` label are fallow-validated on reentry. Do not claim more than that for any
-item.
