@@ -3,6 +3,7 @@ import {
   chmodSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   realpathSync,
   unlinkSync,
@@ -12,7 +13,6 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
-import { mkdtempSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -30,10 +30,25 @@ const HELPER = resolve(
 );
 const FULL_LINE =
   "fallow impact  7 issues in last full scan · 5 fewer than prior · 4.9k cleared while tracking";
+const UNAVAILABLE_LINE = "fallow impact  data unavailable";
 
 const writeJson = (path, value) => {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+};
+
+const writeFallowScript = (path, line, version = MINIMUM_FALLOW_VERSION) => {
+  writeFileSync(
+    path,
+    `#!/bin/sh
+if [ "$1" = "--version" ]; then
+  printf 'fallow ${version}\\n'
+  exit 0
+fi
+printf '${line}\\n'
+`,
+  );
+  chmodSync(path, 0o755);
 };
 
 const fixture = ({ version = MINIMUM_FALLOW_VERSION } = {}) => {
@@ -45,22 +60,13 @@ const fixture = ({ version = MINIMUM_FALLOW_VERSION } = {}) => {
   mkdirSync(project, { recursive: true });
   mkdirSync(bin, { recursive: true });
   const fallow = join(bin, "fallow");
-  writeFileSync(
-    fallow,
-    `#!/bin/sh
-if [ "$1" = "--version" ]; then
-  printf 'fallow ${version}\\n'
-  exit 0
-fi
-printf '${FULL_LINE}\\n'
-`,
-  );
-  chmodSync(fallow, 0o755);
+  writeFallowScript(fallow, FULL_LINE, version);
   return {
     fallow,
     home,
     project,
     root,
+    settingsPath: join(home, ".claude", "settings.json"),
     env: {
       ...process.env,
       HOME: home,
@@ -69,16 +75,49 @@ printf '${FULL_LINE}\\n'
   };
 };
 
-const runHelper = (current, args, extra = {}) =>
+const runHelper = (current, args) =>
   spawnSync(process.execPath, [HELPER, ...args], {
     cwd: current.project,
     encoding: "utf8",
-    env: { ...current.env, ...extra },
+    env: current.env,
   });
 
 const parseOutput = (run) => {
   assert.equal(run.status, 0, run.stderr);
   return JSON.parse(run.stdout);
+};
+
+const install = (current, mode) =>
+  runHelper(current, [
+    "install",
+    "--scope",
+    "user",
+    "--root",
+    current.project,
+    "--mode",
+    mode,
+    "--confirm",
+  ]);
+
+const installedCommand = (current) =>
+  JSON.parse(readFileSync(current.settingsPath, "utf8")).statusLine.command;
+
+const renderStatusline = (current, extraEnv = {}) =>
+  spawnSync(installedCommand(current), {
+    cwd: current.project,
+    encoding: "utf8",
+    env: { ...current.env, NO_COLOR: "1", FALLOW_STATUSLINE_DEBUG: "1", ...extraEnv },
+    input: JSON.stringify({
+      cwd: current.project,
+      workspace: { current_dir: current.project },
+    }),
+    shell: true,
+  });
+
+const assertRendered = (rendered, stdout) => {
+  assert.equal(rendered.status, 0, rendered.stderr);
+  assert.equal(rendered.stderr, "");
+  assert.equal(rendered.stdout, stdout);
 };
 
 test("version and compact rendering contracts stay stable", () => {
@@ -112,7 +151,7 @@ test("inspect is read-only and previews the exact CLI output", () => {
   assert.equal(result.suggestedMode, "replace");
   assert.equal(result.fallowBinary, realpathSync(current.fallow));
   assert.equal(result.fallowVersion, MINIMUM_FALLOW_VERSION);
-  assert.equal(existsSync(join(current.home, ".claude", "settings.json")), false);
+  assert.equal(existsSync(current.settingsPath), false);
 });
 
 test("setup skips an older PATH entry and pins the compatible binary", () => {
@@ -130,92 +169,25 @@ test("setup skips an older PATH entry and pins the compatible binary", () => {
   assert.equal(inspected.fallowBinary, realpathSync(current.fallow));
   assert.equal(inspected.fallowVersion, MINIMUM_FALLOW_VERSION);
 
-  parseOutput(
-    runHelper(current, [
-      "install",
-      "--scope",
-      "user",
-      "--root",
-      current.project,
-      "--mode",
-      "replace",
-      "--confirm",
-    ]),
-  );
+  parseOutput(install(current, "replace"));
   const paths = pathsFor({ scope: "user", root: current.project, home: current.home });
   const state = JSON.parse(readFileSync(paths.state, "utf8"));
   assert.equal(state.fallowBinary, realpathSync(current.fallow));
 
-  const settings = JSON.parse(readFileSync(paths.settings, "utf8"));
-  const rendered = spawnSync(settings.statusLine.command, {
-    cwd: current.project,
-    encoding: "utf8",
-    env: {
-      ...current.env,
-      PATH: oldBin,
-      NO_COLOR: "1",
-      FALLOW_STATUSLINE_DEBUG: "1",
-    },
-    input: JSON.stringify({ cwd: current.project }),
-    shell: true,
-  });
-  assert.equal(rendered.status, 0, rendered.stderr);
-  assert.equal(rendered.stdout, `${FULL_LINE}\n`);
+  assertRendered(renderStatusline(current, { PATH: oldBin }), `${FULL_LINE}\n`);
 });
-
-const UNAVAILABLE_LINE = "fallow impact  data unavailable";
-
-const writeFallowScript = (path, line) => {
-  writeFileSync(
-    path,
-    `#!/bin/sh
-if [ "$1" = "--version" ]; then
-  printf 'fallow ${MINIMUM_FALLOW_VERSION}\\n'
-  exit 0
-fi
-printf '${line}\\n'
-`,
-  );
-  chmodSync(path, 0o755);
-};
-
-const installedRender = (current, extraEnv) => {
-  parseOutput(
-    runHelper(current, [
-      "install",
-      "--scope",
-      "user",
-      "--root",
-      current.project,
-      "--mode",
-      "replace",
-      "--confirm",
-    ]),
-  );
-  const paths = pathsFor({ scope: "user", root: current.project, home: current.home });
-  const settings = JSON.parse(readFileSync(paths.settings, "utf8"));
-  return spawnSync(settings.statusLine.command, {
-    cwd: current.project,
-    encoding: "utf8",
-    env: { ...current.env, NO_COLOR: "1", ...extraEnv },
-    input: JSON.stringify({ cwd: current.project }),
-    shell: true,
-  });
-};
 
 test("render prefers the current PATH binary over a stale pinned one", () => {
   const current = fixture();
   const newBin = join(current.root, "new-bin");
   mkdirSync(newBin, { recursive: true });
-  const rendered = installedRender(current, { PATH: newBin });
-  assert.equal(rendered.status, 0, rendered.stderr);
-  assert.equal(rendered.stdout, `${FULL_LINE}\n`);
+  parseOutput(install(current, "replace"));
+  assertRendered(renderStatusline(current, { PATH: newBin }), `${FULL_LINE}\n`);
 
   writeFallowScript(current.fallow, UNAVAILABLE_LINE);
   writeFallowScript(join(newBin, "fallow"), FULL_LINE);
-  const upgraded = installedRender(current, { PATH: newBin });
-  assert.equal(upgraded.status, 0, upgraded.stderr);
-  assert.equal(upgraded.stdout, `${FULL_LINE}\n`);
+  parseOutput(install(current, "replace"));
+  assertRendered(renderStatusline(current, { PATH: newBin }), `${FULL_LINE}\n`);
 });
 
 test("render falls back to the pinned binary when PATH cannot read the store", () => {
@@ -224,56 +196,28 @@ test("render falls back to the pinned binary when PATH cannot read the store", (
   mkdirSync(staleBin, { recursive: true });
   writeFallowScript(join(staleBin, "fallow"), UNAVAILABLE_LINE);
 
-  const rendered = installedRender(current, { PATH: staleBin });
-  assert.equal(rendered.status, 0, rendered.stderr);
-  assert.equal(rendered.stdout, `${FULL_LINE}\n`);
+  parseOutput(install(current, "replace"));
+  assertRendered(renderStatusline(current, { PATH: staleBin }), `${FULL_LINE}\n`);
 
   writeFallowScript(current.fallow, UNAVAILABLE_LINE);
-  const degraded = installedRender(current, { PATH: staleBin });
-  assert.equal(degraded.status, 0, degraded.stderr);
-  assert.equal(degraded.stdout, `${UNAVAILABLE_LINE}\n`);
+  parseOutput(install(current, "replace"));
+  assertRendered(renderStatusline(current, { PATH: staleBin }), `${UNAVAILABLE_LINE}\n`);
 });
 
 test("replace setup installs a stable runtime and renders a compact plain line", () => {
   const current = fixture();
-  const installed = parseOutput(
-    runHelper(current, [
-      "install",
-      "--scope",
-      "user",
-      "--root",
-      current.project,
-      "--mode",
-      "replace",
-      "--confirm",
-    ]),
-  );
+  const installed = parseOutput(install(current, "replace"));
   assert.equal(installed.status, "installed");
 
-  const settingsPath = join(current.home, ".claude", "settings.json");
-  const settings = JSON.parse(readFileSync(settingsPath, "utf8"));
+  const settings = JSON.parse(readFileSync(current.settingsPath, "utf8"));
   assert.equal(settings.statusLine.type, "command");
   assert.ok(settings.statusLine.command.includes("fallow-impact-statusline/user/statusline.mjs"));
   assert.ok(!settings.statusLine.command.includes("/fallow/bin/"));
 
-  const rendered = spawnSync(settings.statusLine.command, {
-    cwd: current.project,
-    encoding: "utf8",
-    env: {
-      ...current.env,
-      NO_COLOR: "1",
-      COLUMNS: "80",
-      FALLOW_STATUSLINE_DEBUG: "1",
-    },
-    input: JSON.stringify({
-      cwd: current.project,
-      workspace: { current_dir: current.project },
-    }),
-    shell: true,
-  });
-  assert.equal(rendered.status, 0, rendered.stderr);
-  assert.equal(rendered.stderr, "");
-  assert.equal(rendered.stdout, "fallow  7 issues · 4.9k cleared\n");
+  assertRendered(
+    renderStatusline(current, { COLUMNS: "80" }),
+    "fallow  7 issues · 4.9k cleared\n",
+  );
 });
 
 test("compose preserves multiline output and removal restores the exact prior setting", () => {
@@ -284,76 +228,39 @@ test("compose preserves multiline output and removal restores the exact prior se
     "#!/bin/sh\ncat >/dev/null\nprintf 'model opus\\ncontext 42%%\\n'\n",
   );
   chmodSync(previousScript, 0o755);
-  const settingsPath = join(current.home, ".claude", "settings.json");
   const previous = {
     type: "command",
     command: `"${previousScript}"`,
     padding: 2,
     refreshInterval: 5,
   };
-  writeJson(settingsPath, { permissions: { allow: ["Read"] }, statusLine: previous });
+  writeJson(current.settingsPath, { permissions: { allow: ["Read"] }, statusLine: previous });
 
-  const installed = parseOutput(
-    runHelper(current, [
-      "install",
-      "--scope",
-      "user",
-      "--root",
-      current.project,
-      "--mode",
-      "compose",
-      "--confirm",
-    ]),
-  );
+  const installed = parseOutput(install(current, "compose"));
   assert.equal(installed.mode, "compose");
-  const managed = JSON.parse(readFileSync(settingsPath, "utf8")).statusLine;
+  const managed = JSON.parse(readFileSync(current.settingsPath, "utf8")).statusLine;
   assert.equal(managed.padding, 2);
   assert.equal(managed.refreshInterval, 5);
 
-  const rendered = spawnSync(managed.command, {
-    cwd: current.project,
-    encoding: "utf8",
-    env: { ...current.env, NO_COLOR: "1", FALLOW_STATUSLINE_DEBUG: "1" },
-    input: JSON.stringify({
-      cwd: current.project,
-      workspace: { current_dir: current.project },
-    }),
-    shell: true,
-  });
-  assert.equal(rendered.status, 0, rendered.stderr);
-  assert.equal(rendered.stderr, "");
-  assert.equal(rendered.stdout, `model opus\ncontext 42%\n${FULL_LINE}\n`);
+  assertRendered(renderStatusline(current), `model opus\ncontext 42%\n${FULL_LINE}\n`);
 
   writeFileSync(current.fallow, "#!/bin/sh\nexit 1\n");
-  const withoutFallow = spawnSync(managed.command, {
-    cwd: current.project,
-    encoding: "utf8",
-    env: { ...current.env, NO_COLOR: "1", FALLOW_STATUSLINE_DEBUG: "1" },
-    input: JSON.stringify({
-      cwd: current.project,
-      workspace: { current_dir: current.project },
-    }),
-    shell: true,
-  });
-  assert.equal(withoutFallow.status, 0, withoutFallow.stderr);
-  assert.equal(withoutFallow.stderr, "");
-  assert.equal(withoutFallow.stdout, "model opus\ncontext 42%\n");
+  assertRendered(renderStatusline(current), "model opus\ncontext 42%\n");
 
-  const reordered = JSON.parse(readFileSync(settingsPath, "utf8"));
+  const reordered = JSON.parse(readFileSync(current.settingsPath, "utf8"));
   reordered.statusLine = {
     refreshInterval: managed.refreshInterval,
     padding: managed.padding,
     command: managed.command,
     type: managed.type,
   };
-  writeJson(settingsPath, reordered);
+  writeJson(current.settingsPath, reordered);
 
   const removed = parseOutput(
     runHelper(current, ["remove", "--scope", "user", "--root", current.project, "--confirm"]),
   );
   assert.equal(removed.status, "removed");
-  const restored = JSON.parse(readFileSync(settingsPath, "utf8"));
-  assert.deepEqual(restored, {
+  assert.deepEqual(JSON.parse(readFileSync(current.settingsPath, "utf8")), {
     permissions: { allow: ["Read"] },
     statusLine: previous,
   });
@@ -361,22 +268,10 @@ test("compose preserves multiline output and removal restores the exact prior se
 
 test("removal refuses to overwrite a statusline changed after setup", () => {
   const current = fixture();
-  parseOutput(
-    runHelper(current, [
-      "install",
-      "--scope",
-      "user",
-      "--root",
-      current.project,
-      "--mode",
-      "replace",
-      "--confirm",
-    ]),
-  );
-  const settingsPath = join(current.home, ".claude", "settings.json");
-  const settings = JSON.parse(readFileSync(settingsPath, "utf8"));
+  parseOutput(install(current, "replace"));
+  const settings = JSON.parse(readFileSync(current.settingsPath, "utf8"));
   settings.statusLine = { type: "command", command: "my-new-statusline" };
-  writeJson(settingsPath, settings);
+  writeJson(current.settingsPath, settings);
 
   const removal = runHelper(current, [
     "remove",
@@ -388,7 +283,7 @@ test("removal refuses to overwrite a statusline changed after setup", () => {
   ]);
   assert.notEqual(removal.status, 0);
   assert.match(removal.stderr, /changed after Fallow setup/u);
-  assert.deepEqual(JSON.parse(readFileSync(settingsPath, "utf8")).statusLine, {
+  assert.deepEqual(JSON.parse(readFileSync(current.settingsPath, "utf8")).statusLine, {
     type: "command",
     command: "my-new-statusline",
   });
@@ -396,35 +291,15 @@ test("removal refuses to overwrite a statusline changed after setup", () => {
 
 test("compose setup requires an existing command statusline", () => {
   const current = fixture();
-  const install = runHelper(current, [
-    "install",
-    "--scope",
-    "user",
-    "--root",
-    current.project,
-    "--mode",
-    "compose",
-    "--confirm",
-  ]);
-  assert.notEqual(install.status, 0);
-  assert.match(install.stderr, /requires an existing command-based statusLine/u);
-  assert.equal(existsSync(join(current.home, ".claude", "settings.json")), false);
+  const attempt = install(current, "compose");
+  assert.notEqual(attempt.status, 0);
+  assert.match(attempt.stderr, /requires an existing command-based statusLine/u);
+  assert.equal(existsSync(current.settingsPath), false);
 });
 
 test("an orphaned managed command can be repaired without composing itself", () => {
   const current = fixture();
-  parseOutput(
-    runHelper(current, [
-      "install",
-      "--scope",
-      "user",
-      "--root",
-      current.project,
-      "--mode",
-      "replace",
-      "--confirm",
-    ]),
-  );
+  parseOutput(install(current, "replace"));
   const paths = pathsFor({ scope: "user", root: current.project, home: current.home });
   unlinkSync(paths.state);
 
@@ -434,48 +309,18 @@ test("an orphaned managed command can be repaired without composing itself", () 
   assert.equal(inspection.status, "repair-required");
   assert.equal(inspection.suggestedMode, "replace");
 
-  const compose = runHelper(current, [
-    "install",
-    "--scope",
-    "user",
-    "--root",
-    current.project,
-    "--mode",
-    "compose",
-    "--confirm",
-  ]);
+  const compose = install(current, "compose");
   assert.notEqual(compose.status, 0);
   assert.match(compose.stderr, /requires an existing command-based statusLine/u);
 
-  const repaired = parseOutput(
-    runHelper(current, [
-      "install",
-      "--scope",
-      "user",
-      "--root",
-      current.project,
-      "--mode",
-      "replace",
-      "--confirm",
-    ]),
-  );
-  assert.equal(repaired.status, "installed");
+  assert.equal(parseOutput(install(current, "replace")).status, "installed");
 });
 
 test("setup refuses an older Fallow binary without changing settings", () => {
   const current = fixture({ version: "3.8.1" });
   current.env.PATH = dirname(current.fallow);
-  const install = runHelper(current, [
-    "install",
-    "--scope",
-    "user",
-    "--root",
-    current.project,
-    "--mode",
-    "replace",
-    "--confirm",
-  ]);
-  assert.notEqual(install.status, 0);
-  assert.match(install.stderr, /3\.9\.0 or newer/u);
-  assert.equal(existsSync(join(current.home, ".claude", "settings.json")), false);
+  const attempt = install(current, "replace");
+  assert.notEqual(attempt.status, 0);
+  assert.match(attempt.stderr, /3\.9\.0 or newer/u);
+  assert.equal(existsSync(current.settingsPath), false);
 });

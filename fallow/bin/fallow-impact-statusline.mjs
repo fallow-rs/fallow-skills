@@ -86,17 +86,16 @@ const readJsonObject = (path, { optional = false } = {}) => {
   return parsed;
 };
 
-const writeFileAtomic = (path, contents, mode = null) => {
+const writeFileAtomic = (path, contents, mode) => {
   mkdirSync(dirname(path), { recursive: true });
   const temporary = join(
     dirname(path),
     `.${process.pid.toString()}.${Date.now().toString()}.${Math.random().toString(16).slice(2)}`,
   );
   try {
-    writeFileSync(temporary, contents, { mode: mode ?? 0o600 });
-    if (mode !== null) {
-      chmodSync(temporary, mode);
-    }
+    writeFileSync(temporary, contents, { mode });
+    // writeFileSync applies the umask; chmod pins the exact mode.
+    chmodSync(temporary, mode);
     renameSync(temporary, path);
   } finally {
     if (existsSync(temporary)) {
@@ -212,9 +211,6 @@ const commandArgument = (value) => {
   return `"${value}"`;
 };
 
-const renderCommand = (runtime, state) =>
-  `${commandArgument(process.execPath)} ${commandArgument(runtime)} render --state ${commandArgument(state)}`;
-
 const managedSetting = ({ command, previous, mode }) => {
   const setting = { type: "command", command };
   if (mode === "compose" && previous && typeof previous === "object") {
@@ -238,6 +234,8 @@ const looksLikeManagedSetting = (value) =>
   value.command.includes(RUNTIME_FILENAME) &&
   value.command.includes(" render --state ");
 
+const STATUSLINE_PREFIX = "fallow impact  ";
+
 const fallowCandidates = () => {
   const names =
     process.platform === "win32"
@@ -259,7 +257,6 @@ const fallowCandidates = () => {
   return candidates;
 };
 
-const STATUSLINE_PREFIX = "fallow impact  ";
 // Lines the CLI prints when it cannot read the Impact store: worth retrying
 // with another binary before showing them.
 const DEGRADED_STATUSLINE = /^fallow impact {2}(?:data unavailable$|.*newer fallow)/u;
@@ -311,7 +308,7 @@ const preflight = (root) => {
       statuslineRun.status !== 0 ||
       statuslineRun.stderr !== "" ||
       lines.length !== 1 ||
-      !lines[0].startsWith("fallow impact  ")
+      !lines[0].startsWith(STATUSLINE_PREFIX)
     ) {
       compatibleWithoutStatusline = true;
       continue;
@@ -414,12 +411,10 @@ const install = ({ scope, root, mode, confirm }) => {
       previous = oldState.previous;
     }
 
-    if (mode === "compose" && !previous.present) {
-      fail("Compose mode requires an existing command-based statusLine");
-    }
     if (
       mode === "compose" &&
-      (previous.value === null ||
+      (!previous.present ||
+        previous.value === null ||
         typeof previous.value !== "object" ||
         previous.value.type !== "command" ||
         typeof previous.value.command !== "string")
@@ -427,7 +422,9 @@ const install = ({ scope, root, mode, confirm }) => {
       fail("Compose mode requires an existing command-based statusLine");
     }
 
-    const command = renderCommand(paths.runtime, paths.state);
+    const command =
+      `${commandArgument(process.execPath)} ${commandArgument(paths.runtime)}` +
+      ` render --state ${commandArgument(paths.state)}`;
     mkdirSync(paths.stateRoot, { recursive: true });
     writeFileAtomic(paths.runtime, readFileSync(fileURLToPath(import.meta.url)), 0o755);
     const managed = managedSetting({
@@ -582,7 +579,7 @@ const colorizeStatusline = (line, columns = null) => {
     return plain;
   }
   const payload = plain.replace(/^fallow(?: impact)? {2}/u, "");
-  const hasImpactLabel = plain.startsWith("fallow impact  ");
+  const hasImpactLabel = plain.startsWith(STATUSLINE_PREFIX);
   const badge =
     `${COLORS.bold}${COLORS.creamBackground}${COLORS.dark} fallow ${COLORS.reset}` +
     (hasImpactLabel ? ` ${COLORS.muted}impact${COLORS.reset}` : "");
@@ -754,10 +751,8 @@ if (isMain) {
 
 export {
   MINIMUM_FALLOW_VERSION,
-  colorizeStatusline,
   compactStatusline,
   compareVersions,
-  managedSetting,
   parseFallowVersion,
   pathsFor,
   projectKey,
