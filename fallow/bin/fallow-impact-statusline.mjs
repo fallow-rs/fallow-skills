@@ -71,8 +71,8 @@ const parseArguments = (argv) => {
 
 const stableJson = (value) => `${JSON.stringify(value, null, 2)}\n`;
 
-const readJsonObject = (path, { optional = false } = {}) => {
-  if (optional && !existsSync(path)) {
+const readJsonObject = (path) => {
+  if (!existsSync(path)) {
     return null;
   }
   let parsed;
@@ -157,7 +157,6 @@ const pathsFor = ({ scope, root, home = homedir() }) => {
         ? join(claudeRoot, "settings.json")
         : join(root, ".claude", "settings.local.json"),
     state: join(stateRoot, STATE_FILENAME),
-    stateRoot,
   };
 };
 
@@ -199,7 +198,7 @@ const managedSetting = ({ command, previous, mode }) => {
   return setting;
 };
 
-const readSettings = (path) => readJsonObject(path, { optional: true }) ?? {};
+const readSettings = (path) => readJsonObject(path) ?? {};
 
 const looksLikeManagedSetting = (value) =>
   value !== null &&
@@ -303,7 +302,7 @@ const preflight = (root) => {
 };
 
 const loadManagedState = (path) => {
-  const state = readJsonObject(path, { optional: true });
+  const state = readJsonObject(path);
   if (state === null) {
     return null;
   }
@@ -401,7 +400,6 @@ const install = ({ scope, root, mode, confirm }) => {
     const command =
       `${commandArgument(process.execPath)} ${commandArgument(paths.runtime)}` +
       ` render --state ${commandArgument(paths.state)}`;
-    mkdirSync(paths.stateRoot, { recursive: true });
     writeFileAtomic(paths.runtime, readFileSync(fileURLToPath(import.meta.url)), 0o755);
     const managed = managedSetting({
       command,
@@ -546,7 +544,7 @@ const compactStatusline = (line) => {
   return line.replace(/^fallow impact {2}/u, "fallow  ");
 };
 
-const colorizeStatusline = (line, columns = null) => {
+const colorizeStatusline = (line, columns) => {
   const plain =
     typeof columns === "number" && columns > 0 && columns < NARROW_COLUMNS
       ? compactStatusline(line)
