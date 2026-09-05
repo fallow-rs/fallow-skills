@@ -11,7 +11,7 @@
   <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v3.22.0-orange" alt="fallow v3.22.0"></a>
 </p>
 
-Agent skills for [fallow](https://github.com/fallow-rs/fallow), codebase intelligence for TypeScript and JavaScript. The static layer reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, and design-system styling drift in milliseconds. Optional runtime intelligence adds production execution evidence so agents can delete cold code, flag hot-path changes, and retire stale flags with proof. 124 framework plugins, zero configuration. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io). See [Fallow for coding agents](https://fallow.tools/plugins) for the visual overview and store links.
+Agent skills for [fallow](https://github.com/fallow-rs/fallow), codebase intelligence for TypeScript and JavaScript. The static layer reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, and design-system styling drift in milliseconds. Optional runtime intelligence adds production execution evidence so agents can delete cold code, flag hot-path changes, and retire stale flags with proof. Broad framework plugin coverage, zero configuration. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io). See [Fallow for coding agents](https://fallow.tools/plugins) for the visual overview and store links.
 
 > **Linters enforce style. Formatters enforce consistency. Fallow enforces relevance.** Linters work file by file. TypeScript works type by type. Neither builds the full module graph, so neither can see what nothing depends on. Fallow does, in milliseconds. These skills teach agents *how* to use fallow effectively: which commands to run, what flags to use, how to interpret output, and how to avoid common pitfalls.
 
@@ -39,30 +39,15 @@ codex plugin add fallow@fallow-skills
 
 ### Fallow Impact statusline
 
-Fallow Impact can show the latest whole-project issue count, the comparable
-trend, and everything cleared while tracking:
-
-```text
-fallow impact  7 issues in last full scan · 5 fewer than prior · 4.9k cleared while tracking
-```
-
-Claude Code users can add the compact branded segment while preserving an
-existing command-based statusline:
+Claude Code users can add the compact Fallow Impact segment to their statusline:
 
 ```text
 /fallow:impact-statusline setup user compose
 ```
 
-Use `project` instead of `user` for private project-local configuration. The
-setup previews the exact line before it changes settings, stores the previous
-value for safe removal, and never enables Impact. Run
-`/fallow:impact-statusline remove user` to restore the previous setting.
-
-Codex and other agents can use the same stable local surface directly:
-
-```bash
-fallow impact statusline
-```
+The [command doc](fallow/commands/impact-statusline.md) covers `status`,
+`remove`, and the `project` scope. Other agents render the same line with
+`fallow impact statusline`.
 
 ### Agent-specific CLI shortcuts
 
@@ -112,15 +97,9 @@ user documentation stays in
 
 ### fallow
 
-| Category | What it does |
-|---|---|
-| **Cleanup** | Find unused files, exports, types, dependencies, enum/class members, stale suppressions, and other safe cleanup candidates |
-| **Duplication** | Find code clones with 4 modes: strict, mild, weak, semantic |
-| **Complexity** | Function complexity analysis, hotspot detection, health scores |
-| **Auto-Fix** | Remove unused exports and dependencies with dry-run preview |
-| **CI** | GitHub Actions, SARIF upload, baseline comparison, PR-scoped checks |
-| **Monorepo** | Per-workspace analysis with cross-package resolution |
-| **Debug** | Trace export usage chains, file edges, and dependency usage |
+Vendored byte-for-byte from the fallow source repository at the commit pinned
+in `source-lock.json`. Its [SKILL.md](fallow/skills/fallow/SKILL.md) carries
+the command table and the guardrails agents follow.
 
 ### fallow-review
 
@@ -162,12 +141,6 @@ Agent executes command, parses JSON output
   ↓
 Agent summarizes findings with file paths and line numbers
 ```
-
-The skill provides agents with:
-1. **Command knowledge**: which fallow command + flags to use for each task
-2. **Output parsing**: how to interpret JSON results
-3. **Guardrails**: always dry-run before fix, never run watch, use `--yes` in non-TTY
-4. **Debugging**: how to trace false positives with `--trace`
 
 ## Contributing
 

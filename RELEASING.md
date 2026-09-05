@@ -72,9 +72,7 @@ for these update constraints.
 Before submitting the update:
 
 1. Summarize the changes since the previous submitted version in release notes.
-2. Confirm exactly five retained positive and three retained negative test cases
-   still describe the current skills and expected behavior.
-3. Recheck the listing, policies, regional availability, and attestations.
+2. Recheck the listing, policies, regional availability, and attestations.
 
 After approval and publication:
 
