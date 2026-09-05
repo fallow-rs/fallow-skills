@@ -106,15 +106,16 @@ const readSettings = (current) => JSON.parse(readFileSync(current.settingsPath, 
 
 const installedCommand = (current) => readSettings(current).statusLine.command;
 
-const renderStatusline = (current, extraEnv = {}) =>
+const renderStatusline = (
+  current,
+  extraEnv = {},
+  input = { cwd: current.project, workspace: { current_dir: current.project } },
+) =>
   spawnSync(installedCommand(current), {
     cwd: current.project,
     encoding: "utf8",
     env: { ...current.env, NO_COLOR: "1", FALLOW_STATUSLINE_DEBUG: "1", ...extraEnv },
-    input: JSON.stringify({
-      cwd: current.project,
-      workspace: { current_dir: current.project },
-    }),
+    input: JSON.stringify(input),
     shell: true,
   });
 
@@ -197,7 +198,10 @@ test("render falls back to the pinned binary when PATH cannot read the store", (
   writeFallowScript(join(staleBin, "fallow"), UNAVAILABLE_LINE);
 
   parseOutput(install(current, "replace"));
-  assertRendered(renderStatusline(current, { PATH: staleBin }), `${FULL_LINE}\n`);
+  assertRendered(
+    renderStatusline(current, { PATH: staleBin }, { cwd: current.project }),
+    `${FULL_LINE}\n`,
+  );
 
   writeFallowScript(current.fallow, UNAVAILABLE_LINE);
   parseOutput(install(current, "replace"));

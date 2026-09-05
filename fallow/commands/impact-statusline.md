@@ -55,4 +55,6 @@ If the preview says `fallow impact  off`, tell the user they may run
 
 ## Remove
 
-Run `remove --confirm` and report the result.
+Run `remove --confirm` and report the result. When the helper refuses because
+the statusline changed after Fallow setup, tell the user and do not overwrite
+their configuration by hand.

@@ -94,35 +94,6 @@ statusline behavior for the Claude Code and Codex surfaces.
 - **[Gotchas](fallow/skills/fallow/references/gotchas.md)**: common pitfalls with WRONG/CORRECT examples
 - **[Patterns](fallow/skills/fallow/references/patterns.md)**: workflow recipes for CI, monorepos, migration, and incremental adoption
 
-## Example Prompts
-
-Once installed, you can use natural language:
-
-- "Audit the codebase quality"
-- "Are there any unused dependencies?"
-- "Find code duplication in the codebase"
-- "Clean up unused exports"
-- "Set up a CI quality gate"
-- "Check the complexity of this codebase"
-- "Why is this export flagged as unused?"
-- "Check if this PR introduces quality risk"
-- "Find unused files in the payments package"
-- "What's the duplication percentage?"
-
-## How It Works
-
-```
-User: "Find all unused exports"
-  ↓
-Agent loads fallow skill
-  ↓
-Skill instructs: run `fallow dead-code --format json --quiet --unused-exports`
-  ↓
-Agent executes command, parses JSON output
-  ↓
-Agent summarizes findings with file paths and line numbers
-```
-
 ## Contributing
 
 See [AGENTS.md](AGENTS.md) for repository structure and quality standards.

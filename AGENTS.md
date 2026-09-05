@@ -22,6 +22,8 @@ Run:
 
 ```bash
 node --test scripts/*.test.mjs
+python3 -m unittest discover -s scripts -p 'test_*.py'
+python3 scripts/validate_skill_frontmatter.py .
 FALLOW_SOURCE_DIR=/path/to/pinned/fallow node scripts/check-source-contract.mjs
 ```
 

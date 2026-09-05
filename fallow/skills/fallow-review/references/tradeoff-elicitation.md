@@ -13,16 +13,10 @@ the model makes each choice legible to the human and frames the open question; t
 human decides. The model never prescribes the answer, never blocks, never
 auto-applies.
 
-A scope note on honesty: the prose framing below (the `observed` / `tradeoff` /
-`question` discipline) is still enforced by the model checking its own output, not
-by fallow. What fallow now DOES validate is the ANCHOR: a trade-off may cite a
-`change_anchor` (a `chg:` id from the guide's `change_anchors`) and fallow
-post-validates it on reentry the same way it validates a `signal_id`, rejecting an
-anchor it never emitted (`unknown-change-anchor`). The accepted judgment carries
-`anchor_kind: "change"` to mark it as the WEAKER, region-level anchor: it proves
-only that the region changed, not that a graph finding exists there (that is
-`anchor_kind: "signal"`). So the anchor is now fallow-grade; the framing prose
-remains an agent-layer aid whose discipline is the prompt's.
+A scope note on honesty: fallow validates only the ANCHOR (a `signal_id` or a
+`change_anchor` from the guide, see the human-in-the-loop section of SKILL.md).
+The prose framing below (the `observed` / `tradeoff` / `question` discipline) is
+enforced by the model checking its own output, not by fallow.
 
 ## The honesty contract (non-negotiable)
 

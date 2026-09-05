@@ -21,7 +21,6 @@ SKIPPED_DIRS = {"node_modules", ".git"}
 
 
 def frontmatter_errors(path: pathlib.Path) -> list[str]:
-    """Return every frontmatter problem found in a single SKILL.md."""
     text = path.read_text(encoding="utf-8")
 
     match = FRONTMATTER.match(text)
@@ -59,7 +58,6 @@ def frontmatter_errors(path: pathlib.Path) -> list[str]:
 
 
 def skill_files(root: pathlib.Path) -> list[pathlib.Path]:
-    """Return every SKILL.md under root, ignoring vendored and VCS directories."""
     return sorted(
         path
         for path in root.rglob("SKILL.md")

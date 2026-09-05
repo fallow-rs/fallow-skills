@@ -138,30 +138,12 @@ test("rejects public skill content drift", async (t) => {
   );
 });
 
-test("rejects a private repository marker in tracked public content", async (t) => {
+test("rejects private repository markers and machine-local paths", async (t) => {
   const input = await fixture(t);
   await write(
     input.repositoryRoot,
     "README.md",
-    `Clone ${"git@github.com:" + "fallow-rs/fallow-cloud.git"}`,
-  );
-
-  await assert.rejects(
-    validateSourceContract({
-      ...input,
-      verifyCommit: false,
-      publicFiles: [...PUBLIC_FILES, "README.md"],
-    }),
-    /private-data guard/u,
-  );
-});
-
-test("rejects private decision and machine-local paths", async (t) => {
-  const input = await fixture(t);
-  await write(
-    input.repositoryRoot,
-    "README.md",
-    `See \`${"deci" + "sions/private.md"}\`, \`${"inter" + "nal/runbook.md"}\`, ${"git:" + "/" + "/git" + "hub.com/fallow-rs/fallow-cloud.git"}, and \`${"~/" + "Sites/private-repository"}\`.\n`,
+    `See \`${"deci" + "sions/private.md"}\`, \`${"inter" + "nal/runbook.md"}\`, ${"git:" + "/" + "/git" + "hub.com/fallow-rs/fallow-cloud.git"}, ${"git@github.com:" + "fallow-rs/fallow-cloud.git"}, and \`${"~/" + "Sites/private-repository"}\`.\n`,
   );
 
   await assert.rejects(
