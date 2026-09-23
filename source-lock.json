@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/fallow-rs/fallow",
-  "commit": "7d27b23c307d0263f2128699a3355c334376839b",
+  "commit": "f5f9dec06f6f967d353fe594bf3f26275b5c3f86",
   "sourceRoot": "npm/fallow/skills/fallow",
   "targetRoot": "fallow/skills/fallow",
   "transforms": {
