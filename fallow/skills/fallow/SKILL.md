@@ -6,10 +6,10 @@ license: MIT
 
 # Fallow: codebase intelligence for TypeScript and JavaScript
 
-Codebase intelligence for TypeScript and JavaScript. The static layer analyzes code and styles and reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, design-system styling drift, feature flag patterns, and opt-in security candidates. Runtime coverage merges production execution data into the same `fallow health` report for hot-path review, cold-path deletion confidence, and stale-flag evidence, with a single local capture available by default and continuous/cloud runtime monitoring available as an optional mode. Broad framework plugin coverage, zero configuration, sub-second static analysis.
+Codebase intelligence for TypeScript and JavaScript. The static layer analyzes code and styles and reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, design-system styling drift, feature flag patterns, and opt-in security candidates. Runtime coverage merges production execution data into the same `fallow health` report for hot-path review and cold-path deletion confidence, with a single local capture available by default and continuous/cloud runtime monitoring available as an optional mode. Broad framework plugin coverage, zero configuration, sub-second static analysis.
 
 ## When to Use
-- Find cleanup opportunities: unused files, exports, types, members, dependencies, or stale flags.
+- Find cleanup opportunities: unused files, exports, types, members, dependencies, or feature flags that guard unused exports.
 - Detect code duplication, circular dependencies, architecture boundary issues, and complexity hotspots.
 - Find functions that may implement the same intent despite different names, syntax, or control flow (`fallow similar-code`).
 - Check styling consistency, CSS dead surface, and design-token drift.
