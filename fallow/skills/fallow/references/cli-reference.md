@@ -113,7 +113,6 @@ Analyzes the project for unused files, exports, dependencies, types, members, an
 | `--symbol-impact` | `string` | - | Compute exact-symbol consumers, affected files, and targeted tests |
 | `--top` | `string` | - | Show only the top N items per category |
 | `--file` | `string` | - | Scope output to specific files. Only issues in the specified files are reported. Project-wide dependency issues are suppressed. Warns on non-existent paths. Useful for lint-staged |
-| `--finding-id` | `string` | - | Only report the findings with these `finding_id` values. Repeat the flag or pass a comma-separated list. Ids stay the same under every filter. The JSON output adds `finding_id_query`: a missing id means "resolved" only when `conclusive` is true |
 
 Common global flags for this command: [`--format`](#global-flags), [`--quiet`](#global-flags), [`--output-file`](#global-flags), [`--changed-since`](#global-flags), [`--max-file-size`](#global-flags), [`--production`](#global-flags), [`--no-production`](#global-flags), [`--production-dead-code`](#global-flags), [`--baseline`](#global-flags), [`--save-baseline`](#global-flags), [`--workspace`](#global-flags), [`--changed-workspaces`](#global-flags), [`--include-entry-exports`](#global-flags).
 <!-- generated:flags:dead-code:end -->
@@ -1681,6 +1680,8 @@ Helper subcommand for runtime coverage setup, focused analysis, and cloud invent
 - `coverage setup` - resumable state machine that wires sidecar installation, framework-aware coverage recipe writing, optional license activation for continuous monitoring, and automatic handoff into `fallow health --runtime-coverage`.
 - `coverage analyze` - focused runtime coverage analysis. Local mode reads `--runtime-coverage <path>`; cloud mode requires explicit `--cloud`, `--runtime-coverage-cloud`, or `FALLOW_RUNTIME_COVERAGE_SOURCE=cloud` and never triggers from `FALLOW_API_KEY` alone.
 - `coverage upload-inventory` - push a static function inventory to Fallow Cloud so the dashboard can surface `untracked` functions (those in the codebase but never called at runtime).
+- `coverage review-packet` - read the production facts of changed files or functions from Fallow Cloud as JSON, with no local analysis and no full runtime-context pull. `--file <path>` and `--function <file>:<name>[:<line>]` select the scope; with neither, the source files changed against `--base` (resolved like `fallow audit`) are sent.
+- `coverage deployment-changes` - read the Fallow Cloud deployment change report for `--sha` (default `HEAD`) against `--base` (default: the previous deployment with production runtime) as JSON.
 
 ```bash
 fallow coverage setup                         # interactive
@@ -1691,6 +1692,10 @@ fallow coverage setup --yes --json --explain  # add _meta field docs, enums, war
 
 fallow coverage analyze --runtime-coverage ./coverage --format json
 fallow coverage analyze --cloud --repo owner/repo --format json
+
+fallow coverage review-packet --repo owner/repo                  # files changed against the merge-base
+fallow coverage review-packet --repo owner/repo --file src/api.ts
+fallow coverage deployment-changes --repo owner/repo --sha <sha> --base <sha>
 
 fallow coverage upload-inventory              # infers project-id, git-sha, API key
 fallow coverage upload-inventory --dry-run    # print what would be uploaded, exit 0

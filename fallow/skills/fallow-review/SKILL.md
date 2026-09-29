@@ -126,6 +126,17 @@ The loop lets an agent produce judgments that fallow post-validates against the 
    - `rejected` with `reason: "invalid-action"` and `invalid_value` (the label fallow refused): the `action` is outside the vocabulary. This is reported only after the anchor resolved; a hallucinated anchor plus a bad label rejects as `unanchored-signal-id` / `unknown-change-anchor` instead. Fix the anchor first, then the label.
    - `rejected` with `reason: "stale-snapshot"` and `stale: true`: the tree moved since the guide was fetched. Re-fetch the guide and redo the judgments.
 
+## Production runtime data (Fallow Cloud)
+
+When the project sends production coverage to Fallow Cloud, check the changed functions against it. Use the scoped reads, not the full runtime-context pull:
+
+- **Before an edit:** `fallow coverage review-packet --repo <owner/repo> --base <ref>` (MCP: `get_cloud_review_packet`). Read `hit_count`, `covered_by_test`, and the callers when present. A hot function with `covered_by_test: null` is a high-risk edit.
+- **Before a delete:** require `period_tracking_state: "never_called"` over the period, not only `tracking_state`, and read `evidence_window.observed_hours`. Low observed hours or a low-traffic surface mean "not visited", not "dead".
+- **After a deploy:** `fallow coverage deployment-changes --repo <owner/repo>` (MCP: `get_cloud_deployment_changes`). When `comparable` is `false`, report `reason` and claim no change.
+- Open files by `repo_path`, not `file_path`.
+
+The data is context: cite it in a `framing`, never as a gate. Field meanings and the full recipe: **[references/production-runtime-data.md](references/production-runtime-data.md)**.
+
 ## Compose the review
 
 Validation is not the review. Once the judgments are accepted, render them for a human in this fixed order, so the reader lands on what changes the outcome first and the deterministic remainder last:
@@ -227,6 +238,7 @@ Merge `hooks/settings.snippet.json` into `.claude/settings.json` (it registers t
 | "The question is open, I'll just mention the fix" | A named fix is a prescription. Reframe to the open decision, or list two or more options with real costs. |
 | "The tree moved a little, the guide is probably still fine" | It is `stale-snapshot`. Re-fetch the guide and redo the judgments. |
 | "Tests are green, so the change is good" | Green is a verification fact, not a verdict on the decision surface. The decisions still need the human's call. |
+| "Production never called it, so delete it" | Check `period_tracking_state` and `evidence_window.observed_hours`. A short window or a rare path means "not visited", not "dead". |
 
 ## Notes
 
