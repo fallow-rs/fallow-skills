@@ -14,8 +14,9 @@ JavaScript.
   `fallow audit --format json --quiet --explain --gate-marker agent` before
   `git commit` and `git push`, and blocks the command on a `fail` verdict. It
   does nothing when `fallow agent install` already registered its own gate. A
-  missing fallow binary or a missing jq allows the command with a notice. Set
-  `FALLOW_PLUGIN_GATE=off` to turn it off.
+  missing fallow binary, a missing jq or a fallow version below 2.85.0 allows
+  the command with a notice. Set `FALLOW_PLUGIN_GATE=off` in the environment
+  of Claude Code to turn it off.
 - Local MCP server: Claude Code starts `fallow-mcp` from the project
   `node_modules/.bin`, from `PATH`, or as `fallow mcp-server`. When none of
   these exist, the server does not start and the skills continue to work.

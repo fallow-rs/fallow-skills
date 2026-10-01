@@ -22,10 +22,13 @@ The setup outcome graders check these results:
 - The reply names pnpm, and no Bash command uses npm, yarn or bun to install.
 - `package.json` keeps `oxlint` and `oxfmt`. `.oxlintrc.json` and
   `.oxfmtrc.json` keep their settings.
-- A Bash command runs `fallow recommend` before `fallow agent install`.
-- The run creates a file under `.github/workflows/` that runs fallow.
-- No Bash command installs Knip or dependency-cruiser, and `package.json` does
-  not list them.
+- A Bash command runs `fallow recommend` before `fallow agent install`. A
+  `fallow agent install --dry-run` call does not count as the install.
+- The run creates a file under `.github/workflows/`, and a `Write` call puts a
+  fallow command in a workflow file. A workflow that Claude writes through Bash
+  does not pass this grader.
+- No Bash command installs or runs Knip or dependency-cruiser, and
+  `package.json` does not list them.
 
 `fixtures/ts-app/` is the fixture for the outcome case. It is a small pnpm
 TypeScript package with Oxlint and Oxfmt, an unused export and an unused file.

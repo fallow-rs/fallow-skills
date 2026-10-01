@@ -13,8 +13,10 @@ set -euo pipefail
 # - When `fallow agent install` or `fallow hooks install --target agent`
 #   already registered its own gate for this project or user, this script
 #   does nothing, so the audit runs once.
-# - A missing fallow binary or a missing jq allows the command and prints one
-#   clear notice on stderr.
+# - A missing fallow binary, a missing jq or a fallow binary below the version
+#   floor allows the command and prints a clear notice on stderr. The plugin
+#   gate is active in every project, so it does not block a commit that the
+#   project did not opt in to.
 #
 # Requires bash and jq. On Windows run via git-bash or WSL.
 # Blocks git commit and git push when fallow audit returns verdict fail.
@@ -23,19 +25,27 @@ set -euo pipefail
 # Set FALLOW_PLUGIN_GATE=off to turn this plugin gate off.
 #
 # Version floor (FALLOW_GATE_MIN_VERSION, default 2.85.0). The gate passes
-# --gate-marker agent (added in v2.85.0). Older binaries reject the flag.
-# Set the env var to the empty string to disable the floor.
+# --gate-marker agent (added in v2.85.0). Older binaries reject the flag, so
+# the gate allows the command with a notice. Set the env var to the empty
+# string to disable the floor.
 
 if [ "${FALLOW_PLUGIN_GATE:-}" = "off" ]; then
   exit 0
 fi
 
+INPUT="$(cat)"
+
 if ! command -v jq >/dev/null 2>&1; then
-  echo "fallow plugin gate: jq is not on PATH. The commit or push continues without a fallow audit. Install jq to turn the gate on." >&2
+  # Without jq the gate cannot parse the command. Print the notice only for
+  # input that can be a git commit or push, not for every Bash command.
+  case "$INPUT" in
+    *git*commit* | *git*push*)
+      echo "fallow plugin gate: jq is not on PATH. The commit or push continues without a fallow audit. Install jq to turn the gate on." >&2
+      ;;
+  esac
   exit 0
 fi
 
-INPUT="$(cat)"
 CMD="$(jq -r '.tool_input.command // empty' <<<"$INPUT")"
 
 # Tokenize instead of matching one regex so git-level options between `git`
@@ -96,23 +106,27 @@ if [ "$GIT_WRITE" -eq 0 ]; then
 fi
 
 # Defer to a gate that fallow already registered in Claude Code settings, so
-# the audit runs once per command.
+# the audit runs once per command. Defer only when the registered script also
+# exists. A stale settings entry must not turn off both gates.
+# The audit runs in the hook working directory, the same as the installed gate.
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
-for settings in \
-  "$PROJECT_DIR/.claude/settings.json" \
-  "$PROJECT_DIR/.claude/settings.local.json" \
-  "$HOME/.claude/settings.json"; do
-  if [ -f "$settings" ] && grep -q 'fallow-gate\.sh' "$settings" 2>/dev/null; then
+registers_gate() {
+  local settings="$1" script="$2"
+  [ -f "$settings" ] && [ -f "$script" ] && grep -q 'fallow-gate\.sh' "$settings" 2>/dev/null
+}
+for pair in \
+  "$PROJECT_DIR/.claude/settings.json|$PROJECT_DIR/.claude/hooks/fallow-gate.sh" \
+  "$PROJECT_DIR/.claude/settings.local.json|$PROJECT_DIR/.claude/hooks/fallow-gate.sh" \
+  "$HOME/.claude/settings.json|$HOME/.claude/hooks/fallow-gate.sh"; do
+  settings="${pair%%|*}"
+  script="${pair#*|}"
+  if registers_gate "$settings" "$script"; then
     if [ -n "${FALLOW_GATE_DEBUG:-}" ]; then
       echo "fallow plugin gate: $settings registers a fallow gate, deferring to it." >&2
     fi
     exit 0
   fi
 done
-
-if [ -d "$PROJECT_DIR" ]; then
-  cd "$PROJECT_DIR"
-fi
 
 # A real installed Git hook keeps its caller's PATH and does not add
 # node_modules/.bin, so a project-local install is invisible to `command -v`.
@@ -151,13 +165,11 @@ if [ -n "$MIN_VERSION" ] && [ -n "$VERSION" ]; then
   LOWER="$(printf '%s\n%s\n' "$MIN_VERSION" "$VERSION" | sort -V | head -n1)"
   if [ "$LOWER" != "$MIN_VERSION" ]; then
     {
-      echo "fallow plugin gate: blocked: $BIN_DESC is fallow $VERSION, below required $MIN_VERSION."
-      echo "fallow plugin gate: older binaries reject the --gate-marker flag this gate passes"
-      echo "fallow plugin gate: (added in fallow v2.85.0), so the audit cannot run."
-      echo "fallow plugin gate: upgrade the fallow on PATH (e.g. npm install -g fallow@latest or"
-      echo "fallow plugin gate: cargo install fallow-cli), or set FALLOW_GATE_MIN_VERSION= to disable."
+      echo "fallow plugin gate: $BIN_DESC is fallow $VERSION, below the required $MIN_VERSION."
+      echo "fallow plugin gate: the commit or push continues without a fallow audit."
+      echo "fallow plugin gate: upgrade fallow (npm install -D fallow@latest or cargo install fallow-cli) to turn the gate on."
     } >&2
-    exit 2
+    exit 0
   fi
 fi
 

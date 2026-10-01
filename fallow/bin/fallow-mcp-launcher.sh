@@ -19,7 +19,9 @@ if command -v fallow-mcp >/dev/null 2>&1; then
   exec fallow-mcp "$@"
 fi
 
-if command -v fallow >/dev/null 2>&1 && fallow mcp-server --version >/dev/null 2>&1; then
+# The probe must not read stdin. Stdin carries the MCP messages for the
+# server that starts below.
+if command -v fallow >/dev/null 2>&1 && fallow mcp-server --version </dev/null >/dev/null 2>&1; then
   exec fallow mcp-server "$@"
 fi
 
