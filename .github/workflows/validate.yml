@@ -99,13 +99,24 @@ jobs:
           assert entry["source"] == {"source": "local", "path": "./fallow"}
           assert entry["policy"]["installation"] == "AVAILABLE"
 
+          # The Claude plugin bundles hooks/ and evals/ at the plugin root. The Codex manifest must not reference them, and the
+          # submission archive below must not contain them.
+          for field in ("mcpServers", "apps", "hooks"):
+              assert field not in manifest, f"Codex manifest must not define {field}"
           unsupported = [
-              path for path in root.rglob("*")
+              path for path in (root / "skills").rglob("*")
               if path.name in {".mcp.json", ".app.json"}
           ]
           assert not unsupported, f"Unsupported skills-only files: {unsupported}"
 
-          for skill in ("fallow", "fallow-review"):
+          # Check every vendored skill (listed in source-lock.json) and every
+          # skill that this repository owns, such as fallow-review.
+          lock = json.loads(Path("source-lock.json").read_text())
+          vendored = {Path(skill["targetRoot"]).name for skill in lock["skills"]}
+          present = {path.parent.name for path in (root / "skills").glob("*/SKILL.md")}
+          assert vendored <= present, f"Missing vendored skills: {sorted(vendored - present)}"
+          assert {"fallow", "fallow-review"} <= present
+          for skill in sorted(present):
               skill_root = root / "skills" / skill
               frontmatter = (skill_root / "SKILL.md").read_text().split("---", 2)[1]
               assert "\nmetadata:" not in frontmatter
@@ -144,7 +155,8 @@ jobs:
               names = bundle.namelist()
               assert ".codex-plugin/plugin.json" in names
               assert ".claude-plugin/plugin.json" not in names
-              assert not any(name.startswith(("bin/", "commands/")) for name in names)
+              assert not any(name.startswith(("bin/", "commands/", "hooks/", "evals/")) for name in names)
+              assert ".mcp.json" not in names
           PY
 
       # Not redundant with the PRIVATE_MARKERS guard in check-source-contract.mjs:

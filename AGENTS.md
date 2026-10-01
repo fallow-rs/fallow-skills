@@ -7,8 +7,11 @@ or public user documentation.
 ## Start here
 
 - Skill content lives under `fallow/skills/`.
-- `fallow/skills/fallow/` follows the pinned public product contract in
-  `source-lock.json`.
+- Each skill listed in `source-lock.json` follows the pinned public product
+  contract. The lock has one entry per released Fallow skill. Each entry has a
+  source root, a target root, and transforms.
+- Skills that the lock does not list, such as `fallow-review`, belong to this
+  repository. The source contract check ignores them.
 - Agent-specific interface files may wrap a skill, but must not fork its
   authored instructions.
 - Public user guidance belongs in

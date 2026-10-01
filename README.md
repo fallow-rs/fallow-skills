@@ -87,6 +87,7 @@ statusline behavior for the Claude Code and Codex surfaces.
 |---|---|---|
 | [fallow](fallow/skills/fallow/) | Codebase intelligence for JS and TS, code and styles: quality, changed-code risk, cleanup opportunities, circular deps, duplication, complexity, design-system drift, and runtime evidence | "check code health", "audit this PR", "find cleanup opportunities", "find duplicates", "what code actually runs" |
 | [fallow-review](fallow/skills/fallow-review/) | Graph-grounded review of changed-code risk, blast radius, and consequential structural decisions | "review this branch", "review this PR", "check changed code before merge" |
+| [fallow-setup](fallow/skills/fallow-setup/) | Set up or modernize code-quality tooling: detect existing tools, configure and install Fallow, wire agents, and add a CI gate | "set up quality tooling for this repo", "make this repo agent-ready", "add a code-health gate to CI" |
 
 ## Reference Documentation
 
@@ -97,9 +98,9 @@ statusline behavior for the Claude Code and Codex surfaces.
 ## Contributing
 
 See [AGENTS.md](AGENTS.md) for repository structure and quality standards.
-The `fallow` skill is vendored byte-for-byte from the fallow source repository
-at the commit pinned in `source-lock.json`; CI checks that pin against a clean
-source checkout and rejects contract or privacy-boundary drift.
+Each skill listed in `source-lock.json` is vendored byte-for-byte from the
+fallow source repository at the pinned commit. CI checks that pin against a
+clean source checkout and rejects contract or privacy-boundary drift.
 Maintainers can find the versioning, packaging, and store update procedure in
 [RELEASING.md](RELEASING.md).
 
