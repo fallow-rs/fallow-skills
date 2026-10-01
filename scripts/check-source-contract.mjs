@@ -7,12 +7,16 @@ import {
   readdir,
   realpath,
 } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const LOCK_PATH = "source-lock.json";
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/u;
+const LOCK_SCHEMA_VERSION = 2;
+const SKILL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/u;
+const SKILL_MARKER = "SKILL.md";
+const SUPPORTED_TRANSFORMS = { "SKILL.md": "strip-unsupported-metadata" };
 const PRIVATE_MARKERS = [
   /(?:^|[^\w-])\.internal\//u,
   /(?:^|[^\w@-])decisions\//u,
@@ -48,7 +52,8 @@ const filesUnder = async (root, directory = "") => {
 };
 
 const validateContainedRoot = async (repositoryRoot, relativeRoot) => {
-  if (isAbsolute(relativeRoot) || relativeRoot.split("/").includes("..")) {
+  const segments = relativeRoot.split("/");
+  if (isAbsolute(relativeRoot) || segments.some((segment) => ["", ".", ".."].includes(segment))) {
     throw new Error(`Contract root is unsafe: ${relativeRoot}`);
   }
   const realRepository = await realpath(repositoryRoot);
@@ -82,15 +87,135 @@ export const stripUnsupportedMetadata = (content) => {
   return lines.join("\n");
 };
 
-const expectedContent = (path, content, transforms) => {
-  const transform = transforms[path];
-  if (transform === undefined) {
-    return content;
+const expectedContent = (path, content, transforms) =>
+  transforms[path] === undefined ? content : stripUnsupportedMetadata(content);
+
+const isPlainObject = (value) =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const overlaps = (left, right) =>
+  left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`);
+
+const assertDisjoint = (skills, field) => {
+  for (const [index, skill] of skills.entries()) {
+    for (const other of skills.slice(index + 1)) {
+      if (overlaps(skill[field], other[field])) {
+        throw new Error(
+          `Public source lock ${field} entries overlap: ${skill[field]}, ${other[field]}`,
+        );
+      }
+    }
   }
-  if (transform === "strip-unsupported-metadata" && path === "SKILL.md") {
-    return stripUnsupportedMetadata(content);
+};
+
+const validateTransforms = (skill) => {
+  for (const [path, transform] of Object.entries(skill.transforms)) {
+    if (SUPPORTED_TRANSFORMS[path] !== transform) {
+      throw new Error(
+        `Unsupported public contract transform for ${skill.name} ${path}: ${String(transform)}`,
+      );
+    }
   }
-  throw new Error(`Unsupported public contract transform for ${path}: ${transform}`);
+};
+
+const isValidSkillEntry = (skill) =>
+  isPlainObject(skill) &&
+  typeof skill.name === "string" &&
+  SKILL_NAME_PATTERN.test(skill.name) &&
+  typeof skill.sourceRoot === "string" &&
+  typeof skill.targetRoot === "string" &&
+  isPlainObject(skill.transforms);
+
+/**
+ * Parse `source-lock.json`. Each entry in `skills` is one released Fallow
+ * skill. Skills that the lock does not list belong to this repository.
+ */
+export const parseSourceLock = (lock) => {
+  if (
+    !isPlainObject(lock) ||
+    lock.schemaVersion !== LOCK_SCHEMA_VERSION ||
+    lock.repository !== "https://github.com/fallow-rs/fallow" ||
+    !COMMIT_PATTERN.test(lock.commit ?? "") ||
+    !Array.isArray(lock.skills) ||
+    lock.skills.length === 0 ||
+    !lock.skills.every(isValidSkillEntry)
+  ) {
+    throw new Error("Invalid public source lock");
+  }
+  const names = lock.skills.map((skill) => skill.name);
+  const duplicate = names.find((name, index) => names.indexOf(name) !== index);
+  if (duplicate !== undefined) {
+    throw new Error(`Public source lock lists a skill twice: ${duplicate}`);
+  }
+  assertDisjoint(lock.skills, "sourceRoot");
+  assertDisjoint(lock.skills, "targetRoot");
+  lock.skills.forEach(validateTransforms);
+  return lock;
+};
+
+/**
+ * Return the released skills next to each listed source root. A released
+ * skill is a directory with a SKILL.md whose name does not start with `_` or
+ * `.`. This matches `releasedSkillNames` in the Fallow repository.
+ */
+const releasedSourceRoots = async (sourceDir, skills) => {
+  const parents = [...new Set(skills.map((skill) => posix.dirname(skill.sourceRoot)))];
+  const released = [];
+  for (const parent of parents) {
+    const root = await validateContainedRoot(sourceDir, parent);
+    for (const entry of await readdir(root, { withFileTypes: true })) {
+      if (!entry.isDirectory() || /^[_.]/u.test(entry.name)) {
+        continue;
+      }
+      const marker = await lstat(join(root, entry.name, SKILL_MARKER)).catch(() => null);
+      if (marker?.isFile()) {
+        released.push(posix.join(parent, entry.name));
+      }
+    }
+  }
+  return released.toSorted();
+};
+
+const assertEveryReleasedSkillListed = async (sourceDir, skills) => {
+  const listed = new Set(skills.map((skill) => skill.sourceRoot));
+  const unlisted = (await releasedSourceRoots(sourceDir, skills)).filter(
+    (root) => !listed.has(root),
+  );
+  if (unlisted.length > 0) {
+    throw new Error(
+      `Released Fallow skills are not listed in ${LOCK_PATH}: ` +
+        unlisted.map((root) => posix.basename(root)).join(", "),
+    );
+  }
+};
+
+const validateSkill = async (repositoryRoot, sourceDir, skill) => {
+  const contained = (root, relativeRoot, side) =>
+    validateContainedRoot(root, relativeRoot).catch((error) => {
+      throw new Error(
+        `${skill.name}: ${side} root is missing or unsafe: ${relativeRoot} ` +
+          `(${error instanceof Error ? error.message : String(error)})`,
+      );
+    });
+  const sourceRoot = await contained(sourceDir, skill.sourceRoot, "source");
+  const targetRoot = await contained(repositoryRoot, skill.targetRoot, "target");
+  const sourceFiles = await filesUnder(sourceRoot);
+  const targetFiles = await filesUnder(targetRoot);
+  if (sourceFiles.join("\0") !== targetFiles.join("\0")) {
+    throw new Error(
+      `${skill.name}: public skill inventory drift: source=[${sourceFiles.join(", ")}], ` +
+        `target=[${targetFiles.join(", ")}]`,
+    );
+  }
+
+  for (const path of sourceFiles) {
+    const source = await readFile(join(sourceRoot, path), "utf8");
+    const target = await readFile(join(targetRoot, path), "utf8");
+    if (expectedContent(path, source, skill.transforms) !== target) {
+      throw new Error(`${skill.name}: public skill content drift: ${path}`);
+    }
+  }
+  return { name: skill.name, files: sourceFiles };
 };
 
 const sourceCommit = (sourceDir) =>
@@ -131,41 +256,20 @@ export const validateSourceContract = async ({
   verifyCommit = true,
   publicFiles,
 }) => {
-  const lock = JSON.parse(await readFile(join(repositoryRoot, LOCK_PATH), "utf8"));
-  if (
-    lock.schemaVersion !== 1 ||
-    lock.repository !== "https://github.com/fallow-rs/fallow" ||
-    !COMMIT_PATTERN.test(lock.commit ?? "") ||
-    typeof lock.sourceRoot !== "string" ||
-    typeof lock.targetRoot !== "string" ||
-    typeof lock.transforms !== "object"
-  ) {
-    throw new Error("Invalid public source lock");
-  }
+  const lock = parseSourceLock(
+    JSON.parse(await readFile(join(repositoryRoot, LOCK_PATH), "utf8")),
+  );
   if (verifyCommit && sourceCommit(sourceDir) !== lock.commit) {
     throw new Error(`Fallow source checkout does not match locked commit ${lock.commit}`);
   }
 
-  const sourceRoot = await validateContainedRoot(sourceDir, lock.sourceRoot);
-  const targetRoot = await validateContainedRoot(repositoryRoot, lock.targetRoot);
-  const sourceFiles = await filesUnder(sourceRoot);
-  const targetContractFiles = await filesUnder(targetRoot);
-  if (sourceFiles.join("\0") !== targetContractFiles.join("\0")) {
-    throw new Error(
-      `Public skill inventory drift: source=[${sourceFiles.join(", ")}], ` +
-        `target=[${targetContractFiles.join(", ")}]`,
-    );
-  }
-
-  for (const path of sourceFiles) {
-    const source = await readFile(join(sourceRoot, path), "utf8");
-    const target = await readFile(join(targetRoot, path), "utf8");
-    if (expectedContent(path, source, lock.transforms) !== target) {
-      throw new Error(`Public skill content drift: ${path}`);
-    }
+  await assertEveryReleasedSkillListed(sourceDir, lock.skills);
+  const skills = [];
+  for (const skill of lock.skills) {
+    skills.push(await validateSkill(repositoryRoot, sourceDir, skill));
   }
   await validatePublicFiles(repositoryRoot, publicFiles);
-  return { commit: lock.commit, files: sourceFiles };
+  return { commit: lock.commit, skills };
 };
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -179,9 +283,10 @@ if (isMain) {
   } else {
     validateSourceContract({ sourceDir: resolve(configuredSource) })
       .then((result) => {
-        process.stdout.write(
-          `Public skill contract matches ${result.commit} (${result.files.length.toString()} files).\n`,
-        );
+        const summary = result.skills
+          .map((skill) => `${skill.name}: ${skill.files.length.toString()} files`)
+          .join(", ");
+        process.stdout.write(`Public skill contract matches ${result.commit} (${summary}).\n`);
       })
       .catch((error) => {
         process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

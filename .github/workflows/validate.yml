@@ -110,7 +110,14 @@ jobs:
           ]
           assert not unsupported, f"Unsupported skills-only files: {unsupported}"
 
-          for skill in ("fallow", "fallow-review"):
+          # Check every vendored skill (listed in source-lock.json) and every
+          # skill that this repository owns, such as fallow-review.
+          lock = json.loads(Path("source-lock.json").read_text())
+          vendored = {Path(skill["targetRoot"]).name for skill in lock["skills"]}
+          present = {path.parent.name for path in (root / "skills").glob("*/SKILL.md")}
+          assert vendored <= present, f"Missing vendored skills: {sorted(vendored - present)}"
+          assert {"fallow", "fallow-review"} <= present
+          for skill in sorted(present):
               skill_root = root / "skills" / skill
               frontmatter = (skill_root / "SKILL.md").read_text().split("---", 2)[1]
               assert "\nmetadata:" not in frontmatter

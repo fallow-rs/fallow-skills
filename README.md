@@ -97,9 +97,9 @@ statusline behavior for the Claude Code and Codex surfaces.
 ## Contributing
 
 See [AGENTS.md](AGENTS.md) for repository structure and quality standards.
-The `fallow` skill is vendored byte-for-byte from the fallow source repository
-at the commit pinned in `source-lock.json`; CI checks that pin against a clean
-source checkout and rejects contract or privacy-boundary drift.
+Each skill listed in `source-lock.json` is vendored byte-for-byte from the
+fallow source repository at the pinned commit. CI checks that pin against a
+clean source checkout and rejects contract or privacy-boundary drift.
 Maintainers can find the versioning, packaging, and store update procedure in
 [RELEASING.md](RELEASING.md).
 
