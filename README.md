@@ -73,7 +73,7 @@ npm install -g fallow    # prebuilt binaries
 npx fallow                   # or run without installing
 ```
 
-See the [installation guide](https://docs.fallow.tools/installation) for all options including `cargo install fallow-cli`.
+See the [installation guide](https://fallow.tools/docs/installation/) for all options including `cargo install fallow-cli`.
 
 ## Privacy and network behavior
 
@@ -117,7 +117,7 @@ The hook only checks manifest version agreement and the bump rule; see
 ## Related
 
 - [fallow](https://github.com/fallow-rs/fallow): codebase intelligence for TypeScript and JavaScript, a single pass over code and styles
-- [fallow-docs](https://docs.fallow.tools): Official documentation
+- [fallow-docs](https://fallow.tools/docs/): Official documentation
 - [VS Code extension](https://marketplace.visualstudio.com/items?itemName=fallow-rs.fallow-vscode): Real-time diagnostics in your editor
 - [Agent Skills specification](https://agentskills.io): The open standard this skill follows
 
