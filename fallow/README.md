@@ -8,6 +8,7 @@ JavaScript.
 - `fallow`: static analysis, changed-code risk, cleanup, architecture, styling,
   runtime evidence, and local Impact summaries.
 - `fallow-review`: graph-grounded review of changed code and structural risk.
+- `fallow-setup`: sets up code-quality tooling for a JavaScript or TypeScript project and adds Fallow, the agent integration, and a CI gate.
 - `impact-statusline`: an optional Claude Code command that previews and manages
   a local statusline setting.
 - Commit gate: a Claude Code `PreToolUse` hook that runs

@@ -113,6 +113,8 @@ Full tool catalogue, resource catalogue, key params, runtime source-map confiden
 - [Similar Code](references/similar-code.md): snapshot-stable discovery, inspection, and verdict workflow
 - [Node Bindings](references/node-bindings.md): embed the analysis engine in a Node.js process via NAPI
 
+To set up or modernize the code-quality tooling of a repository (package install, config, agent wiring, CI gate), use the `fallow-setup` skill.
+
 ## Common Workflows
 
 ### Audit a project for cleanup opportunities
@@ -375,7 +377,7 @@ export const deprecatedHelper = () => {};
 ## Key Gotchas
 
 - **`fix --yes` is required** in non-TTY (agent) environments. Without it, `fix` exits with code 2
-- **Zero config by default.** Built-in framework plugins auto-detect, including Wuchale config, Contentlayer content roots, tap and tsd test entry points. Read `fallow schema.plugins` for the current registry and don't create config unless customization is needed
+- **Zero config by default.** Built-in framework plugins auto-detect, including Wuchale config, Contentlayer content roots, Kibana `kibana.jsonc` plugin entries, tap and tsd test entry points. Read `fallow schema.plugins` for the current registry and don't create config unless customization is needed
 - **Syntactic analysis only.** No TypeScript compiler, so fully dynamic `import(variable)` is not resolved
 - **Function overloads are deduplicated.** TypeScript function overload signatures are merged into a single export (not reported as separate unused exports)
 - **Re-export chains are resolved.** Exports through barrel files are tracked, not falsely flagged

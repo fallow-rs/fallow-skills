@@ -1,12 +1,20 @@
 {
   "schemaVersion": 2,
   "repository": "https://github.com/fallow-rs/fallow",
-  "commit": "50f23ab7260900bfb51fb063eea0293f5a17ff49",
+  "commit": "256a0d97f1cdef22b48f96d17c89816dd32c8cff",
   "skills": [
     {
       "name": "fallow",
       "sourceRoot": "npm/fallow/skills/fallow",
       "targetRoot": "fallow/skills/fallow",
+      "transforms": {
+        "SKILL.md": "strip-unsupported-metadata"
+      }
+    },
+    {
+      "name": "fallow-setup",
+      "sourceRoot": "npm/fallow/skills/fallow-setup",
+      "targetRoot": "fallow/skills/fallow-setup",
       "transforms": {
         "SKILL.md": "strip-unsupported-metadata"
       }
