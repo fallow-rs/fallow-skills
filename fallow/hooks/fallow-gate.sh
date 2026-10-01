@@ -13,10 +13,10 @@ set -euo pipefail
 # - When `fallow agent install` or `fallow hooks install --target agent`
 #   already registered its own gate for this project or user, this script
 #   does nothing, so the audit runs once.
+# - It runs only in a project that chose fallow (a fallow config file or a
+#   "fallow" dependency in package.json), and it audits that project root.
 # - A missing fallow binary, a missing jq or a fallow binary below the version
-#   floor allows the command and prints a clear notice on stderr. The plugin
-#   gate is active in every project, so it does not block a commit that the
-#   project did not opt in to.
+#   floor allows the command and prints a clear notice on stderr.
 #
 # Requires bash and jq. On Windows run via git-bash or WSL.
 # Blocks git commit and git push when fallow audit returns verdict fail.
@@ -32,6 +32,29 @@ set -euo pipefail
 if [ "${FALLOW_PLUGIN_GATE:-}" = "off" ]; then
   exit 0
 fi
+
+# The plugin is installed for the user, not for one project, so the gate runs
+# only in a project that chose fallow: a fallow config file or a "fallow"
+# dependency in package.json. The walk goes up from the hook working directory
+# and stops at the first .git entry. The audit then runs in that project root.
+opted_in() {
+  local dir="$1" name
+  for name in .fallowrc.json .fallowrc.jsonc fallow.toml .fallow.toml; do
+    [ -f "$dir/$name" ] && return 0
+  done
+  [ -f "$dir/package.json" ] && grep -Eq '"fallow"[[:space:]]*:' "$dir/package.json" 2>/dev/null
+}
+ROOT="$PWD"
+until opted_in "$ROOT"; do
+  if [ -e "$ROOT/.git" ] || [ "$ROOT" = / ]; then
+    if [ -n "${FALLOW_GATE_DEBUG:-}" ]; then
+      echo "fallow plugin gate: no fallow config or dependency in this project, skipping." >&2
+    fi
+    exit 0
+  fi
+  ROOT="$(dirname "$ROOT")"
+done
+cd "$ROOT"
 
 INPUT="$(cat)"
 
@@ -108,8 +131,7 @@ fi
 # Defer to a gate that fallow already registered in Claude Code settings, so
 # the audit runs once per command. Defer only when the registered script also
 # exists. A stale settings entry must not turn off both gates.
-# The audit runs in the hook working directory, the same as the installed gate.
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$ROOT}"
 registers_gate() {
   local settings="$1" script="$2"
   [ -f "$settings" ] && [ -f "$script" ] && grep -q 'fallow-gate\.sh' "$settings" 2>/dev/null
@@ -117,6 +139,8 @@ registers_gate() {
 for pair in \
   "$PROJECT_DIR/.claude/settings.json|$PROJECT_DIR/.claude/hooks/fallow-gate.sh" \
   "$PROJECT_DIR/.claude/settings.local.json|$PROJECT_DIR/.claude/hooks/fallow-gate.sh" \
+  "$ROOT/.claude/settings.json|$ROOT/.claude/hooks/fallow-gate.sh" \
+  "$ROOT/.claude/settings.local.json|$ROOT/.claude/hooks/fallow-gate.sh" \
   "$HOME/.claude/settings.json|$HOME/.claude/hooks/fallow-gate.sh"; do
   settings="${pair%%|*}"
   script="${pair#*|}"

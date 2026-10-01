@@ -13,7 +13,10 @@ JavaScript.
 - Commit gate: a Claude Code `PreToolUse` hook that runs
   `fallow audit --format json --quiet --explain --gate-marker agent` before
   `git commit` and `git push`, and blocks the command on a `fail` verdict. It
-  does nothing when `fallow agent install` already registered its own gate. A
+  runs only in a project that chose fallow: a `.fallowrc.json`,
+  `.fallowrc.jsonc`, `fallow.toml` or `.fallow.toml` file, or a `fallow`
+  dependency in `package.json`. It audits that project root. It does nothing
+  when `fallow agent install` already registered its own gate. A
   missing fallow binary, a missing jq or a fallow version below 2.85.0 allows
   the command with a notice. Set `FALLOW_PLUGIN_GATE=off` in the environment
   of Claude Code to turn it off.

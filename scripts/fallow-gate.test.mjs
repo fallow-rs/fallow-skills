@@ -22,7 +22,7 @@ const hooksConfig = join(pluginRoot, "hooks", "hooks.json");
 
 // Only these tools reach the gate, so a fallow, npx or yarn on the host PATH
 // cannot change the result.
-const HOST_TOOLS = ["bash", "jq", "cat", "tr", "sed", "sort", "head", "mktemp", "rm", "grep"];
+const HOST_TOOLS = ["bash", "jq", "cat", "tr", "sed", "sort", "head", "mktemp", "rm", "grep", "dirname"];
 
 const scratch = mkdtempSync(join(tmpdir(), "fallow-gate-test-"));
 after(() => rmSync(scratch, { recursive: true, force: true }));
@@ -37,7 +37,13 @@ const skip = missingTools.length > 0 ? `missing host tools: ${missingTools.join(
 
 let caseCounter = 0;
 
-const makeCase = ({ fallowJson = null, fallowExit = 0, version = "9.9.9", tools = HOST_TOOLS } = {}) => {
+const makeCase = ({
+  fallowJson = null,
+  fallowExit = 0,
+  version = "9.9.9",
+  tools = HOST_TOOLS,
+  optIn = true,
+} = {}) => {
   caseCounter += 1;
   const root = join(scratch, `case-${caseCounter}`);
   const bin = join(root, "bin");
@@ -45,6 +51,8 @@ const makeCase = ({ fallowJson = null, fallowExit = 0, version = "9.9.9", tools 
   const home = join(root, "home");
   for (const dir of [bin, project, home]) mkdirSync(dir, { recursive: true });
   for (const name of tools) symlinkSync(resolveTool(name), join(bin, name));
+  mkdirSync(join(project, ".git"));
+  if (optIn) writeFileSync(join(project, ".fallowrc.json"), "{}\n");
 
   const calls = join(root, "fallow-calls.log");
   if (fallowJson !== null) {
@@ -176,14 +184,41 @@ test("a stale settings entry without the gate script does not turn the gate off"
   assert.equal(auditCalls(fixture).length, 1);
 });
 
-test("the audit runs in the hook working directory", { skip }, () => {
+test("the audit runs in the opted-in project root from a subdirectory", { skip }, () => {
   const fixture = makeCase({ fallowJson: { verdict: "pass" } });
-  const other = join(fixture.project, "..", "elsewhere");
-  mkdirSync(other);
-  const result = runGate(fixture, "git commit -m 'change'", {}, other);
+  const sub = join(fixture.project, "packages", "app");
+  mkdirSync(sub, { recursive: true });
+  const result = runGate(fixture, "git commit -m 'change'", {}, sub);
   assert.equal(result.status, 0);
   assert.equal(auditCalls(fixture).length, 1);
-  assert.ok(auditCalls(fixture)[0].endsWith(" @ " + realpathSync(other)), auditCalls(fixture)[0]);
+  assert.ok(auditCalls(fixture)[0].endsWith(" @ " + realpathSync(fixture.project)), auditCalls(fixture)[0]);
+});
+
+test("a project without a fallow config or dependency is not gated", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1, optIn: false });
+  writeFileSync(join(fixture.project, "package.json"), JSON.stringify({ devDependencies: { knip: "1" } }));
+  const result = runGate(fixture, "git commit -m 'change'");
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  assert.deepEqual(auditCalls(fixture), []);
+});
+
+test("a fallow dependency in package.json opts the project in", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1, optIn: false });
+  writeFileSync(join(fixture.project, "package.json"), JSON.stringify({ devDependencies: { fallow: "^2.90.0" } }));
+  const result = runGate(fixture, "git commit -m 'change'");
+  assert.equal(result.status, 2);
+  assert.equal(auditCalls(fixture).length, 1);
+});
+
+test("the opt-in walk stops at a nested worktree", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1 });
+  const worktree = join(fixture.project, ".claude", "worktrees", "feature");
+  mkdirSync(worktree, { recursive: true });
+  writeFileSync(join(worktree, ".git"), "gitdir: elsewhere\n");
+  const result = runGate(fixture, "git commit -m 'change'", {}, worktree);
+  assert.equal(result.status, 0);
+  assert.deepEqual(auditCalls(fixture), []);
 });
 
 test("a fallow binary below the version floor allows the commit with a notice", { skip }, () => {
