@@ -14,7 +14,10 @@ set -euo pipefail
 #   already registered its own gate for this project or user, this script
 #   does nothing, so the audit runs once.
 # - It runs only in a project that chose fallow (a fallow config file or a
-#   "fallow" dependency in package.json), and it audits that project root.
+#   `fallow` dependency in package.json), and it audits the nearest such
+#   directory above the session directory.
+# - Codex also loads this hook from the plugin. It defers to a gate that
+#   `fallow agent install` registered for Claude Code or for Codex.
 # - A missing fallow binary, a missing jq or a fallow binary below the version
 #   floor allows the command and prints a clear notice on stderr.
 #
@@ -33,18 +36,35 @@ if [ "${FALLOW_PLUGIN_GATE:-}" = "off" ]; then
   exit 0
 fi
 
+INPUT="$(cat)"
+
 # The plugin is installed for the user, not for one project, so the gate runs
-# only in a project that chose fallow: a fallow config file or a "fallow"
-# dependency in package.json. The walk goes up from the hook working directory
-# and stops at the first .git entry. The audit then runs in that project root.
+# only in a project that chose fallow: a fallow config file, or `fallow` in the
+# dependencies, devDependencies, optionalDependencies or peerDependencies of
+# package.json. The walk starts at the `cwd` of the hook input (the session
+# directory), goes up to the nearest directory that matches, and stops at the
+# first .git entry. The audit then runs in that directory.
+HAVE_JQ=0
+command -v jq >/dev/null 2>&1 && HAVE_JQ=1
 opted_in() {
   local dir="$1" name
   for name in .fallowrc.json .fallowrc.jsonc fallow.toml .fallow.toml; do
     [ -f "$dir/$name" ] && return 0
   done
-  [ -f "$dir/package.json" ] && grep -Eq '"fallow"[[:space:]]*:' "$dir/package.json" 2>/dev/null
+  [ -f "$dir/package.json" ] || return 1
+  if [ "$HAVE_JQ" -eq 1 ]; then
+    jq -e '[.dependencies, .devDependencies, .optionalDependencies, .peerDependencies] | map(select(type == "object" and has("fallow"))) | length > 0' \
+      "$dir/package.json" >/dev/null 2>&1
+  else
+    grep -Eq '"fallow"[[:space:]]*:[[:space:]]*"[~^<>=0-9*.a-z:/-]' "$dir/package.json" 2>/dev/null
+  fi
 }
-ROOT="$PWD"
+START=""
+if [ "$HAVE_JQ" -eq 1 ]; then
+  START="$(jq -r '.cwd // empty' <<<"$INPUT" 2>/dev/null || true)"
+fi
+[ -n "$START" ] && [ -d "$START" ] || START="$PWD"
+ROOT="$START"
 until opted_in "$ROOT"; do
   if [ -e "$ROOT/.git" ] || [ "$ROOT" = / ]; then
     if [ -n "${FALLOW_GATE_DEBUG:-}" ]; then
@@ -56,9 +76,7 @@ until opted_in "$ROOT"; do
 done
 cd "$ROOT"
 
-INPUT="$(cat)"
-
-if ! command -v jq >/dev/null 2>&1; then
+if [ "$HAVE_JQ" -eq 0 ]; then
   # Without jq the gate cannot parse the command. Print the notice only for
   # input that can be a git commit or push, not for every Bash command.
   case "$INPUT" in
@@ -128,7 +146,7 @@ if [ "$GIT_WRITE" -eq 0 ]; then
   exit 0
 fi
 
-# Defer to a gate that fallow already registered in Claude Code settings, so
+# Defer to a gate that fallow already registered for Claude Code or Codex, so
 # the audit runs once per command. Defer only when the registered script also
 # exists. A stale settings entry must not turn off both gates.
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$ROOT}"
@@ -141,6 +159,8 @@ for pair in \
   "$PROJECT_DIR/.claude/settings.local.json|$PROJECT_DIR/.claude/hooks/fallow-gate.sh" \
   "$ROOT/.claude/settings.json|$ROOT/.claude/hooks/fallow-gate.sh" \
   "$ROOT/.claude/settings.local.json|$ROOT/.claude/hooks/fallow-gate.sh" \
+  "$ROOT/.codex/hooks.json|$ROOT/.codex/hooks/fallow-gate.sh" \
+  "$HOME/.codex/hooks.json|$HOME/.codex/hooks/fallow-gate.sh" \
   "$HOME/.claude/settings.json|$HOME/.claude/hooks/fallow-gate.sh"; do
   settings="${pair%%|*}"
   script="${pair#*|}"

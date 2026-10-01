@@ -75,11 +75,11 @@ const makeCase = ({
   return { bin, project, home, calls };
 };
 
-const runGate = (fixture, command, extraEnv = {}, cwd = fixture.project) =>
+const runGate = (fixture, command, extraEnv = {}, cwd = fixture.project, inputCwd = undefined) =>
   spawnSync(join(fixture.bin, "bash"), [gate], {
     cwd,
     encoding: "utf8",
-    input: JSON.stringify({ tool_name: "Bash", tool_input: { command } }),
+    input: JSON.stringify({ tool_name: "Bash", tool_input: { command }, ...(inputCwd ? { cwd: inputCwd } : {}) }),
     env: {
       PATH: fixture.bin,
       HOME: fixture.home,
@@ -217,6 +217,37 @@ test("the opt-in walk stops at a nested worktree", { skip }, () => {
   mkdirSync(worktree, { recursive: true });
   writeFileSync(join(worktree, ".git"), "gitdir: elsewhere\n");
   const result = runGate(fixture, "git commit -m 'change'", {}, worktree);
+  assert.equal(result.status, 0);
+  assert.deepEqual(auditCalls(fixture), []);
+});
+
+test("the walk starts at the cwd of the hook input", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1 });
+  const elsewhere = join(fixture.project, "..", "plain");
+  mkdirSync(join(elsewhere, ".git"), { recursive: true });
+  const result = runGate(fixture, "git commit -m 'change'", {}, elsewhere, fixture.project);
+  assert.equal(result.status, 2);
+  const auditDir = auditCalls(fixture)[0].split(" @ ")[1];
+  assert.equal(realpathSync(auditDir), realpathSync(fixture.project));
+});
+
+test("a package.json script named fallow does not opt the project in", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1, optIn: false });
+  writeFileSync(join(fixture.project, "package.json"), JSON.stringify({ scripts: { fallow: "fallow audit" } }));
+  const result = runGate(fixture, "git commit -m 'change'");
+  assert.equal(result.status, 0);
+  assert.deepEqual(auditCalls(fixture), []);
+});
+
+test("a Codex gate registered by fallow agent install takes precedence", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1 });
+  mkdirSync(join(fixture.project, ".codex", "hooks"), { recursive: true });
+  writeFileSync(
+    join(fixture.project, ".codex", "hooks.json"),
+    JSON.stringify({ hooks: { PreToolUse: [{ matcher: "^Bash$", hooks: [{ type: "command", command: "./.codex/hooks/fallow-gate.sh" }] }] } }),
+  );
+  writeFileSync(join(fixture.project, ".codex", "hooks", "fallow-gate.sh"), "#!/usr/bin/env bash\n");
+  const result = runGate(fixture, "git commit -m 'change'");
   assert.equal(result.status, 0);
   assert.deepEqual(auditCalls(fixture), []);
 });

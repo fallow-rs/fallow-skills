@@ -16,18 +16,19 @@ JavaScript.
   `git commit` and `git push`, and blocks the command on a `fail` verdict. It
   runs only in a project that chose fallow: a `.fallowrc.json`,
   `.fallowrc.jsonc`, `fallow.toml` or `.fallow.toml` file, or a `fallow`
-  dependency in `package.json`. It audits that project root. It does nothing
-  when `fallow agent install` already registered its own gate. A
+  dependency in `package.json`. It audits the nearest such directory above
+  the session directory. It does nothing when `fallow agent install` already
+  registered its own gate for Claude Code or Codex. A
   missing fallow binary, a missing jq or a fallow version below 2.85.0 allows
   the command with a notice. Set `FALLOW_PLUGIN_GATE=off` in the environment
   of Claude Code to turn it off.
-- Local MCP server: Claude Code starts `fallow-mcp` from the project
-  `node_modules/.bin`, from `PATH`, or as `fallow mcp-server`. When none of
-  these exist, the server does not start and the skills continue to work.
 
-Codex receives the skills and their referenced assets. Claude Code also
-discovers the optional statusline command, the commit gate, and the local MCP
-server. Fallow does not require a remote MCP server.
+Codex receives the skills and their referenced assets. Codex also loads the
+commit gate from `hooks/hooks.json` after you trust it. Claude Code also
+discovers the optional statusline command. The plugin bundles no MCP server:
+`fallow agent install`, which the `fallow-setup` skill runs, registers the
+local fallow MCP server for each project. Fallow does not require a remote MCP
+server.
 
 `evals/` holds the activation and setup eval suite. See
 [evals/README.md](evals/README.md).

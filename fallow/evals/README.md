@@ -6,7 +6,10 @@ plugin. `claude plugin eval` reads it. Codex has no equivalent runner, so
 matrix as a manual checklist.
 
 The `fallow-setup` skill comes from the fallow repository through the normal
-skill sync. The setup cases fail until that skill is in `fallow/skills/`.
+skill sync. Run the suite with `--ablation none` (one arm, plugin on), or read
+the per-arm results: a `tool_used` grader without `arm: both` scores only in
+the plugin arm. Each negative case also has a `task-answered` grader, so a run
+that does not load the plugin cannot pass by doing nothing.
 
 ## Cases
 

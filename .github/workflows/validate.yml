@@ -99,8 +99,7 @@ jobs:
           assert entry["source"] == {"source": "local", "path": "./fallow"}
           assert entry["policy"]["installation"] == "AVAILABLE"
 
-          # The Claude plugin bundles .mcp.json, hooks/ and evals/ at the plugin
-          # root. The Codex manifest must not reference them, and the
+          # The Claude plugin bundles hooks/ and evals/ at the plugin root. The Codex manifest must not reference them, and the
           # submission archive below must not contain them.
           for field in ("mcpServers", "apps", "hooks"):
               assert field not in manifest, f"Codex manifest must not define {field}"
