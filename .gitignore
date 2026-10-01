@@ -4,3 +4,4 @@ __pycache__/
 *.log
 dist-submissions/
 .source/
+fallow/evals/results/

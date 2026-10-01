@@ -10,10 +10,22 @@ JavaScript.
 - `fallow-review`: graph-grounded review of changed code and structural risk.
 - `impact-statusline`: an optional Claude Code command that previews and manages
   a local statusline setting.
+- Commit gate: a Claude Code `PreToolUse` hook that runs
+  `fallow audit --format json --quiet --explain --gate-marker agent` before
+  `git commit` and `git push`, and blocks the command on a `fail` verdict. It
+  does nothing when `fallow agent install` already registered its own gate. A
+  missing fallow binary or a missing jq allows the command with a notice. Set
+  `FALLOW_PLUGIN_GATE=off` to turn it off.
+- Local MCP server: Claude Code starts `fallow-mcp` from the project
+  `node_modules/.bin`, from `PATH`, or as `fallow mcp-server`. When none of
+  these exist, the server does not start and the skills continue to work.
 
-Codex receives the two skills and their referenced assets. Claude Code also
-discovers the optional statusline command. Fallow does not require a remote MCP
-server.
+Codex receives the skills and their referenced assets. Claude Code also
+discovers the optional statusline command, the commit gate, and the local MCP
+server. Fallow does not require a remote MCP server.
+
+`evals/` holds the activation and setup eval suite. See
+[evals/README.md](evals/README.md).
 
 ## Privacy and network behavior
 

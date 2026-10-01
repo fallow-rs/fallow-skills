@@ -1,6 +1,6 @@
 {
   "name": "fallow",
-  "version": "1.2.89",
+  "version": "1.3.0",
   "description": "Local-first codebase intelligence for TypeScript and JavaScript using fallow",
   "author": {
     "name": "Bart Waardenburg",
@@ -23,22 +23,23 @@
   "interface": {
     "displayName": "Fallow Code Analysis",
     "shortDescription": "Local JS/TS code analysis",
-    "longDescription": "Fallow gives Codex fast, local-first codebase analysis for TypeScript and JavaScript. Audit changed-code risk, find dead code and unused dependencies, detect duplication and complexity hotspots, inspect architecture boundaries, and prioritize safe cleanup. Fallow Impact explains the latest full-project issue count, its comparable trend, and findings cleared while tracking. Optional cloud and product telemetry workflows run only after explicit user action.",
+    "longDescription": "Fallow gives Codex fast, local-first code-quality tooling for TypeScript and JavaScript. Set up or modernize the quality stack of a new or existing project: detect the package manager, keep the formatter and linter the project already uses, write a Fallow config, add a code-health gate to CI, and make the repository agent-ready. One tool covers dead code, unused dependencies, duplication, complexity, circular dependencies, architecture boundaries, and changed-code risk, so the project does not need separate dead-code and dependency-graph tools. Audit a branch before review and prioritize safe cleanup. Fallow Impact explains the latest full-project issue count, its comparable trend, and findings cleared while tracking. Optional cloud and product telemetry workflows run only after explicit user action.",
     "developerName": "Bart Waardenburg",
     "category": "Developer Tools",
     "capabilities": [
       "Static analysis",
       "Code review",
       "Local workflow",
+      "Project setup",
       "Impact summaries"
     ],
     "websiteURL": "https://fallow.tools/plugins?utm_source=openai&utm_medium=plugin-directory",
     "privacyPolicyURL": "https://fallow.tools/privacy",
     "termsOfServiceURL": "https://fallow.tools/terms",
     "defaultPrompt": [
-      "Audit this codebase for changed-code risk and cleanup opportunities.",
-      "Review this branch with fallow and prioritize what needs attention.",
-      "Show the latest Fallow Impact summary for this project."
+      "Set up code quality tooling for this TypeScript project.",
+      "Make this repository agent-ready and add a code-health CI gate.",
+      "Audit this branch for changed-code risk and cleanup opportunities."
     ],
     "brandColor": "#1C1B1C",
     "composerIcon": "./assets/icon.png",

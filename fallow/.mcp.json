@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "fallow": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/fallow-mcp-launcher.sh",
+      "args": []
+    }
+  }
+}

@@ -99,8 +99,13 @@ jobs:
           assert entry["source"] == {"source": "local", "path": "./fallow"}
           assert entry["policy"]["installation"] == "AVAILABLE"
 
+          # The Claude plugin bundles .mcp.json, hooks/ and evals/ at the plugin
+          # root. The Codex manifest must not reference them, and the
+          # submission archive below must not contain them.
+          for field in ("mcpServers", "apps", "hooks"):
+              assert field not in manifest, f"Codex manifest must not define {field}"
           unsupported = [
-              path for path in root.rglob("*")
+              path for path in (root / "skills").rglob("*")
               if path.name in {".mcp.json", ".app.json"}
           ]
           assert not unsupported, f"Unsupported skills-only files: {unsupported}"
@@ -144,7 +149,8 @@ jobs:
               names = bundle.namelist()
               assert ".codex-plugin/plugin.json" in names
               assert ".claude-plugin/plugin.json" not in names
-              assert not any(name.startswith(("bin/", "commands/")) for name in names)
+              assert not any(name.startswith(("bin/", "commands/", "hooks/", "evals/")) for name in names)
+              assert ".mcp.json" not in names
           PY
 
       # Not redundant with the PRIVATE_MARKERS guard in check-source-contract.mjs:
