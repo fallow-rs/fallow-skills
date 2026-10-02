@@ -22,7 +22,8 @@ result agrees with the expected skill.
 | Make this Next app agent-ready. | `fallow-setup` | | |
 | Add a code-health gate to CI. | `fallow-setup` | | |
 | Replace Knip and dependency-cruiser. | `fallow-setup` | | |
-| Audit this PR. | `fallow-review` | `fallow-setup` | |
+| Review this PR. | `fallow-review` | `fallow-setup` | |
+| Audit this PR. | `fallow` | `fallow-setup` | |
 | Find dead code and architecture problems. | `fallow` | `fallow-setup` | |
 | Format this file. | none | `fallow-setup` | |
 | Fix this TS2345 error. | none | `fallow-setup` | |
