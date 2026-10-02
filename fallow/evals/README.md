@@ -58,4 +58,9 @@ claude plugin eval . --tag outcome --runs 1 --scaffold \
   --allow-tools Bash Write Edit --no-publish
 ```
 
+The outcome case needs `fallow` on `PATH`, so the baseline arm can find it
+too: the model can guess the name and run `which fallow`. The score delta of
+the outcome case is therefore a lower bound. The activation cases measure
+whether Claude picks the plugin skills.
+
 Results go to `evals/results/`, which git ignores.
