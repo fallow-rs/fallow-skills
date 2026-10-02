@@ -16,7 +16,7 @@ that does not load the plugin cannot pass by doing nothing.
 | Group | Tag | Cases | Pass condition |
 | --- | --- | --- | --- |
 | Setup activation | `trigger`, `setup` | `setup-trigger-*` | Claude selects `fallow-setup`. |
-| Routing | `trigger`, `routing` | `route-audit-pr`, `route-dead-code-architecture` | Claude selects `fallow-review` or `fallow`, and not `fallow-setup`. |
+| Routing | `trigger`, `routing` | `route-review-pr`, `route-audit-pr`, `route-dead-code-architecture` | Claude selects `fallow-review` for a review, `fallow` for an audit or an analysis, and never `fallow-setup`. |
 | Negative | `trigger`, `negative` | `negative-*` | Claude does not select `fallow-setup`. |
 | Setup outcome | `outcome`, `setup` | `setup-typescript-project` | The setup run on the fixture meets every outcome grader. |
 
@@ -41,10 +41,12 @@ The scaffold script copies it into the run workspace and makes a first commit.
 
 Run the commands from the `fallow/` plugin directory.
 
-Activation cases use read-only tools only. A small trial:
+Activation cases use read-only tools only. `route-audit-pr` builds a git
+repository with a feature branch through its scaffold script, so pass
+`--scaffold`. A small trial:
 
 ```bash
-claude plugin eval . --tag trigger --runs 1 --no-publish
+claude plugin eval . --tag trigger --runs 1 --scaffold --no-publish
 ```
 
 The outcome case needs Bash, Write and Edit, the scaffold script, and a
