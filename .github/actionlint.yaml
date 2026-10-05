@@ -1,0 +1,4 @@
+# GitHub-hosted Ubuntu 26.04 is ahead of actionlint 1.7.12's runner catalog.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
