@@ -579,7 +579,7 @@ Common global flags for this command: [`--format`](#global-flags), [`--quiet`](#
 
 With `--workspace`, vital signs, the health score, hotspots, file scores, findings, and `summary.files_analyzed` are all recomputed against the scoped subset.
 
-With `--group-by`, JSON adds `grouped_by` plus a `groups` array. Each group has its own `vital_signs`, `health_score`, `findings`, `file_scores`, `hotspots`, `large_functions`, and `targets`, recomputed against the files of the group. The top-level metrics stay project-wide, so a consumer that ignores grouping still sees the project headline. Human output adds a per-group score / files / hot / p90 summary block (worst first when `--score` is set). SARIF results carry `properties.group`, and CodeClimate issues carry a top-level `group` field. Compact, markdown, and badge output fall back to ungrouped output with a stderr note.
+With `--group-by`, JSON adds `grouped_by` plus a `groups` array. Each group has its own `vital_signs`, `health_score`, `findings`, `file_scores`, `hotspots`, `large_functions`, and `targets`, recomputed against the files of the group. The top-level metrics stay project-wide, so a consumer that ignores grouping still sees the project headline. Human output adds a per-group score / files / hot / p90 summary block (worst first when `--score` is set). Markdown adds a grouped health table. SARIF results carry `properties.group`, and CodeClimate issues carry a top-level `group` field. Compact and badge output fall back to ungrouped output with a stderr note.
 
 ### Exit Codes
 
