@@ -244,14 +244,6 @@ jobs:
         working-directory: codex-app
         run: npm test
 
-      # The app is a fallow example, so it holds itself to fallow too.
-      # Dead code fails on any finding. Duplication fails above 0.1%; 0 means no limit.
-      - name: Run fallow on the Fallow app
-        working-directory: codex-app
-        run: |
-          fallow dead-code --fail-on-issues
-          fallow dupes --threshold 0.1
-
       - name: Read pinned Fallow source revision
         id: source-lock
         run: |
@@ -281,9 +273,44 @@ jobs:
           compression-level: 0
           retention-days: 30
 
+  # The app is an example of fallow, so CI runs the fallow action on it in its default mode:
+  # all analyses, scoped to the changed files on a pull request, with annotations.
+  fallow:
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: codex-app/package-lock.json
+
+      # fallow resolves the imports through node_modules.
+      - name: Install the Fallow app dependencies
+        working-directory: codex-app
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      # The health baseline holds the complexity that existed before this job.
+      # A new finding fails the job, and so does a fixed finding that is still in the baseline.
+      # Update it with: fallow health --root codex-app --save-baseline codex-app/health-baseline.json
+      # Duplication fails above 0.1%, because 0 means no limit.
+      - uses: fallow-rs/fallow@aaaec796f5449810b9ecf82ed7e62b775d4d1ef3 # v3.32.0
+        with:
+          version: 3.32.0
+          root: codex-app
+          threshold: "0.1"
+          fail-on-stale-baseline: true
+          args: "--health-baseline codex-app/health-baseline.json"
+
   publish-release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: validate
+    needs: [validate, fallow]
     runs-on: ubuntu-26.04
     permissions:
       contents: write

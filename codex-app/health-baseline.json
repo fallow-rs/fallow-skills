@@ -1,0 +1,220 @@
+{
+  "kind": "health",
+  "finding_counts": {
+    "scripts/build.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "scripts/harness/host.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "scripts/harness/serve.mjs": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "src/app/components/ui.tsx": {
+      "crap_high": {
+        "count": 3
+      }
+    },
+    "src/app/config-rules.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/app/host.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "src/app/main.tsx": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/app/opened-file.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/app/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/app/sarif.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "src/app/views/audit.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "src/app/views/config.tsx": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/app/views/dashboard.tsx": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/app/views/findings.tsx": {
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "src/app/views/sarif.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "src/app/views/states.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/server/analysis.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/server/app-tools.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "src/server/fallow-cli.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/server/forms.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/server/mentions.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "src/server/normalize.ts": {
+      "crap_high": {
+        "count": 5
+      },
+      "crap_moderate": {
+        "count": 5
+      }
+    },
+    "src/server/project.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "src/server/state.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "src/server/summary.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "src/server/tools.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "test/cli-and-app.test.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "test/server.test.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    }
+  },
+  "runtime_coverage_findings": [],
+  "target_keys": [
+    "src/server/json.ts:high impact",
+    "src/server/project.ts:high impact",
+    "src/server/mentions.ts:untested risk",
+    "src/app/host.ts:high impact",
+    "src/server/normalize.ts:untested risk",
+    "src/app/sarif.ts:untested risk"
+  ]
+}
