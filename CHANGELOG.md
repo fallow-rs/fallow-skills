@@ -7,8 +7,9 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - The commit gate audits the directory that a git commit or push targets. It reads `git -C <dir>`, `--work-tree`, `--git-dir` and an earlier `cd <dir>`. Before, it audited the session directory, so a finding in one worktree blocked a commit in another worktree.
-- A target that does not opt in to fallow skips the gate. A target that is not a directory leaves the audit at the session directory.
-- The gate reads quoted words, so a path with spaces stays one target and quoted text no longer counts as a git command.
+- A target that does not opt in to fallow needs no audit. A path with spaces in quotes stays one target.
+- The gate also audits the session directory when a write has no target, when a target is not a directory, and when it cannot follow the command. Examples are `sh -c`, `eval`, quoted git text, `GIT_DIR` variables, `cd` before `||`, `|` or `&`, and commands longer than 16 KB.
+- Each git write audits its own project. A fail verdict in any of them blocks the command.
 
 ## [1.4.0] - 2026-04-09
 
