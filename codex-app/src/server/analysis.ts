@@ -52,6 +52,8 @@ const keyOf = (root: string, scope: string, base: string | null, production: boo
 export const createAnalyzer = () => {
   const cache = new Map<string, CacheEntry>();
   const running = new Map<string, Promise<Analysis>>();
+  /** Every root that a tool call resolved and analyzed in this process. */
+  const seen = new Set<string>();
 
   const remember = (entry: CacheEntry): void => {
     cache.delete(entry.key);
@@ -65,6 +67,7 @@ export const createAnalyzer = () => {
 
   const analyze = async (request: AnalyzeRequest): Promise<Analysis> => {
     const { project, settings } = request;
+    seen.add(project.root);
     const scope = request.scope ?? settings.scope;
     const production = request.production ?? settings.production;
     const base =
@@ -138,7 +141,7 @@ export const createAnalyzer = () => {
     );
   };
 
-  return { analyze, audit, latest };
+  return { analyze, audit, latest, hasSeen: (root: string): boolean => seen.has(root) };
 };
 
 export type Analyzer = ReturnType<typeof createAnalyzer>;

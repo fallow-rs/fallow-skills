@@ -6,7 +6,7 @@ import type { Finding, ProjectRef } from "../shared/contracts.ts";
 import type { Analysis } from "./analysis.ts";
 import type { Extra, ServerContext } from "./context.ts";
 import { categoryThumbnail } from "./icons.ts";
-import { describeProject, resolveProject, sandboxFromMeta } from "./project.ts";
+import { describeProject, resolveProject, sandboxFor } from "./project.ts";
 import { findingMarkdown, reportText } from "./summary.ts";
 import {
   FINDING_TEMPLATE,
@@ -108,7 +108,7 @@ const projectFindings = async (
   const run: Promise<Analysis> = context.analyzer.analyze({
     project,
     settings: await context.store.settings(),
-    sandbox: extra === null ? null : sandboxFromMeta(extra._meta),
+    sandbox: extra === null ? null : sandboxFor(extra._meta),
   });
   const analysis = waitMs === null ? await run : await withDeadline(run, waitMs);
   return analysis !== null && analysis.ok ? analysis.findings : null;

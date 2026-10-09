@@ -115,7 +115,14 @@ the committed files differ.
 - `fallow_app_source` reads source lines only inside the analyzed project, and
   checks that again after it resolves symbolic links. `fallow_app_locate` only
   returns paths inside the project or the folder of the opened file.
+- App-only tools accept only a project root that a server call already
+  resolved (from the thread, the picker or the recent projects), so the app
+  cannot point the server at another folder.
 - `fallow://` resources only serve projects that the user opened before.
+- Calls from the sidebar or the thread tab reuse the sandbox state of the last
+  model call in the same thread. Without a sandbox, the `auto` binary setting
+  never runs a `node_modules/.bin/fallow` that the opened repository ships; it
+  uses the fallow on PATH, then `npx`.
 - Settings are validated per field. The base branch must not start with `-`, so
   a setting can never become a fallow flag. The fallow binary is chosen from a
   fixed list (`auto`, `project`, `path`, `npx`), never from a free-form command.

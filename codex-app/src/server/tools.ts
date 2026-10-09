@@ -10,7 +10,7 @@ import type { Analysis } from "./analysis.ts";
 import { problemResult, READ_ONLY, viewResult, type Extra, type ServerContext } from "./context.ts";
 import { fallowVersion } from "./fallow-cli.ts";
 import { AUDIT_ICON } from "./icons.ts";
-import { resolveProject, sandboxFromMeta } from "./project.ts";
+import { resolveProject, sandboxFor } from "./project.ts";
 import { BASE_REF_PATTERN } from "./state.ts";
 import { auditSummary, auditText, findingMarkdown, reportSummary, reportText } from "./summary.ts";
 
@@ -95,7 +95,7 @@ export const openDashboard = async (
   const pending = context.analyzer.analyze({
     project,
     settings,
-    sandbox: sandboxFromMeta(extra._meta),
+    sandbox: sandboxFor(extra._meta),
     scope,
     ...(options.base === undefined ? {} : { base: options.base }),
     ...(options.production === undefined ? {} : { production: options.production }),
@@ -135,7 +135,7 @@ export const openAudit = async (
   const outcome = await context.analyzer.audit({
     project: resolved.project,
     settings,
-    sandbox: sandboxFromMeta(extra._meta),
+    sandbox: sandboxFor(extra._meta),
     ...(options.base === undefined ? {} : { base: options.base }),
   });
   if (!outcome.ok) return problemResult(outcome.problem, resolved.project);
@@ -163,7 +163,7 @@ export const findFinding = async (
       const analysis = await context.analyzer.analyze({
         project: resolved.project,
         settings: await context.store.settings(),
-        sandbox: sandboxFromMeta(extra._meta),
+        sandbox: sandboxFor(extra._meta),
       });
       return analysis.ok ? analysis.findings : [];
     })());

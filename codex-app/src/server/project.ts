@@ -93,6 +93,25 @@ export const sandboxFromMeta = (meta: unknown): SandboxState | null => {
   return codexExecutable === null ? null : { codexExecutable, raw };
 };
 
+/** The sandbox state of the last model call per thread, in memory only. */
+const threadSandboxes = new Map<string, SandboxState>();
+
+/**
+ * The sandbox for a tool call. A model call carries its own state. A call from the sidebar or the
+ * thread tab carries only the thread id; it gets the state of the last model call in that thread,
+ * because it acts for the same user in the same thread. Without one, the caller runs unsandboxed
+ * and `resolveFallow` then refuses a binary from the project itself.
+ */
+export const sandboxFor = (meta: unknown): SandboxState | null => {
+  const own = sandboxFromMeta(meta);
+  const threadId = threadFromMeta(meta);
+  if (own !== null) {
+    if (threadId !== null) threadSandboxes.set(threadId, own);
+    return own;
+  }
+  return threadId === null ? null : (threadSandboxes.get(threadId) ?? null);
+};
+
 export const threadFromMeta = (meta: unknown): string | null => {
   const id = string(record(meta)[THREAD_META_KEY]);
   return id !== null && THREAD_ID_PATTERN.test(id) ? id : null;

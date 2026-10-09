@@ -14,7 +14,8 @@ import {
   resourcePathFromMeta,
   toLocalPath,
 } from "./project.ts";
-import { openAudit, openDashboard, uiMeta } from "./tools.ts";
+import { BASE_REF_PATTERN } from "./state.ts";
+import { openAudit, openDashboard, pickerResult, uiMeta } from "./tools.ts";
 
 const APP_ONLY = { ui: { visibility: ["app"] } };
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
@@ -44,10 +45,21 @@ export const locate = async (bases: string[], target: string): Promise<LocatedFi
   return null;
 };
 
-/** Base folders for an app call: the project root it names, or the folder of the file entrypoint. */
-const basesFor = async (extra: Extra, root: string | undefined): Promise<string[]> => {
+/**
+ * A root that the app may name: one that a server-side call resolved before (from the thread, the
+ * picker or the recent list). The app cannot point the server at an arbitrary folder.
+ */
+export const isKnownRoot = async (context: ServerContext, root: string | undefined): Promise<boolean> => {
+  if (root === undefined || !isAbsolute(root)) return false;
+  const normalized = resolve(root);
+  if (context.analyzer.hasSeen(normalized)) return true;
+  return (await context.store.recents()).some((recent) => recent.root === normalized);
+};
+
+/** Base folders for an app call: a known project root it names, and the folder of the file entrypoint. */
+const basesFor = async (context: ServerContext, extra: Extra, root: string | undefined): Promise<string[]> => {
   const bases: string[] = [];
-  if (root !== undefined && isAbsolute(root)) bases.push(resolve(root));
+  if (root !== undefined && (await isKnownRoot(context, root))) bases.push(resolve(root));
   const opened = resourcePathFromMeta(extra._meta);
   if (opened !== null) {
     bases.push(dirname(opened));
@@ -96,18 +108,23 @@ export const registerAppTools = (context: ServerContext): void => {
       _meta: uiMeta(context, { visibility: ["app"] }),
     },
     async ({ root, scope, production, force }, extra) =>
-      openDashboard(context, extra, { root, scope, production, force }),
+      (await isKnownRoot(context, root))
+        ? openDashboard(context, extra, { root, scope, production, force })
+        : pickerResult(context, "Choose the project again to analyze it."),
   );
 
   server.registerTool(
     "fallow_app_audit",
     {
       title: "Audit branch",
-      inputSchema: z.object({ root: z.string(), base: z.string().optional() }),
+      inputSchema: z.object({ root: z.string(), base: z.string().regex(new RegExp(BASE_REF_PATTERN)).optional() }),
       annotations: READ_ONLY,
       _meta: uiMeta(context, { visibility: ["app"] }),
     },
-    async ({ root, base }, extra) => openAudit(context, extra, { root, base }),
+    async ({ root, base }, extra) =>
+      (await isKnownRoot(context, root))
+        ? openAudit(context, extra, { root, base })
+        : pickerResult(context, "Choose the project again to audit it."),
   );
 
   server.registerTool(
@@ -119,7 +136,7 @@ export const registerAppTools = (context: ServerContext): void => {
       _meta: APP_ONLY,
     },
     async ({ path, root }, extra) => {
-      const located = await locate(await basesFor(extra, root), path);
+      const located = await locate(await basesFor(context, extra, root), path);
       return dataResult(located === null ? { path: null, exists: false } : { ...located });
     },
   );
@@ -137,12 +154,13 @@ export const registerAppTools = (context: ServerContext): void => {
       annotations: READ_ONLY,
       _meta: APP_ONLY,
     },
-    async ({ root, path, line, context: around }, extra) => {
-      const located = await locate(await basesFor(extra, root), path);
+    async ({ root, path, line, context: around }) => {
+      if (!(await isKnownRoot(context, root))) return dataResult({ found: false });
+      const located = await locate([resolve(root)], path);
       if (located === null) return dataResult({ found: false });
-      const real = await realpath(located.path);
+      const real = await realpath(located.path).catch(() => null);
       const base = await realpath(resolve(root)).catch(() => null);
-      if (base !== null && !isWithin(base, real)) return dataResult({ found: false });
+      if (real === null || base === null || !isWithin(base, real)) return dataResult({ found: false });
       const snippet = await readLines(real, line, around).catch(() => null);
       return dataResult(
         snippet === null
@@ -163,6 +181,7 @@ export const registerAppTools = (context: ServerContext): void => {
     async ({ rule, root }) => {
       const cached = explainCache.get(rule);
       if (cached !== undefined) return dataResult(cached);
+      if (!(await isKnownRoot(context, root))) return dataResult({ found: false });
       const settings = await context.store.settings();
       const result = await runFallow({
         root: resolve(root),

@@ -56,7 +56,9 @@ listing text for that ZIP.
   them and configures the required credentials.
 - The Fallow app runs the fallow CLI on the machine. It makes no network
   requests itself; only the `npx` fallback downloads the CLI. For a model tool
-  call it runs fallow inside the Codex sandbox of the thread. It reads source
+  call, and for the sidebar or thread tab after a model call in the same thread,
+  it runs fallow inside the Codex sandbox of the thread. Outside the sandbox it
+  never runs a fallow binary that the opened repository ships. It reads source
   lines only inside the project it analyzes. To open the right project in a
   thread tab, it reads the first line of that thread's Codex session log, which
   holds the working directory. It stores settings, recent projects and a

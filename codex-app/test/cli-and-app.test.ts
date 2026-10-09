@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import { ruleCategory } from "../src/app/config-rules.ts";
 import { parseRoute } from "../src/app/route.ts";
 import { parseSarif } from "../src/app/sarif.ts";
-import { runFallow } from "../src/server/fallow-cli.ts";
+import { resolveFallow, runFallow } from "../src/server/fallow-cli.ts";
 
 const IS_WINDOWS = process.platform === "win32";
 
@@ -57,7 +57,16 @@ describe(
       assert.equal(result.problem.code, "timeout");
     });
 
-    it("says how to install fallow when the project has no binary", async () => {
+    it("never runs a project's own fallow outside the sandbox in auto mode", async () => {
+    const root = projectWithFallow(`echo '{"kind":"combined","version":"from-project"}'`);
+    const executable = await resolveFallow(root, "auto", false);
+    assert.ok(executable !== null);
+    assert.ok(!executable.command.startsWith(root), executable.command);
+    const sandboxed = await resolveFallow(root, "auto", true);
+    assert.ok(sandboxed?.command.startsWith(root));
+  });
+
+  it("says how to install fallow when the project has no binary", async () => {
       const root = mkdtempSync(join(tmpdir(), "fallow-cli-empty-"));
       const result = await runFallow({ root, args: [], source: "project", sandbox: null });
       assert.ok(!result.ok);

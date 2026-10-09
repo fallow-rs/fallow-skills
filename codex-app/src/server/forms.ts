@@ -10,7 +10,7 @@ import { CATEGORY_ORDER, CATEGORY_TITLES } from "../shared/categories.ts";
 import type { CategoryId, Finding, ProjectRef } from "../shared/contracts.ts";
 import { problemResult, READ_ONLY, type Extra, type ServerContext } from "./context.ts";
 import { categoryThumbnail } from "./icons.ts";
-import { resolveProject, sandboxFromMeta, toLocalPath } from "./project.ts";
+import { resolveProject, sandboxFor, toLocalPath } from "./project.ts";
 import { findingUri } from "./uris.ts";
 import { openDashboard, pickerResult, uiMeta } from "./tools.ts";
 
@@ -204,7 +204,7 @@ export const registerForms = (context: ServerContext): void => {
       const analysis = await context.analyzer.analyze({
         project,
         settings,
-        sandbox: sandboxFromMeta(extra._meta),
+        sandbox: sandboxFor(extra._meta),
       });
       if (!analysis.ok) return problemResult(analysis.problem, project);
 

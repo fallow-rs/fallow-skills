@@ -196,7 +196,17 @@ describe(
       await assert.rejects(client.readResource({ uri: `fallow://project/${stranger}/report` }));
     });
 
-    it("stores settings and validates them", async () => {
+    it("refuses app reads and runs for a folder that no server call resolved", async () => {
+    const source = (await client.callTool({
+      name: "fallow_app_source",
+      arguments: { root: "/etc", path: "hosts", line: 1 },
+    })) as CallToolResult;
+    assert.deepEqual(source.structuredContent, { found: false });
+    const run = (await client.callTool({ name: "fallow_app_run", arguments: { root: "/etc" } })) as CallToolResult;
+    assert.equal(view(run).view, "picker");
+  });
+
+  it("stores settings and validates them", async () => {
       const updated = (await client.callTool({
         name: "fallow_settings_update",
         arguments: { set: { scope: "changed" } },

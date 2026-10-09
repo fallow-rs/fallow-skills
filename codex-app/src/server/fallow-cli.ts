@@ -88,9 +88,12 @@ const NPX: Executable = {
 export const resolveFallow = async (
   root: string,
   source: FallowSource,
+  sandboxed: boolean,
 ): Promise<Executable | null> => {
   if (source === "npx") return NPX;
-  if (source === "project" || source === "auto") {
+  // A repository can ship its own node_modules/.bin/fallow. Outside the Codex sandbox, `auto`
+  // runs only a fallow that the user installed, never one that the opened project brings.
+  if (source === "project" || (source === "auto" && sandboxed)) {
     const local = await findProjectBinary(root);
     if (local !== null) return { command: local, prefix: [], label: "project fallow" };
     if (source === "project") return null;
@@ -189,7 +192,7 @@ const parseJson = (text: string): Json | null => {
  * Fallow exits 1 when it finds issues, so the exit code alone never decides success: valid JSON does.
  */
 export const runFallow = async (request: RunRequest): Promise<RunResult> => {
-  const executable = await resolveFallow(request.root, request.source);
+  const executable = await resolveFallow(request.root, request.source, request.sandbox !== null);
   if (executable === null) return { ok: false, problem: notFound(request.source) };
 
   const fallowArgs = [...executable.prefix, ...request.args];
@@ -283,7 +286,7 @@ export const fallowVersion = async (
 ): Promise<
   { ok: true; version: string; binary: string } | { ok: false; problem: FallowProblem }
 > => {
-  const executable = await resolveFallow(root, source);
+  const executable = await resolveFallow(root, source, false);
   if (executable === null) return { ok: false, problem: notFound(source) };
   const result = await run(
     executable.command,
