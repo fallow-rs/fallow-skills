@@ -39,7 +39,7 @@ jobs:
           while IFS= read -r -d '' f; do
             echo "  Checking $f"
             python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$f"
-          done < <(find . -name "*.json" -not -path "./node_modules/*" -print0)
+          done < <(find . -name "*.json" -not -path "*/node_modules/*" -print0)
           echo "All JSON files are valid."
 
       - name: Validate SKILL.md frontmatter
@@ -101,8 +101,22 @@ jobs:
 
           # The Claude plugin bundles hooks/ and evals/ at the plugin root. The Codex manifest must not reference them, and the
           # submission archive below must not contain them.
-          for field in ("mcpServers", "apps", "hooks"):
+          for field in ("apps", "hooks"):
               assert field not in manifest, f"Codex manifest must not define {field}"
+
+          # The Fallow app: a bundled MCP server that only the marketplace install loads. The
+          # skills-only overlay keeps it out of the directory submission.
+          assert manifest["mcpServers"] == "./codex-app/mcp.json"
+          servers = json.loads((root / "codex-app/mcp.json").read_text())["mcpServers"]
+          assert servers["fallow-app"]["args"] == ["./codex-app/server.mjs"]
+          assert (root / "codex-app/server.mjs").is_file() and (root / "codex-app/app.html").is_file()
+          onboarding = manifest["extensions"]["com.openai"]["onboardingSkill"]
+          assert (root / onboarding).is_file(), f"Missing onboarding skill: {onboarding}"
+          overlay = json.loads((root / ".codex-plugin/skills-only.json").read_text())
+          assert len(overlay["interface"]["shortDescription"]) <= 30
+          assert Path(onboarding).parent.name in overlay["omitSkills"]
+          # Claude auto-loads a root .mcp.json; the app server is for Codex only.
+          assert not (root / ".mcp.json").exists()
           unsupported = [
               path for path in (root / "skills").rglob("*")
               if path.name in {".mcp.json", ".app.json"}
@@ -146,6 +160,7 @@ jobs:
           echo "archive_name=$archive_name" >> "$GITHUB_OUTPUT"
 
           ARCHIVE="$archive" python3 - <<'PY'
+          import json
           import os
           from pathlib import Path
           from zipfile import ZipFile
@@ -157,6 +172,9 @@ jobs:
               assert ".claude-plugin/plugin.json" not in names
               assert not any(name.startswith(("bin/", "commands/", "hooks/", "evals/")) for name in names)
               assert ".mcp.json" not in names
+              assert not any(name.startswith(("codex-app/", "skills/fallow-codex-onboarding/")) for name in names)
+              packaged = json.loads(bundle.read(".codex-plugin/plugin.json"))
+              assert "mcpServers" not in packaged and "extensions" not in packaged
           PY
 
       # Not redundant with the PRIVATE_MARKERS guard in check-source-contract.mjs:
@@ -165,7 +183,7 @@ jobs:
       - name: Check for hardcoded paths
         run: |
           echo "Checking for hardcoded paths..."
-          if grep -rn "/Users/" --include="*.md" --include="*.json" .; then
+          if grep -rn "/Users/" --include="*.md" --include="*.json" --exclude-dir=node_modules .; then
             echo "ERROR: Found hardcoded user paths"
             exit 1
           fi
@@ -194,6 +212,37 @@ jobs:
 
       - name: Test JavaScript tooling
         run: node --test scripts/*.test.mjs
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: codex-app/package-lock.json
+
+      - name: Install the Fallow app toolchain
+        working-directory: codex-app
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --global --ignore-scripts "fallow@$(node -p 'require("./package.json").config.fallowForTests')"
+
+      - name: Typecheck the Fallow app
+        working-directory: codex-app
+        run: npm run typecheck
+
+      # The plugin ships the built server and app, because a plugin install runs no build step.
+      # Rebuild from source and fail when the committed files differ.
+      - name: Check the committed Fallow app build
+        working-directory: codex-app
+        run: |
+          npm run build
+          git diff --exit-code -- ../fallow/codex-app || {
+            echo "::error::fallow/codex-app is out of date. Run npm run build in codex-app and commit the result."
+            exit 1
+          }
+
+      - name: Test the Fallow app
+        working-directory: codex-app
+        run: npm test
 
       - name: Read pinned Fallow source revision
         id: source-lock

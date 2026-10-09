@@ -23,12 +23,23 @@ JavaScript.
   the command with a notice. Set `FALLOW_PLUGIN_GATE=off` in the environment
   of Claude Code to turn it off.
 
-Codex receives the skills and their referenced assets. Codex also loads the
-commit gate from `hooks/hooks.json` after you trust it. Claude Code also
-discovers the optional statusline command. The plugin bundles no MCP server:
-`fallow agent install`, which the `fallow-setup` skill runs, registers the
-local fallow MCP server for each project. Fallow does not require a remote MCP
-server.
+- Fallow app (Codex desktop): a local MCP server and MCP App in `codex-app/`.
+  It adds the Fallow dashboard to the sidebar, a Code Health tab beside each
+  thread, @Fallow mentions, a `.fallowrc.json` editor with an impact preview, a
+  `.sarif` viewer, a branch audit, a cleanup form, and native settings. Its
+  source is in [`codex-app/`](../codex-app/README.md) at the repository root.
+- `fallow-codex-onboarding`: the setup skill that Codex runs after install.
+
+Codex receives the skills, their referenced assets and the Fallow app. Codex
+also loads the commit gate from `hooks/hooks.json` after you trust it. Claude
+Code also discovers the optional statusline command; it does not load the
+Fallow app, which only `.codex-plugin/plugin.json` declares. `fallow agent
+install`, which the `fallow-setup` skill runs, registers the separate fallow MCP
+server for each project. Fallow does not require a remote MCP server.
+
+The OpenAI plugin directory takes skills-only plugins, so its ZIP leaves out the
+Fallow app and the onboarding skill. `.codex-plugin/skills-only.json` sets the
+listing text for that ZIP.
 
 `evals/` holds the activation and setup eval suite. See
 [evals/README.md](evals/README.md).
@@ -43,6 +54,15 @@ server.
   `fallow telemetry disable` turns it off again.
 - Cloud commands make network requests only after the user explicitly requests
   them and configures the required credentials.
+- The Fallow app runs the fallow CLI on the machine. It makes no network
+  requests itself; only the `npx` fallback downloads the CLI. For a model tool
+  call it runs fallow inside the Codex sandbox of the thread. It reads source
+  lines only inside the project it analyzes. To open the right project in a
+  thread tab, it reads the first line of that thread's Codex session log, which
+  holds the working directory. It stores settings, recent projects and a
+  thread-to-project map in the user state folder (`~/Library/Application
+  Support/fallow` on macOS). The config impact preview writes a draft next to
+  the config file for the length of two fallow runs, then deletes it.
 - The statusline helper only writes after showing a preview and receiving
   explicit confirmation. It preserves the previous setting and refuses to
   overwrite later manual changes.

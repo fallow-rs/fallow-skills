@@ -1,0 +1,4 @@
+interface:
+  display_name: "Set up Fallow"
+  short_description: "Check fallow, choose defaults, run the first analysis"
+  default_prompt: "Use $fallow-codex-onboarding to set up the Fallow app for this project."

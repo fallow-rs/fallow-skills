@@ -1,0 +1,935 @@
+{
+  "kind": "combined",
+  "schema_version": 12,
+  "version": "3.31.0",
+  "elapsed_ms": 128,
+  "gate_outcomes": {
+    "error-severity-findings": {
+      "status": "fail",
+      "enforced": false
+    },
+    "health-findings": {
+      "status": "fail",
+      "enforced": false
+    }
+  },
+  "check": {
+    "schema_version": 9,
+    "version": "3.31.0",
+    "elapsed_ms": 35,
+    "total_issues": 8,
+    "entry_points": {
+      "total": 1,
+      "sources": {
+        "manual_entry": 1
+      }
+    },
+    "summary": {
+      "total_issues": 8,
+      "unused_files": 1,
+      "unused_exports": 4,
+      "unused_types": 0,
+      "private_type_leaks": 0,
+      "deprecated_exports_in_use": 0,
+      "unused_dependencies": 2,
+      "unused_enum_members": 0,
+      "unused_class_members": 0,
+      "unused_store_members": 0,
+      "unprovided_injects": 0,
+      "unrendered_components": 0,
+      "unused_component_props": 0,
+      "unused_component_emits": 0,
+      "unused_component_inputs": 0,
+      "unused_component_outputs": 0,
+      "unused_svelte_events": 0,
+      "unused_server_actions": 0,
+      "unused_load_data_keys": 0,
+      "unresolved_imports": 0,
+      "unlisted_dependencies": 0,
+      "duplicate_exports": 0,
+      "type_only_dependencies": 0,
+      "test_only_dependencies": 0,
+      "dev_dependencies_in_production": 0,
+      "circular_dependencies": 1,
+      "re_export_cycles": 0,
+      "package_cycles": 0,
+      "boundary_violations": 0,
+      "boundary_coverage_violations": 0,
+      "boundary_call_violations": 0,
+      "policy_violations": 0,
+      "stale_suppressions": 0,
+      "unused_catalog_entries": 0,
+      "empty_catalog_groups": 0,
+      "unresolved_catalog_references": 0,
+      "unused_dependency_overrides": 0,
+      "misconfigured_dependency_overrides": 0,
+      "invalid_client_exports": 0,
+      "mixed_client_server_barrels": 0,
+      "misplaced_directives": 0,
+      "route_collisions": 0,
+      "dynamic_segment_name_conflicts": 0
+    },
+    "unused_files": [
+      {
+        "path": "src/legacy.ts",
+        "finding_id": "dc1:unused-file:a4280170d8295b60",
+        "actions": [
+          {
+            "type": "delete-file",
+            "auto_fixable": false,
+            "description": "Delete this file",
+            "note": "File deletion may remove runtime functionality not visible to static analysis"
+          },
+          {
+            "type": "suppress-file",
+            "auto_fixable": false,
+            "description": "Suppress with a file-level comment at the top of the file",
+            "comment": "// fallow-ignore-file unused-file"
+          }
+        ],
+        "effective_severity": "error"
+      }
+    ],
+    "unused_exports": [
+      {
+        "path": "src/a.ts",
+        "export_name": "useB",
+        "is_type_only": false,
+        "line": 13,
+        "col": 13,
+        "span_start": 594,
+        "is_re_export": false,
+        "finding_id": "dc1:unused-export:ec4def668dcff822",
+        "actions": [
+          {
+            "type": "remove-export",
+            "auto_fixable": true,
+            "description": "Remove the unused export from the public API"
+          },
+          {
+            "type": "suppress-line",
+            "auto_fixable": false,
+            "description": "Suppress with an inline comment above the line",
+            "comment": "// fallow-ignore-next-line unused-export"
+          }
+        ],
+        "effective_severity": "error"
+      },
+      {
+        "path": "src/b.ts",
+        "export_name": "useA",
+        "is_type_only": false,
+        "line": 13,
+        "col": 13,
+        "span_start": 594,
+        "is_re_export": false,
+        "finding_id": "dc1:unused-export:6ba19a96d3d69eaa",
+        "actions": [
+          {
+            "type": "remove-export",
+            "auto_fixable": true,
+            "description": "Remove the unused export from the public API"
+          },
+          {
+            "type": "suppress-line",
+            "auto_fixable": false,
+            "description": "Suppress with an inline comment above the line",
+            "comment": "// fallow-ignore-next-line unused-export"
+          }
+        ],
+        "effective_severity": "error"
+      },
+      {
+        "path": "src/money.ts",
+        "export_name": "parsePrice",
+        "is_type_only": false,
+        "line": 2,
+        "col": 13,
+        "span_start": 91,
+        "is_re_export": false,
+        "finding_id": "dc1:unused-export:b088086e3327464a",
+        "actions": [
+          {
+            "type": "remove-export",
+            "auto_fixable": true,
+            "description": "Remove the unused export from the public API"
+          },
+          {
+            "type": "suppress-line",
+            "auto_fixable": false,
+            "description": "Suppress with an inline comment above the line",
+            "comment": "// fallow-ignore-next-line unused-export"
+          }
+        ],
+        "effective_severity": "error"
+      },
+      {
+        "path": "src/money.ts",
+        "export_name": "riskyDiscount",
+        "is_type_only": false,
+        "line": 3,
+        "col": 16,
+        "span_start": 177,
+        "is_re_export": false,
+        "finding_id": "dc1:unused-export:8557cb2613b30bf7",
+        "actions": [
+          {
+            "type": "remove-export",
+            "auto_fixable": true,
+            "description": "Remove the unused export from the public API"
+          },
+          {
+            "type": "suppress-line",
+            "auto_fixable": false,
+            "description": "Suppress with an inline comment above the line",
+            "comment": "// fallow-ignore-next-line unused-export, complexity"
+          }
+        ],
+        "effective_severity": "error"
+      }
+    ],
+    "unused_types": [],
+    "private_type_leaks": [],
+    "deprecated_exports_in_use": [],
+    "unused_dependencies": [
+      {
+        "package_name": "left-pad",
+        "location": "dependencies",
+        "path": "package.json",
+        "line": 1,
+        "finding_id": "dc1:unused-dependency:555cb7b0d3c45f44",
+        "actions": [
+          {
+            "type": "remove-dependency",
+            "auto_fixable": true,
+            "description": "Remove from dependencies in package.json"
+          },
+          {
+            "type": "add-to-config",
+            "auto_fixable": false,
+            "description": "Add \"left-pad\" to ignoreDependencies in fallow config",
+            "config_key": "ignoreDependencies",
+            "value": "left-pad",
+            "value_schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json#/properties/ignoreDependencies/items"
+          }
+        ],
+        "effective_severity": "warn"
+      },
+      {
+        "package_name": "lodash",
+        "location": "dependencies",
+        "path": "package.json",
+        "line": 1,
+        "finding_id": "dc1:unused-dependency:e2f217ff5a209568",
+        "actions": [
+          {
+            "type": "remove-dependency",
+            "auto_fixable": true,
+            "description": "Remove from dependencies in package.json"
+          },
+          {
+            "type": "add-to-config",
+            "auto_fixable": false,
+            "description": "Add \"lodash\" to ignoreDependencies in fallow config",
+            "config_key": "ignoreDependencies",
+            "value": "lodash",
+            "value_schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json#/properties/ignoreDependencies/items"
+          }
+        ],
+        "effective_severity": "warn"
+      }
+    ],
+    "unused_dev_dependencies": [],
+    "unused_optional_dependencies": [],
+    "unused_enum_members": [],
+    "unused_class_members": [],
+    "unresolved_imports": [],
+    "unlisted_dependencies": [],
+    "duplicate_exports": [],
+    "type_only_dependencies": [],
+    "test_only_dependencies": [],
+    "dev_dependencies_in_production": [],
+    "circular_dependencies": [
+      {
+        "files": [
+          "src/a.ts",
+          "src/b.ts"
+        ],
+        "length": 2,
+        "line": 1,
+        "col": 9,
+        "edges": [
+          {
+            "path": "src/a.ts",
+            "line": 1,
+            "col": 9
+          },
+          {
+            "path": "src/b.ts",
+            "line": 1,
+            "col": 9
+          }
+        ],
+        "finding_id": "dc1:circular-dependency:49db3ffbfd35affc",
+        "actions": [
+          {
+            "type": "refactor-cycle",
+            "auto_fixable": false,
+            "description": "Extract shared logic into a separate module to break the cycle",
+            "note": "Circular imports can cause initialization issues and make code harder to reason about"
+          },
+          {
+            "type": "suppress-line",
+            "auto_fixable": false,
+            "description": "Suppress with an inline comment above the line",
+            "comment": "// fallow-ignore-next-line circular-dependency"
+          }
+        ],
+        "effective_severity": "error"
+      }
+    ],
+    "re_export_cycles": [],
+    "package_cycles": [],
+    "boundary_violations": [],
+    "boundary_coverage_violations": [],
+    "boundary_call_violations": [],
+    "policy_violations": [],
+    "stale_suppressions": [],
+    "unused_catalog_entries": [],
+    "empty_catalog_groups": [],
+    "unresolved_catalog_references": [],
+    "unused_dependency_overrides": [],
+    "misconfigured_dependency_overrides": [],
+    "invalid_client_exports": [],
+    "mixed_client_server_barrels": [],
+    "misplaced_directives": [],
+    "route_collisions": [],
+    "dynamic_segment_name_conflicts": []
+  },
+  "dupes": {
+    "clone_groups": [
+      {
+        "instances": [
+          {
+            "file": "src/a.ts",
+            "start_line": 2,
+            "end_line": 13,
+            "start_col": 13,
+            "end_col": 52,
+            "fragment": "summarizeA = (input: string): string => {\n  const items = input.split(\",\").map((part) => part.trim()).filter((part) => part.length > 0);\n  const totals = new Map<string, number>();\n  for (const item of items) {\n    const [name, amount] = item.split(\":\");\n    const value = Number(amount ?? \"0\");\n    totals.set(name ?? \"\", (totals.get(name ?? \"\") ?? 0) + value);\n  }\n  const sorted = [...totals.entries()].sort((left, right) => right[1] - left[1]);\n  return sorted.map(([name, value]) => `${name}=${value.toFixed(2)}`).join(\"; \");\n};\nexport const useB = (): string => summarizeB(\"x:1\");"
+          },
+          {
+            "file": "src/b.ts",
+            "start_line": 2,
+            "end_line": 13,
+            "start_col": 13,
+            "end_col": 52,
+            "fragment": "summarizeB = (input: string): string => {\n  const items = input.split(\",\").map((part) => part.trim()).filter((part) => part.length > 0);\n  const totals = new Map<string, number>();\n  for (const item of items) {\n    const [name, amount] = item.split(\":\");\n    const value = Number(amount ?? \"0\");\n    totals.set(name ?? \"\", (totals.get(name ?? \"\") ?? 0) + value);\n  }\n  const sorted = [...totals.entries()].sort((left, right) => right[1] - left[1]);\n  return sorted.map(([name, value]) => `${name}=${value.toFixed(2)}`).join(\"; \");\n};\nexport const useA = (): string => summarizeA(\"y:2\");"
+          }
+        ],
+        "token_count": 191,
+        "line_count": 12,
+        "fingerprint": "dup:c5ca9f0b",
+        "spread": 0,
+        "actions": [
+          {
+            "type": "extract-shared",
+            "auto_fixable": false,
+            "description": "Extract duplicated code (12 lines, 2 instances) into a shared function"
+          },
+          {
+            "type": "suppress-line",
+            "auto_fixable": false,
+            "description": "Suppress with an inline comment above the duplicated code",
+            "comment": "// fallow-ignore-next-line code-duplication"
+          }
+        ]
+      }
+    ],
+    "clone_families": [
+      {
+        "files": [
+          "src/a.ts",
+          "src/b.ts"
+        ],
+        "groups": [
+          {
+            "instances": [
+              {
+                "file": "src/a.ts",
+                "start_line": 2,
+                "end_line": 13,
+                "start_col": 13,
+                "end_col": 52,
+                "fragment": "summarizeA = (input: string): string => {\n  const items = input.split(\",\").map((part) => part.trim()).filter((part) => part.length > 0);\n  const totals = new Map<string, number>();\n  for (const item of items) {\n    const [name, amount] = item.split(\":\");\n    const value = Number(amount ?? \"0\");\n    totals.set(name ?? \"\", (totals.get(name ?? \"\") ?? 0) + value);\n  }\n  const sorted = [...totals.entries()].sort((left, right) => right[1] - left[1]);\n  return sorted.map(([name, value]) => `${name}=${value.toFixed(2)}`).join(\"; \");\n};\nexport const useB = (): string => summarizeB(\"x:1\");"
+              },
+              {
+                "file": "src/b.ts",
+                "start_line": 2,
+                "end_line": 13,
+                "start_col": 13,
+                "end_col": 52,
+                "fragment": "summarizeB = (input: string): string => {\n  const items = input.split(\",\").map((part) => part.trim()).filter((part) => part.length > 0);\n  const totals = new Map<string, number>();\n  for (const item of items) {\n    const [name, amount] = item.split(\":\");\n    const value = Number(amount ?? \"0\");\n    totals.set(name ?? \"\", (totals.get(name ?? \"\") ?? 0) + value);\n  }\n  const sorted = [...totals.entries()].sort((left, right) => right[1] - left[1]);\n  return sorted.map(([name, value]) => `${name}=${value.toFixed(2)}`).join(\"; \");\n};\nexport const useA = (): string => summarizeA(\"y:2\");"
+              }
+            ],
+            "token_count": 191,
+            "line_count": 12,
+            "fingerprint": "dup:c5ca9f0b",
+            "spread": 0,
+            "actions": [
+              {
+                "type": "extract-shared",
+                "auto_fixable": false,
+                "description": "Extract duplicated code (12 lines, 2 instances) into a shared function"
+              },
+              {
+                "type": "suppress-line",
+                "auto_fixable": false,
+                "description": "Suppress with an inline comment above the duplicated code",
+                "comment": "// fallow-ignore-next-line code-duplication"
+              }
+            ]
+          }
+        ],
+        "total_duplicated_lines": 12,
+        "total_duplicated_tokens": 191,
+        "suggestions": [
+          {
+            "kind": "ExtractFunction",
+            "description": "Extract shared function (12 lines) from a.ts, b.ts",
+            "estimated_savings": 12
+          }
+        ],
+        "actions": [
+          {
+            "type": "extract-shared",
+            "auto_fixable": false,
+            "description": "Extract 1 duplicated code block (12 lines) into a shared module",
+            "note": "These clone groups share the same files, indicating a structural relationship; refactor together"
+          },
+          {
+            "type": "apply-suggestion",
+            "auto_fixable": false,
+            "description": "Extract shared function (12 lines) from a.ts, b.ts"
+          },
+          {
+            "type": "suppress-line",
+            "auto_fixable": false,
+            "description": "Suppress with an inline comment above the duplicated code",
+            "comment": "// fallow-ignore-next-line code-duplication"
+          }
+        ]
+      }
+    ],
+    "stats": {
+      "total_files": 3,
+      "files_with_clones": 2,
+      "total_lines": 35,
+      "duplicated_lines": 24,
+      "total_tokens": 662,
+      "duplicated_tokens": 191,
+      "clone_groups": 1,
+      "clone_families": 1,
+      "clone_instances": 2,
+      "duplication_percentage": 68.57142857142857
+    }
+  },
+  "health": {
+    "findings": [
+      {
+        "path": "src/money.ts",
+        "name": "riskyDiscount",
+        "line": 3,
+        "col": 7,
+        "cyclomatic": 17,
+        "cognitive": 21,
+        "line_count": 7,
+        "param_count": 3,
+        "exceeded": "cognitive_crap",
+        "severity": "critical",
+        "effective_severity": "error",
+        "crap": 306.0,
+        "coverage_tier": "none",
+        "coverage_source": "estimated",
+        "actions": [
+          {
+            "type": "add-tests",
+            "auto_fixable": false,
+            "description": "Add test coverage for `riskyDiscount` to lower its CRAP score (coverage reduces risk even without refactoring)",
+            "note": "CRAP = CC^2 * (1 - cov/100)^3 + CC; higher coverage is the fastest way to bring CRAP under threshold"
+          },
+          {
+            "type": "refactor-function",
+            "auto_fixable": false,
+            "description": "Refactor `riskyDiscount` to reduce complexity (extract helper functions, simplify branching)",
+            "note": "Split into smaller functions with single responsibilities. Splitting relocates branching, so it lowers this function's score without lowering the total"
+          },
+          {
+            "type": "suppress-line",
+            "auto_fixable": false,
+            "description": "Suppress with an inline comment above the function declaration",
+            "comment": "// fallow-ignore-next-line unused-export, complexity",
+            "placement": "above-function-declaration"
+          }
+        ]
+      },
+      {
+        "path": "src/a.ts",
+        "name": "summarizeA",
+        "line": 2,
+        "col": 26,
+        "cyclomatic": 6,
+        "cognitive": 4,
+        "line_count": 11,
+        "param_count": 1,
+        "exceeded": "crap",
+        "severity": "moderate",
+        "effective_severity": "error",
+        "crap": 42.0,
+        "coverage_tier": "none",
+        "coverage_source": "estimated",
+        "actions": [
+          {
+            "type": "add-tests",
+            "auto_fixable": false,
+            "description": "Add test coverage for `summarizeA` to lower its CRAP score (coverage reduces risk even without refactoring)",
+            "note": "CRAP = CC^2 * (1 - cov/100)^3 + CC; higher coverage is the fastest way to bring CRAP under threshold"
+          },
+          {
+            "type": "suppress-line",
+            "auto_fixable": false,
+            "description": "Suppress with an inline comment above the function declaration",
+            "comment": "// fallow-ignore-next-line complexity",
+            "placement": "above-function-declaration"
+          }
+        ]
+      },
+      {
+        "path": "src/b.ts",
+        "name": "summarizeB",
+        "line": 2,
+        "col": 26,
+        "cyclomatic": 6,
+        "cognitive": 4,
+        "line_count": 11,
+        "param_count": 1,
+        "exceeded": "crap",
+        "severity": "moderate",
+        "effective_severity": "error",
+        "crap": 42.0,
+        "coverage_tier": "none",
+        "coverage_source": "estimated",
+        "actions": [
+          {
+            "type": "add-tests",
+            "auto_fixable": false,
+            "description": "Add test coverage for `summarizeB` to lower its CRAP score (coverage reduces risk even without refactoring)",
+            "note": "CRAP = CC^2 * (1 - cov/100)^3 + CC; higher coverage is the fastest way to bring CRAP under threshold"
+          },
+          {
+            "type": "suppress-line",
+            "auto_fixable": false,
+            "description": "Suppress with an inline comment above the function declaration",
+            "comment": "// fallow-ignore-next-line complexity",
+            "placement": "above-function-declaration"
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "files_analyzed": 5,
+      "functions_analyzed": 16,
+      "functions_above_threshold": 3,
+      "max_cyclomatic_threshold": 20,
+      "max_cognitive_threshold": 15,
+      "max_crap_threshold": 30.0,
+      "max_unit_size_threshold": 60,
+      "files_scored": 4,
+      "average_maintainability": 79.0,
+      "coverage_model": "static_estimated",
+      "coverage_source_consistency": "uniform",
+      "severity_critical_count": 1,
+      "severity_high_count": 0,
+      "severity_moderate_count": 2
+    },
+    "vital_signs": {
+      "dead_file_pct": 20.0,
+      "dead_export_pct": 50.0,
+      "avg_cyclomatic": 2.6,
+      "critical_complexity_pct": 0.0,
+      "p90_cyclomatic": 6,
+      "cyclomatic_population": {
+        "functions": {
+          "count": 16,
+          "sum": 42,
+          "max": 17
+        },
+        "modules": {
+          "count": 0,
+          "sum": 0,
+          "max": null
+        },
+        "templates": {
+          "count": 0,
+          "sum": 0,
+          "max": null
+        }
+      },
+      "duplication_pct": 68.6,
+      "hotspot_count": 0,
+      "hotspot_top_pct_count": 0,
+      "maintainability_avg": 79.0,
+      "maintainability_low_pct": 0.0,
+      "unused_dep_count": 2,
+      "unused_deps_per_k_files": 400.0,
+      "circular_dep_count": 1,
+      "circular_deps_per_k_files": 200.0,
+      "counts": {
+        "total_files": 5,
+        "total_exports": 8,
+        "dead_files": 1,
+        "dead_exports": 4,
+        "duplicated_lines": 24,
+        "total_lines": 44,
+        "files_scored": 4,
+        "total_deps": 0
+      },
+      "unit_size_profile": {
+        "low_risk": 100.0,
+        "medium_risk": 0.0,
+        "high_risk": 0.0,
+        "very_high_risk": 0.0
+      },
+      "functions_over_60_loc_per_k": 0.0,
+      "unit_interfacing_profile": {
+        "low_risk": 93.8,
+        "medium_risk": 6.3,
+        "high_risk": 0.0,
+        "very_high_risk": 0.0
+      },
+      "p95_fan_in": 2,
+      "coupling_high_pct": 0.0,
+      "total_loc": 44
+    },
+    "health_score": {
+      "formula_version": 2,
+      "score": 26.0,
+      "grade": "F",
+      "penalties": {
+        "dead_files": 4.0,
+        "dead_exports": 10.0,
+        "complexity": 0.0,
+        "p90_complexity": 0.0,
+        "maintainability": 0.0,
+        "hotspots": 0.0,
+        "unused_deps": 25.0,
+        "circular_deps": 25.0,
+        "unit_size": 0.0,
+        "coupling": 0.0,
+        "duplication": 10.0
+      }
+    },
+    "file_scores": [
+      {
+        "path": "src/money.ts",
+        "fan_in": 1,
+        "fan_out": 0,
+        "dead_code_ratio": 0.67,
+        "complexity_density": 1.9,
+        "maintainability_index": 75.2,
+        "total_cyclomatic": 19,
+        "total_cognitive": 21,
+        "function_count": 3,
+        "lines": 10,
+        "crap_max": 306.0,
+        "crap_above_threshold": 1
+      },
+      {
+        "path": "src/a.ts",
+        "fan_in": 2,
+        "fan_out": 1,
+        "dead_code_ratio": 0.5,
+        "complexity_density": 0.79,
+        "maintainability_index": 80.6,
+        "total_cyclomatic": 11,
+        "total_cognitive": 4,
+        "function_count": 6,
+        "lines": 14,
+        "crap_max": 42.0,
+        "crap_above_threshold": 1
+      },
+      {
+        "path": "src/b.ts",
+        "fan_in": 1,
+        "fan_out": 1,
+        "dead_code_ratio": 0.5,
+        "complexity_density": 0.79,
+        "maintainability_index": 80.6,
+        "total_cyclomatic": 11,
+        "total_cognitive": 4,
+        "function_count": 6,
+        "lines": 14,
+        "crap_max": 42.0,
+        "crap_above_threshold": 1
+      },
+      {
+        "path": "src/legacy.ts",
+        "fan_in": 0,
+        "fan_out": 0,
+        "dead_code_ratio": 1.0,
+        "complexity_density": 0.5,
+        "maintainability_index": 79.4,
+        "total_cyclomatic": 1,
+        "total_cognitive": 0,
+        "function_count": 1,
+        "lines": 2,
+        "crap_max": 2.0,
+        "crap_above_threshold": 0
+      }
+    ],
+    "hotspot_summary": {
+      "since": "6 months",
+      "min_commits": 3,
+      "files_analyzed": 0,
+      "files_excluded": 4,
+      "shallow_clone": false,
+      "clock": {
+        "source": "head_commit",
+        "epoch_secs": 1791538041,
+        "reproducible": true
+      }
+    },
+    "targets": [
+      {
+        "path": "src/money.ts",
+        "priority": 46.4,
+        "efficiency": 46.4,
+        "recommendation": "Remove 2 unused exports to reduce surface area (67% dead)",
+        "category": "remove_dead_code",
+        "effort": "low",
+        "confidence": "high",
+        "factors": [
+          {
+            "metric": "complexity_density",
+            "value": 1.9,
+            "threshold": 0.3,
+            "detail": "density 1.90 exceeds 0.3"
+          },
+          {
+            "metric": "dead_code_ratio",
+            "value": 0.67,
+            "threshold": 0.5,
+            "detail": "2 unused of 3 value exports (67%)"
+          }
+        ],
+        "evidence": {
+          "unused_exports": [
+            "parsePrice",
+            "riskyDiscount"
+          ],
+          "direct_callers": [
+            {
+              "path": "src/index.ts",
+              "symbols": [
+                {
+                  "imported": "formatPrice",
+                  "local": "formatPrice",
+                  "type_only": false
+                }
+              ]
+            }
+          ]
+        },
+        "actions": [
+          {
+            "type": "apply-refactoring",
+            "auto_fixable": false,
+            "description": "Remove 2 unused exports to reduce surface area (67% dead)",
+            "category": "remove_dead_code"
+          },
+          {
+            "type": "suppress-line",
+            "auto_fixable": false,
+            "description": "Suppress the underlying complexity finding",
+            "comment": "// fallow-ignore-next-line complexity"
+          }
+        ]
+      },
+      {
+        "path": "src/a.ts",
+        "priority": 41.0,
+        "efficiency": 20.5,
+        "recommendation": "Break import cycle to reduce change cascade risk",
+        "category": "break_circular_dependency",
+        "effort": "medium",
+        "confidence": "high",
+        "factors": [
+          {
+            "metric": "complexity_density",
+            "value": 0.79,
+            "threshold": 0.3,
+            "detail": "density 0.79 exceeds 0.3"
+          },
+          {
+            "metric": "circular_dependency",
+            "value": 1.0,
+            "threshold": 1.0,
+            "detail": "participates in an import cycle"
+          }
+        ],
+        "evidence": {
+          "cycle_path": [
+            "src/b.ts"
+          ],
+          "direct_callers": [
+            {
+              "path": "src/b.ts",
+              "symbols": [
+                {
+                  "imported": "summarizeA",
+                  "local": "summarizeA",
+                  "type_only": false
+                }
+              ]
+            },
+            {
+              "path": "src/index.ts",
+              "symbols": [
+                {
+                  "imported": "useA",
+                  "local": "useA",
+                  "type_only": false
+                }
+              ]
+            }
+          ],
+          "clone_siblings": [
+            {
+              "path": "src/b.ts",
+              "start_line": 2,
+              "end_line": 13,
+              "fingerprint": "dup:c5ca9f0b"
+            }
+          ]
+        },
+        "actions": [
+          {
+            "type": "apply-refactoring",
+            "auto_fixable": false,
+            "description": "Break import cycle to reduce change cascade risk",
+            "category": "break_circular_dependency"
+          },
+          {
+            "type": "suppress-line",
+            "auto_fixable": false,
+            "description": "Suppress the underlying complexity finding",
+            "comment": "// fallow-ignore-next-line complexity"
+          }
+        ]
+      },
+      {
+        "path": "src/b.ts",
+        "priority": 38.0,
+        "efficiency": 19.0,
+        "recommendation": "Break import cycle to reduce change cascade risk",
+        "category": "break_circular_dependency",
+        "effort": "medium",
+        "confidence": "high",
+        "factors": [
+          {
+            "metric": "complexity_density",
+            "value": 0.79,
+            "threshold": 0.3,
+            "detail": "density 0.79 exceeds 0.3"
+          },
+          {
+            "metric": "circular_dependency",
+            "value": 1.0,
+            "threshold": 1.0,
+            "detail": "participates in an import cycle"
+          }
+        ],
+        "evidence": {
+          "cycle_path": [
+            "src/a.ts"
+          ],
+          "direct_callers": [
+            {
+              "path": "src/a.ts",
+              "symbols": [
+                {
+                  "imported": "summarizeB",
+                  "local": "summarizeB",
+                  "type_only": false
+                }
+              ]
+            }
+          ],
+          "clone_siblings": [
+            {
+              "path": "src/a.ts",
+              "start_line": 2,
+              "end_line": 13,
+              "fingerprint": "dup:c5ca9f0b"
+            }
+          ]
+        },
+        "actions": [
+          {
+            "type": "apply-refactoring",
+            "auto_fixable": false,
+            "description": "Break import cycle to reduce change cascade risk",
+            "category": "break_circular_dependency"
+          },
+          {
+            "type": "suppress-line",
+            "auto_fixable": false,
+            "description": "Suppress the underlying complexity finding",
+            "comment": "// fallow-ignore-next-line complexity"
+          }
+        ]
+      }
+    ],
+    "target_thresholds": {
+      "fan_in_p95": 5.0,
+      "fan_in_p75": 3.0,
+      "fan_out_p95": 8.0,
+      "fan_out_p90": 5
+    }
+  },
+  "workspace_diagnostics": [
+    {
+      "path": "node_modules",
+      "kind": "node-modules-missing",
+      "message": "'node_modules' does not exist. Package exports and conditional exports cannot be read, framework plugins that activate on an installed package stay inactive, and dependency classification degrades, so imports and dependencies can be misreported. Run npm install / pnpm install / yarn / bun install first.",
+      "degrades_analysis": true
+    },
+    {
+      "path": ".",
+      "kind": "boundaries-not-configured",
+      "message": "No architecture boundaries are configured, so the boundary detector did not run and its violation counts are zero because nothing was measured. Add `boundaries` to the config, or set `boundary-violation` to off to state that the check is not wanted."
+    },
+    {
+      "path": ".",
+      "kind": "rule-packs-not-configured",
+      "message": "No rule packs are configured, so the policy detector did not run and its violation counts are zero because nothing was measured. Add `rulePacks` to the config, or set `policy-violation` to off to state that the check is not wanted."
+    }
+  ],
+  "next_steps": [
+    {
+      "id": "trace-unused-export",
+      "command": "fallow dead-code --trace src/a.ts:useB",
+      "reason": "verify an export is truly unused before deleting"
+    },
+    {
+      "id": "trace-clone",
+      "command": "fallow dupes --trace dup:c5ca9f0b",
+      "reason": "see sibling locations and an extract-function suggestion"
+    },
+    {
+      "id": "complexity-breakdown",
+      "command": "fallow health --complexity-breakdown",
+      "reason": "see per-decision-point contributions for a hotspot"
+    }
+  ]
+}

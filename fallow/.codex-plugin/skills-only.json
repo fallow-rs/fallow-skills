@@ -1,0 +1,22 @@
+{
+  "$comment": "Skills-only listing for the OpenAI plugin directory. scripts/plugin_release.py package removes mcpServers and extensions, leaves out omitSkills, and applies this interface over the manifest. The local marketplace install keeps the full manifest and the Fallow app.",
+  "omitSkills": [
+    "fallow-codex-onboarding"
+  ],
+  "interface": {
+    "shortDescription": "Local JS/TS code analysis",
+    "longDescription": "Fallow gives Codex fast, local-first code-quality tooling for TypeScript and JavaScript. Set up or modernize the quality stack of a new or existing project: detect the package manager, keep the formatter and linter the project already uses, write a Fallow config, add a code-health gate to CI, and make the repository agent-ready. One tool covers dead code, unused dependencies, duplication, complexity, circular dependencies, architecture boundaries, and changed-code risk, so the project does not need separate dead-code and dependency-graph tools. Audit a branch before review and prioritize safe cleanup. Fallow Impact explains the latest full-project issue count, its comparable trend, and findings cleared while tracking. Optional cloud and product telemetry workflows run only after explicit user action.",
+    "capabilities": [
+      "Static analysis",
+      "Code review",
+      "Local workflow",
+      "Project setup",
+      "Impact summaries"
+    ],
+    "defaultPrompt": [
+      "Set up code quality tooling for this TypeScript project.",
+      "Make this repository agent-ready and add a code-health CI gate.",
+      "Audit this branch for changed-code risk and cleanup opportunities."
+    ]
+  }
+}
