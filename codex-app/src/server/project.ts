@@ -215,6 +215,132 @@ export interface ResolvedProject {
   source: ProjectSource;
 }
 
+type RememberProject = (root: string, source: ProjectSource) => Promise<ResolvedProject>;
+type AllowRoot = (root: string) => Promise<boolean>;
+
+const projectRecorder = (store: StateStore, threadId: string | null): RememberProject =>
+  async (root: string, source: ProjectSource): Promise<ResolvedProject> => {
+    if (threadId !== null && source !== "recent") await store.rememberThread(threadId, root);
+    return { project: await describeProject(root), source };
+  };
+
+const recentRoot = async (store: StateStore): Promise<string | null> =>
+  (await store.recents())[0]?.root ?? null;
+
+const explicitBase = async (
+  store: StateStore,
+  cwd: string | null,
+  threadId: string | null,
+): Promise<string | null> =>
+  cwd ?? (await store.threadRoot(threadId ?? "")) ?? (await recentRoot(store));
+
+const explicitPath = async (
+  store: StateStore,
+  explicitRoot: string,
+  cwd: string | null,
+  threadId: string | null,
+): Promise<string | null> => {
+  const absolute = toLocalPath(explicitRoot);
+  const base = await explicitBase(store, cwd, threadId);
+  return absolute ?? (base === null ? null : resolve(base, explicitRoot));
+};
+
+// In a Codex thread, a path from the model stays inside the working directory of the thread.
+const rootAllowed = async (
+  local: string,
+  cwd: string | null,
+  allowRoot: AllowRoot,
+): Promise<boolean> =>
+  cwd === null ? await allowRoot(local) : await isWithinRealDirectory(cwd, local);
+
+const explicitProject = async (
+  local: string | null,
+  cwd: string | null,
+  allowRoot: AllowRoot,
+  remember: RememberProject,
+): Promise<ResolvedProject | null> => {
+  if (local === null) return null;
+  const allowed = await rootAllowed(local, cwd, allowRoot);
+  if (allowed && (await isDirectory(local))) return remember(local, "argument");
+  return null;
+};
+
+const hostProject = async (
+  meta: unknown,
+  cwd: string | null,
+  remember: RememberProject,
+): Promise<ResolvedProject | null> => {
+  if (cwd !== null && (await isDirectory(cwd)))
+    return remember(await detectProjectRoot(cwd), "thread");
+  const opened = resourcePathFromMeta(meta);
+  if (opened !== null) return remember(await detectProjectRoot(dirname(opened)), "file");
+  return null;
+};
+
+const sessionProject = async (
+  threadId: string,
+  remember: RememberProject,
+): Promise<ResolvedProject | null> => {
+  const sessionCwd = await threadCwdFromCodexSessions(threadId);
+  if (sessionCwd !== null && (await isDirectory(sessionCwd)))
+    return remember(await detectProjectRoot(sessionCwd), "thread");
+  return null;
+};
+
+const threadProject = async (
+  store: StateStore,
+  threadId: string | null,
+  remember: RememberProject,
+): Promise<ResolvedProject | null> => {
+  if (threadId === null) return null;
+  const known = await store.threadRoot(threadId);
+  if (known !== null && (await isDirectory(known))) return remember(known, "thread");
+  return sessionProject(threadId, remember);
+};
+
+const recentProject = async (
+  store: StateStore,
+  remember: RememberProject,
+): Promise<ResolvedProject | null> => {
+  const recent = (await store.recents())[0];
+  if (recent !== undefined && (await isDirectory(recent.root)))
+    return remember(recent.root, "recent");
+  return null;
+};
+
+const contextProject = async (
+  store: StateStore,
+  meta: unknown,
+  cwd: string | null,
+  threadId: string | null,
+  remember: RememberProject,
+): Promise<ResolvedProject | null> =>
+  (await hostProject(meta, cwd, remember)) ??
+  (await threadProject(store, threadId, remember)) ??
+  (await recentProject(store, remember));
+
+const hasExplicitRoot = (root: string | undefined): root is string =>
+  root !== undefined && root.length > 0;
+
+/**
+ * Resolves an explicit `root` argument. Returns `undefined` when the call names no root.
+ * Returns `null` when a thread rejects the root, because a rejected root must not fall back to another project.
+ */
+const requestedProject = async (
+  store: StateStore,
+  explicitRoot: string | undefined,
+  cwd: string | null,
+  threadId: string | null,
+  allowRoot: AllowRoot,
+  remember: RememberProject,
+): Promise<ResolvedProject | null | undefined> => {
+  if (!hasExplicitRoot(explicitRoot)) return undefined;
+  const local = await explicitPath(store, explicitRoot, cwd, threadId);
+  const project = await explicitProject(local, cwd, allowRoot, remember);
+  if (project !== null) return project;
+  return cwd !== null ? null : undefined;
+};
+
 /**
  * Finds the project for a tool call, most specific first:
  * an explicit `root` argument, the thread working directory, the file the app opened, then the last project.
@@ -224,42 +350,12 @@ export const resolveProject = async (
   meta: unknown,
   explicitRoot: string | undefined,
   /** Decides on a folder argument outside a Codex thread. App-facing tools allow only known projects. */
-  allowRoot: (root: string) => Promise<boolean> = async () => true,
+  allowRoot: AllowRoot = async (): Promise<boolean> => true,
 ): Promise<ResolvedProject | null> => {
   const threadId = threadFromMeta(meta);
-  const remember = async (root: string, source: ProjectSource): Promise<ResolvedProject> => {
-    if (threadId !== null && source !== "recent") await store.rememberThread(threadId, root);
-    return { project: await describeProject(root), source };
-  };
-
+  const remember = projectRecorder(store, threadId);
   const cwd = sandboxCwd(meta);
-  if (explicitRoot !== undefined && explicitRoot.length > 0) {
-    const absolute = toLocalPath(explicitRoot);
-    const base = cwd ?? (await store.threadRoot(threadId ?? "")) ?? (await store.recents())[0]?.root ?? null;
-    const local = absolute ?? (base === null ? null : resolve(base, explicitRoot));
-    // In a Codex thread, a path from the model stays inside the working directory of the thread.
-    const allowed =
-      local !== null &&
-      (cwd === null ? await allowRoot(local) : await isWithinRealDirectory(cwd, local));
-    if (allowed && (await isDirectory(local))) return remember(local, "argument");
-    if (cwd !== null) return null;
-  }
-  if (cwd !== null && (await isDirectory(cwd)))
-    return remember(await detectProjectRoot(cwd), "thread");
-
-  const opened = resourcePathFromMeta(meta);
-  if (opened !== null) return remember(await detectProjectRoot(dirname(opened)), "file");
-
-  if (threadId !== null) {
-    const known = await store.threadRoot(threadId);
-    if (known !== null && (await isDirectory(known))) return remember(known, "thread");
-    const sessionCwd = await threadCwdFromCodexSessions(threadId);
-    if (sessionCwd !== null && (await isDirectory(sessionCwd))) {
-      return remember(await detectProjectRoot(sessionCwd), "thread");
-    }
-  }
-  const recent = (await store.recents())[0];
-  if (recent !== undefined && (await isDirectory(recent.root)))
-    return remember(recent.root, "recent");
-  return null;
+  const requested = await requestedProject(store, explicitRoot, cwd, threadId, allowRoot, remember);
+  if (requested !== undefined) return requested;
+  return contextProject(store, meta, cwd, threadId, remember);
 };

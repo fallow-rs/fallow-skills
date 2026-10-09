@@ -258,6 +258,158 @@ const parseJson = (text: string): Json | null => {
 /** The warning fallow prints when it cannot resolve the base of `--changed-since`. */
 const IGNORED_BASE = /--changed-since '[^']*' was ignored/;
 
+interface Execution {
+  command: string;
+  args: readonly string[];
+  cwd: string;
+  sandbox: SandboxState | null;
+}
+
+const fallowArguments = (request: RunRequest, executable: Executable): string[] => [
+  ...executable.prefix,
+  ...request.args,
+  ...(executable.runsOutsideProject ? ["--root", request.root] : []),
+];
+
+const executionFor = (request: RunRequest, executable: Executable): Execution => {
+  const args = fallowArguments(request, executable);
+  const cwd = executable.runsOutsideProject ? tmpdir() : request.root;
+  const sandbox = request.sandbox;
+  if (sandbox === null) return { command: executable.command, args, cwd, sandbox };
+  return {
+    command: sandbox.codexExecutable,
+    args: [
+      "sandbox",
+      "--sandbox-state-json",
+      JSON.stringify(sandbox.raw),
+      "--",
+      executable.command,
+      ...args,
+    ],
+    cwd,
+    sandbox,
+  };
+};
+
+const unsafeCommand = ({ command, args, cwd }: Execution): boolean =>
+  IS_WINDOWS && command.endsWith(".cmd") && [cwd, ...args].some((value) => CMD_UNSAFE.test(value));
+
+const unsafePathProblem = (): FallowProblem => ({
+  code: "unsafe_path",
+  title: "Fallow cannot run in this folder",
+  detail:
+    "The project path or an argument has a character that cmd.exe would read as a command, such as & or %. Install fallow.exe on PATH, or move the project.",
+  fix: null,
+});
+
+const startProblem = (
+  result: Spawned,
+  request: RunRequest,
+  sandbox: SandboxState | null,
+): FallowProblem | null => {
+  if (result.error?.code !== "ENOENT") return null;
+  if (sandbox === null) return notFound(request.source, false);
+  return {
+    code: "sandbox_unavailable",
+    title: "The Codex sandbox could not start",
+    detail: `Codex sent ${sandbox.codexExecutable}, but it could not be started.`,
+    fix: null,
+  };
+};
+
+const requestTimeout = (request: RunRequest): number => request.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+
+const interruptionProblem = (
+  result: Spawned,
+  request: RunRequest,
+  display: string,
+): FallowProblem | null => {
+  if (result.timedOut) {
+    return {
+      code: "timeout",
+      title: "Fallow took too long",
+      detail: `${display} did not finish in ${Math.round(requestTimeout(request) / 1000)} seconds. Scope the run to changed files, or add large generated folders to ignorePatterns.`,
+      fix: "fallow audit",
+    };
+  }
+  if (request.signal?.aborted === true) {
+    return {
+      code: "cancelled",
+      title: "Analysis cancelled",
+      detail: "The run was stopped.",
+      fix: null,
+    };
+  }
+  return null;
+};
+
+const overflowProblem = (result: Spawned, display: string): FallowProblem | null => {
+  if (!result.overflowed) return null;
+  return {
+    code: "output_too_large",
+    title: "Fallow printed too much output",
+    detail: `${display} printed more than ${MAX_OUTPUT_BYTES / 1024 / 1024} MB. Add large generated folders to ignorePatterns.`,
+    fix: null,
+  };
+};
+
+const runProblem = (
+  result: Spawned,
+  request: RunRequest,
+  sandbox: SandboxState | null,
+  display: string,
+): FallowProblem | null =>
+  startProblem(result, request, sandbox) ??
+  interruptionProblem(result, request, display) ??
+  overflowProblem(result, display);
+
+// Fallow reports a usage or git error as {"error": true, "message": ...} with exit code 2.
+const jsonProblem = (json: Json | null, display: string): FallowProblem | null => {
+  if (json === null || json["error"] !== true) return null;
+  return {
+    code: "fallow_error",
+    title: "Fallow stopped with an error",
+    detail: string(json["message"]) ?? `${display} failed.`,
+    fix: "fallow doctor",
+  };
+};
+
+const failedExit = (result: Spawned): boolean =>
+  result.exitCode !== null && result.exitCode >= 2;
+
+const failureCode = (sandboxed: boolean, stderr: string): FallowProblem["code"] =>
+  sandboxed && /sandbox|seatbelt|landlock|denied/i.test(stderr) ? "sandbox_denied" : "fallow_failed";
+
+const failureProblem = (result: Spawned, sandboxed: boolean, display: string): FallowProblem => {
+  const stderr = tail(result.stderr, 12);
+  return {
+    code: failureCode(sandboxed, stderr),
+    title: "Fallow could not analyze this project",
+    detail: stderr.length > 0 ? stderr : `${display} exited with code ${result.exitCode ?? "unknown"}.`,
+    fix: "fallow doctor",
+  };
+};
+
+const outputWarnings = (stderr: string): string[] =>
+  stderr
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line, index, all) => line.startsWith("Warning:") && all.indexOf(line) === index);
+
+const readRunOutput = (
+  result: Spawned,
+  sandboxed: boolean,
+  command: string,
+  display: string,
+  durationMs: number,
+): RunResult => {
+  const json = parseJson(result.stdout);
+  const problem = jsonProblem(json, display);
+  if (problem !== null) return { ok: false, problem };
+  if (json === null || failedExit(result)) return { ok: false, problem: failureProblem(result, sandboxed, display) };
+  return { ok: true, json, command, durationMs, warnings: outputWarnings(result.stderr) };
+};
+
 /**
  * Runs fallow with JSON output and returns the parsed object.
  * Fallow exits 1 when it finds issues, so the exit code alone never decides success: valid JSON does.
@@ -266,134 +418,22 @@ export const runFallow = async (request: RunRequest): Promise<RunResult> => {
   const executable = await resolveFallow(request.root, request.source, request.sandbox !== null);
   if (executable === null) return { ok: false, problem: notFound(request.source, request.sandbox !== null) };
 
-  const fallowArgs = [
-    ...executable.prefix,
-    ...request.args,
-    ...(executable.runsOutsideProject ? ["--root", request.root] : []),
-  ];
-  const cwd = executable.runsOutsideProject ? tmpdir() : request.root;
-  const sandbox = request.sandbox;
-  const sandboxed = sandbox !== null;
-  const command = sandboxed ? sandbox.codexExecutable : executable.command;
-  const args = sandboxed
-    ? [
-        "sandbox",
-        "--sandbox-state-json",
-        JSON.stringify(sandbox.raw),
-        "--",
-        executable.command,
-        ...fallowArgs,
-      ]
-    : fallowArgs;
+  const execution = executionFor(request, executable);
   const display = `fallow ${request.args.join(" ")}`;
-
-  if (IS_WINDOWS && command.endsWith(".cmd") && [cwd, ...args].some((value) => CMD_UNSAFE.test(value))) {
-    return {
-      ok: false,
-      problem: {
-        code: "unsafe_path",
-        title: "Fallow cannot run in this folder",
-        detail:
-          "The project path or an argument has a character that cmd.exe would read as a command, such as & or %. Install fallow.exe on PATH, or move the project.",
-        fix: null,
-      },
-    };
-  }
+  if (unsafeCommand(execution)) return { ok: false, problem: unsafePathProblem() };
 
   const started = Date.now();
   const result = await run(
-    command,
-    args,
-    cwd,
-    request.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    execution.command,
+    execution.args,
+    execution.cwd,
+    requestTimeout(request),
     request.signal,
   );
   const durationMs = Date.now() - started;
-
-  if (result.error?.code === "ENOENT") {
-    return sandboxed
-      ? {
-          ok: false,
-          problem: {
-            code: "sandbox_unavailable",
-            title: "The Codex sandbox could not start",
-            detail: `Codex sent ${sandbox.codexExecutable}, but it could not be started.`,
-            fix: null,
-          },
-        }
-      : { ok: false, problem: notFound(request.source, false) };
-  }
-  if (result.timedOut) {
-    return {
-      ok: false,
-      problem: {
-        code: "timeout",
-        title: "Fallow took too long",
-        detail: `${display} did not finish in ${Math.round((request.timeoutMs ?? DEFAULT_TIMEOUT_MS) / 1000)} seconds. Scope the run to changed files, or add large generated folders to ignorePatterns.`,
-        fix: "fallow audit",
-      },
-    };
-  }
-  if (request.signal?.aborted === true) {
-    return {
-      ok: false,
-      problem: {
-        code: "cancelled",
-        title: "Analysis cancelled",
-        detail: "The run was stopped.",
-        fix: null,
-      },
-    };
-  }
-
-  if (result.overflowed) {
-    return {
-      ok: false,
-      problem: {
-        code: "output_too_large",
-        title: "Fallow printed too much output",
-        detail: `${display} printed more than ${MAX_OUTPUT_BYTES / 1024 / 1024} MB. Add large generated folders to ignorePatterns.`,
-        fix: null,
-      },
-    };
-  }
-
-  const json = parseJson(result.stdout);
-  // Fallow reports a usage or git error as {"error": true, "message": ...} with exit code 2.
-  if (json !== null && json["error"] === true) {
-    return {
-      ok: false,
-      problem: {
-        code: "fallow_error",
-        title: "Fallow stopped with an error",
-        detail: string(json["message"]) ?? `${display} failed.`,
-        fix: "fallow doctor",
-      },
-    };
-  }
-  if (json === null || (result.exitCode !== null && result.exitCode >= 2)) {
-    const stderr = tail(result.stderr, 12);
-    return {
-      ok: false,
-      problem: {
-        code:
-          sandboxed && /sandbox|seatbelt|landlock|denied/i.test(stderr)
-            ? "sandbox_denied"
-            : "fallow_failed",
-        title: "Fallow could not analyze this project",
-        detail:
-          stderr.length > 0
-            ? stderr
-            : `${display} exited with code ${result.exitCode ?? "unknown"}.`,
-        fix: "fallow doctor",
-      },
-    };
-  }
-  const warnings = result.stderr
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line, index, all) => line.startsWith("Warning:") && all.indexOf(line) === index);
-  return { ok: true, json, command: `${executable.label}: ${display}`, durationMs, warnings };
+  const problem = runProblem(result, request, execution.sandbox, display);
+  if (problem !== null) return { ok: false, problem };
+  return readRunOutput(result, execution.sandbox !== null, `${executable.label}: ${display}`, display, durationMs);
 };
 
 /** True when fallow ignored `--changed-since` and analyzed the whole project instead. */

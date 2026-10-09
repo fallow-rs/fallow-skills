@@ -266,18 +266,18 @@ type DetailProps = {
   onAttach: () => void;
 };
 
-export const FindingDetail = ({
-  host,
-  project,
-  finding,
-  attached,
-  onBack,
-  onAttach,
-}: DetailProps): JSX.Element => {
+type FindingEvidence = {
+  snippet: Snippet | null;
+  explanation: Explanation | null;
+};
+
+type FindingContextProps = Pick<DetailProps, "host" | "project" | "finding">;
+
+const useFindingEvidence = ({ host, project, finding }: FindingContextProps): FindingEvidence => {
   const [snippet, setSnippet] = useState<Snippet | null>(null);
   const [explanation, setExplanation] = useState<Explanation | null>(null);
 
-  useEffect(() => {
+  useEffect((): (() => void) => {
     let live = true;
     setSnippet(null);
     setExplanation(null);
@@ -289,178 +289,292 @@ export const FindingDetail = ({
           line: finding.line,
           context: 5,
         })
-        .then((value) => live && setSnippet(value))
-        .catch(() => live && setSnippet({ found: false }));
+        .then((value): void => {
+          if (live) setSnippet(value);
+        })
+        .catch((): void => {
+          if (live) setSnippet({ found: false });
+        });
     }
     host
       .callData<Explanation>("fallow_app_explain", { rule: finding.rule, root: project.root })
-      .then((value) => live && setExplanation(value))
-      .catch(() => live && setExplanation({ found: false }));
-    return () => {
+      .then((value): void => {
+        if (live) setExplanation(value);
+      })
+      .catch((): void => {
+        if (live) setExplanation({ found: false });
+      });
+    return (): void => {
       live = false;
     };
   }, [finding.id]);
 
-  const fixes = finding.actions.filter((action) => !action.type.startsWith("suppress"));
-  const suppressions = finding.actions.filter((action) => action.type.startsWith("suppress"));
+  return { snippet, explanation };
+};
 
+const FindingHeader = ({
+  finding,
+  onBack,
+}: Pick<DetailProps, "finding" | "onBack">): JSX.Element => (
+  <header class="f-detail-header">
+    {onBack === undefined ? null : (
+      <Button
+        size="sm"
+        variant="ghost"
+        icon="chevronLeft"
+        title="Back to the list"
+        onClick={onBack}
+      />
+    )}
+    <div class="f-detail-heading">
+      <span class="f-detail-kicker">
+        <CategoryLabel category={finding.category} />
+        <LevelDot level={finding.level} />
+        {finding.introduced === true ? (
+          <span class="f-badge f-badge-new">New on this branch</span>
+        ) : null}
+      </span>
+      <h2>
+        {finding.title}
+        {finding.symbol === null ? null : <code>{finding.symbol}</code>}
+      </h2>
+    </div>
+  </header>
+);
+
+const FindingAttachment = ({
+  attached,
+  onAttach,
+}: Pick<DetailProps, "attached" | "onAttach">): JSX.Element => (
+  <Button icon={attached ? "check" : "attach"} pressed={attached} onClick={onAttach}>
+    {attached ? "In chat" : "Add to chat"}
+  </Button>
+);
+
+const FindingActions = ({
+  host,
+  project,
+  finding,
+  attached,
+  onAttach,
+}: Omit<DetailProps, "onBack">): JSX.Element => (
+  <div class="f-detail-actions">
+    {host.canMessage ? (
+      <Button
+        variant="primary"
+        icon="sparkle"
+        onClick={(): void =>
+          void host.send(
+            `Fix this Fallow finding in ${project.name}. Run its verify command first, and keep the change small.`,
+            [finding],
+            project,
+          )
+        }
+      >
+        Fix with Codex
+      </Button>
+    ) : null}
+    {host.canAttach ? (
+      <FindingAttachment attached={attached} onAttach={onAttach} />
+    ) : null}
+    {host.canOpenFiles ? (
+      <Button
+        icon="file"
+        onClick={(): void => void openFinding(host, project, finding.path)}
+      >
+        Open file
+      </Button>
+    ) : null}
+  </div>
+);
+
+const FindingSource = ({
+  finding,
+  snippet,
+}: {
+  finding: Finding;
+  snippet: Snippet | null;
+}): JSX.Element | null => {
+  if (finding.line === null) return null;
+  if (snippet === null) {
+    return (
+      <div class="f-code f-code-loading">
+        <LoadingStatus label="Loading the source" />
+      </div>
+    );
+  }
+  return <CodeSnippet snippet={snippet} focus={finding.line} />;
+};
+
+const RelatedLocations = ({ host, project, finding }: FindingContextProps): JSX.Element | null => {
+  if (finding.related.length === 0) return null;
+  return (
+    <ul class="f-related">
+      {finding.related.map((related): JSX.Element => (
+        <li key={`${related.path}:${related.startLine}`}>
+          <button
+            type="button"
+            class="f-link cursor-interaction"
+            disabled={!host.canOpenFiles}
+            onClick={(): void => void openFinding(host, project, related.path)}
+          >
+            {related.startLine > 0
+              ? `${related.path}:${related.startLine}-${related.endLine}`
+              : related.path}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
+const FindingLocation = ({
+  host,
+  project,
+  finding,
+  snippet,
+}: FindingContextProps & { snippet: Snippet | null }): JSX.Element => (
+  <section class="f-detail-section">
+    <h3>Location</h3>
+    <p class="f-path f-path-block">{location(finding)}</p>
+    <FindingSource finding={finding} snippet={snippet} />
+    <RelatedLocations host={host} project={project} finding={finding} />
+  </section>
+);
+
+const FindingVerification = ({ command }: { command: string | null }): JSX.Element | null => {
+  if (command === null) return null;
+  return (
+    <section class="f-detail-section">
+      <h3>Verify first</h3>
+      <p class="f-muted">
+        Static analysis cannot see dynamic imports. This command shows the evidence.
+      </p>
+      <CommandLine command={command} />
+    </section>
+  );
+};
+
+const FindingFix = ({ action }: { action: Finding["actions"][number] }): JSX.Element => (
+  <li>
+    <Icon name={action.autoFixable ? "wand" : "chevronRight"} size={14} />
+    <span>{action.description}</span>
+    {action.autoFixable ? <span class="f-badge">Auto-fix</span> : null}
+  </li>
+);
+
+const FindingSuppression = ({ action }: { action: Finding["actions"][number] }): JSX.Element => (
+  <li class="f-muted">
+    <Icon name="info" size={14} />
+    <span>
+      {action.description}
+      {action.comment === null ? null : (
+        <>
+          {" "}
+          <code>{action.comment}</code>
+        </>
+      )}
+    </span>
+  </li>
+);
+
+const FindingRemedies = ({ finding }: Pick<DetailProps, "finding">): JSX.Element | null => {
+  const fixes = finding.actions.filter((action): boolean => !action.type.startsWith("suppress"));
+  const suppressions = finding.actions.filter((action): boolean => action.type.startsWith("suppress"));
+
+  if (fixes.length === 0 && suppressions.length === 0) return null;
+  return (
+    <section class="f-detail-section">
+      <h3>How to fix</h3>
+      <ul class="f-actions-list">
+        {fixes.map((action): JSX.Element => (
+          <FindingFix key={action.type} action={action} />
+        ))}
+        {suppressions.map((action): JSX.Element => (
+          <FindingSuppression key={action.type} action={action} />
+        ))}
+      </ul>
+    </section>
+  );
+};
+
+const ExplanationText = ({
+  text,
+  muted = false,
+}: {
+  text: string | null | undefined;
+  muted?: boolean;
+}): JSX.Element | null => {
+  if (text === null || text === undefined) return null;
+  return <p class={muted ? "f-muted" : undefined}>{text}</p>;
+};
+
+const ExplanationDocs = ({
+  host,
+  finding,
+  explanation,
+}: Pick<DetailProps, "host" | "finding"> & {
+  explanation: Explanation;
+}): JSX.Element | null => {
+  if (explanation.docs === null || explanation.docs === undefined) return null;
+  return (
+    <button
+      type="button"
+      class="f-link cursor-interaction"
+      onClick={(): void => void host.openLink(explanation.docs ?? "")}
+    >
+      Read the {CATEGORY_TITLES[finding.category].toLowerCase()} docs{" "}
+      <Icon name="external" size={12} />
+    </button>
+  );
+};
+
+const FindingExplanation = ({
+  host,
+  finding,
+  explanation,
+}: Pick<DetailProps, "host" | "finding"> & {
+  explanation: Explanation | null;
+}): JSX.Element => {
+  if (explanation === null) return <LoadingStatus label="Loading the explanation" />;
+  if (!explanation.found) return <CommandLine command={`fallow explain ${finding.rule}`} />;
+  return (
+    <div class="f-explain">
+      <ExplanationText text={explanation.rationale} />
+      <ExplanationText text={explanation.howToFix} muted />
+      <ExplanationDocs host={host} finding={finding} explanation={explanation} />
+    </div>
+  );
+};
+
+export const FindingDetail = ({
+  host,
+  project,
+  finding,
+  attached,
+  onBack,
+  onAttach,
+}: DetailProps): JSX.Element => {
+  const { snippet, explanation } = useFindingEvidence({ host, project, finding });
   return (
     <article class="f-detail">
-      <header class="f-detail-header">
-        {onBack === undefined ? null : (
-          <Button
-            size="sm"
-            variant="ghost"
-            icon="chevronLeft"
-            title="Back to the list"
-            onClick={onBack}
-          />
-        )}
-        <div class="f-detail-heading">
-          <span class="f-detail-kicker">
-            <CategoryLabel category={finding.category} />
-            <LevelDot level={finding.level} />
-            {finding.introduced === true ? (
-              <span class="f-badge f-badge-new">New on this branch</span>
-            ) : null}
-          </span>
-          <h2>
-            {finding.title}
-            {finding.symbol === null ? null : <code>{finding.symbol}</code>}
-          </h2>
-        </div>
-      </header>
-
+      <FindingHeader finding={finding} onBack={onBack} />
       <p class="f-detail-message">
         <Message text={finding.message} />
       </p>
-
-      <div class="f-detail-actions">
-        {host.canMessage ? (
-          <Button
-            variant="primary"
-            icon="sparkle"
-            onClick={() =>
-              void host.send(
-                `Fix this Fallow finding in ${project.name}. Run its verify command first, and keep the change small.`,
-                [finding],
-                project,
-              )
-            }
-          >
-            Fix with Codex
-          </Button>
-        ) : null}
-        {host.canAttach ? (
-          <Button icon={attached ? "check" : "attach"} pressed={attached} onClick={onAttach}>
-            {attached ? "In chat" : "Add to chat"}
-          </Button>
-        ) : null}
-        {host.canOpenFiles ? (
-          <Button
-            icon="file"
-            onClick={() => void openFinding(host, project, finding.path)}
-          >
-            Open file
-          </Button>
-        ) : null}
-      </div>
-
-      <section class="f-detail-section">
-        <h3>Location</h3>
-        <p class="f-path f-path-block">{location(finding)}</p>
-        {finding.line === null ? null : snippet === null ? (
-          <div class="f-code f-code-loading">
-            <LoadingStatus label="Loading the source" />
-          </div>
-        ) : (
-          <CodeSnippet snippet={snippet} focus={finding.line} />
-        )}
-        {finding.related.length > 0 ? (
-          <ul class="f-related">
-            {finding.related.map((related) => (
-              <li key={`${related.path}:${related.startLine}`}>
-                <button
-                  type="button"
-                  class="f-link cursor-interaction"
-                  disabled={!host.canOpenFiles}
-                  onClick={() => void openFinding(host, project, related.path)}
-                >
-                  {related.startLine > 0
-                    ? `${related.path}:${related.startLine}-${related.endLine}`
-                    : related.path}
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </section>
-
-      {finding.verify === null ? null : (
-        <section class="f-detail-section">
-          <h3>Verify first</h3>
-          <p class="f-muted">
-            Static analysis cannot see dynamic imports. This command shows the evidence.
-          </p>
-          <CommandLine command={finding.verify} />
-        </section>
-      )}
-
-      {fixes.length > 0 || suppressions.length > 0 ? (
-        <section class="f-detail-section">
-          <h3>How to fix</h3>
-          <ul class="f-actions-list">
-            {fixes.map((action) => (
-              <li key={action.type}>
-                <Icon name={action.autoFixable ? "wand" : "chevronRight"} size={14} />
-                <span>{action.description}</span>
-                {action.autoFixable ? <span class="f-badge">Auto-fix</span> : null}
-              </li>
-            ))}
-            {suppressions.map((action) => (
-              <li key={action.type} class="f-muted">
-                <Icon name="info" size={14} />
-                <span>
-                  {action.description}
-                  {action.comment === null ? null : (
-                    <>
-                      {" "}
-                      <code>{action.comment}</code>
-                    </>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
+      <FindingActions
+        host={host}
+        project={project}
+        finding={finding}
+        attached={attached}
+        onAttach={onAttach}
+      />
+      <FindingLocation host={host} project={project} finding={finding} snippet={snippet} />
+      <FindingVerification command={finding.verify} />
+      <FindingRemedies finding={finding} />
       <section class="f-detail-section">
         <h3>Why this matters</h3>
-        {explanation === null ? (
-          <LoadingStatus label="Loading the explanation" />
-        ) : explanation.found ? (
-          <div class="f-explain">
-            {explanation.rationale === null || explanation.rationale === undefined ? null : (
-              <p>{explanation.rationale}</p>
-            )}
-            {explanation.howToFix === null || explanation.howToFix === undefined ? null : (
-              <p class="f-muted">{explanation.howToFix}</p>
-            )}
-            {explanation.docs === null || explanation.docs === undefined ? null : (
-              <button
-                type="button"
-                class="f-link cursor-interaction"
-                onClick={() => void host.openLink(explanation.docs ?? "")}
-              >
-                Read the {CATEGORY_TITLES[finding.category].toLowerCase()} docs{" "}
-                <Icon name="external" size={12} />
-              </button>
-            )}
-          </div>
-        ) : (
-          <CommandLine command={`fallow explain ${finding.rule}`} />
-        )}
+        <FindingExplanation host={host} finding={finding} explanation={explanation} />
       </section>
     </article>
   );

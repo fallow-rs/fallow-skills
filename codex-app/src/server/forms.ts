@@ -45,7 +45,10 @@ const elicit = async (
     { mode: "form", message, requestedSchema },
     { timeout: FORM_TIMEOUT_MS, resetTimeoutOnProgress: true },
   );
-  return { result, notShown: result.action !== "accept" && Date.now() - started < FORM_NOT_SHOWN_MS };
+  return {
+    result,
+    notShown: result.action !== "accept" && Date.now() - started < FORM_NOT_SHOWN_MS,
+  };
 };
 
 const FORM_NOT_SHOWN_TEXT =
@@ -181,7 +184,9 @@ const declined = (
         structuredContent: {
           status: "form_not_shown",
           project,
-          categories: Object.fromEntries([...byCategory].map(([id, findings]) => [id, findings.length])),
+          categories: Object.fromEntries(
+            [...byCategory].map(([id, findings]) => [id, findings.length]),
+          ),
         },
       }
     : {
@@ -199,6 +204,179 @@ const APPROACH_INSTRUCTIONS: Record<string, string> = {
   plan: "Write a short, numbered plan for the selected findings, grouped by file. Wait for the user to approve it before you edit code.",
   triage:
     "Check each selected finding with its `verify` command. Report which are real and which are false positives. For a false positive, propose a config change (entry, ignoreDependencies, ignoreExports) instead of an inline suppression.",
+};
+
+type CleanupPreparation =
+  | { ok: true; project: ProjectRef; byCategory: Map<CategoryId, Finding[]> }
+  | { ok: false; result: CallToolResult };
+
+type CategorySelection = { ok: true; focus: CategoryId } | { ok: false; result: CallToolResult };
+
+const groupFindings = (findings: Finding[]): Map<CategoryId, Finding[]> => {
+  const byCategory = new Map<CategoryId, Finding[]>();
+  for (const finding of findings) {
+    byCategory.set(finding.category, [...(byCategory.get(finding.category) ?? []), finding]);
+  }
+  return byCategory;
+};
+
+const cleanupAvailability = (
+  context: ServerContext,
+  project: ProjectRef,
+  byCategory: Map<CategoryId, Finding[]>,
+): CallToolResult | null => {
+  if (byCategory.size === 0) {
+    return {
+      content: [
+        { type: "text", text: `${project.name} has no Fallow findings. Nothing to clean up.` },
+      ],
+      structuredContent: { project, findings: [] },
+    };
+  }
+  if (supportsForms(context)) return null;
+  return {
+    content: [
+      {
+        type: "text",
+        text: "This client cannot show forms. Ask the user which findings to clean up.",
+      },
+    ],
+    structuredContent: {
+      project,
+      formsSupported: false,
+      categories: Object.fromEntries(
+        [...byCategory].map(([id, findings]) => [id, findings.length]),
+      ),
+    },
+  };
+};
+
+const prepareCleanup = async (
+  context: ServerContext,
+  visibility: Array<"model" | "app">,
+  path: string | undefined,
+  extra: Extra,
+): Promise<CleanupPreparation> => {
+  const resolved = await resolveProject(
+    context.store,
+    extra._meta,
+    path,
+    // A folder argument counts only from the model, and only with a Codex sandbox.
+    rootPolicy(context, visibility.includes("model") && sandboxFromMeta(extra._meta) !== null),
+  );
+  if (resolved === null) {
+    return {
+      ok: false,
+      result: await pickerResult(context, "Fallow does not know which project to clean up yet."),
+    };
+  }
+  const { project } = resolved;
+  const settings = await context.store.settings();
+  const analysis = await context.analyzer.analyze({
+    project,
+    settings,
+    sandbox: sandboxFor(extra._meta),
+  });
+  if (!analysis.ok) return { ok: false, result: problemResult(analysis.problem, project) };
+  const byCategory = groupFindings(analysis.findings);
+  const unavailable = cleanupAvailability(context, project, byCategory);
+  return cleanupPreparation(project, byCategory, unavailable);
+};
+
+const cleanupPreparation = (
+  project: ProjectRef,
+  byCategory: Map<CategoryId, Finding[]>,
+  unavailable: CallToolResult | null,
+): CleanupPreparation => {
+  return unavailable === null
+    ? { ok: true, project, byCategory }
+    : { ok: false, result: unavailable };
+};
+
+const chooseCategory = async (
+  context: ServerContext,
+  project: ProjectRef,
+  byCategory: Map<CategoryId, Finding[]>,
+  category: CategoryId | undefined,
+): Promise<CategorySelection> => {
+  if (category !== undefined) return { ok: true, focus: category };
+  const outcome = await elicit(
+    context,
+    `What should Codex clean up first in ${project.name}?`,
+    categoryForm(byCategory),
+  );
+  if (outcome.result.action !== "accept") {
+    return { ok: false, result: declined(outcome, project, byCategory) };
+  }
+  return { ok: true, focus: String(outcome.result.content["focus"]) as CategoryId };
+};
+
+const selectedFindings = (
+  project: ProjectRef,
+  candidates: Finding[],
+  value: unknown,
+): Finding[] => {
+  const chosen = new Set((Array.isArray(value) ? value : [value]).map(String));
+  return candidates.filter((finding) => chosen.has(findingUri(project.root, finding.id)));
+};
+
+const selectionResult = (
+  project: ProjectRef,
+  focus: CategoryId,
+  candidates: Finding[],
+  answer: Extract<OpenAIFormResult, { action: "accept" }>,
+): CallToolResult => {
+  const selected = selectedFindings(project, candidates, answer.content["findings"]);
+  const approach = String(answer.content["approach"] ?? "fix");
+  const constraints = Array.isArray(answer.content["constraints"])
+    ? answer.content["constraints"].map(String)
+    : [];
+  const instructions = APPROACH_INSTRUCTIONS[approach] ?? APPROACH_INSTRUCTIONS["fix"];
+  return {
+    content: [{ type: "text", text: `${instructions}` }],
+    structuredContent: {
+      project,
+      category: focus,
+      approach,
+      instructions,
+      constraints,
+      findings: selected.map((finding) => ({
+        id: finding.id,
+        rule: finding.rule,
+        location: location(finding),
+        message: finding.message,
+        verify: finding.verify,
+        actions: finding.actions.map((action) => action.description),
+      })),
+    },
+  };
+};
+
+const chooseFindings = async (
+  context: ServerContext,
+  project: ProjectRef,
+  byCategory: Map<CategoryId, Finding[]>,
+  focus: CategoryId,
+): Promise<CallToolResult> => {
+  const candidates = byCategory.get(focus) ?? [];
+  if (candidates.length === 0) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `${project.name} has no ${CATEGORY_TITLES[focus].toLowerCase()} findings.`,
+        },
+      ],
+      structuredContent: { project, category: focus, findings: [] },
+    };
+  }
+  const outcome = await elicit(
+    context,
+    `Choose the ${CATEGORY_TITLES[focus].toLowerCase()} findings to clean up. Open a finding to see its code.`,
+    findingsForm(project, candidates),
+  );
+  if (outcome.result.action !== "accept") return declined(outcome, project, byCategory);
+  return selectionResult(project, focus, candidates, outcome.result);
 };
 
 export const registerForms = (context: ServerContext): void => {
@@ -242,123 +420,13 @@ export const registerForms = (context: ServerContext): void => {
         annotations: READ_ONLY,
         _meta: { ui: { visibility } },
       },
-      async ({ path, category }, extra: Extra) => {
-        const resolved = await resolveProject(
-          context.store,
-          extra._meta,
-          path,
-          // A folder argument counts only from the model, and only with a Codex sandbox.
-          rootPolicy(context, visibility.includes("model") && sandboxFromMeta(extra._meta) !== null),
-        );
-        if (resolved === null)
-          return pickerResult(context, "Fallow does not know which project to clean up yet.");
-        const { project } = resolved;
-        const settings = await context.store.settings();
-        const analysis = await context.analyzer.analyze({
-          project,
-          settings,
-          sandbox: sandboxFor(extra._meta),
-        });
-        if (!analysis.ok) return problemResult(analysis.problem, project);
-
-        const byCategory = new Map<CategoryId, Finding[]>();
-        for (const finding of analysis.findings) {
-          byCategory.set(finding.category, [...(byCategory.get(finding.category) ?? []), finding]);
-        }
-        if (byCategory.size === 0) {
-          return {
-            content: [
-              { type: "text", text: `${project.name} has no Fallow findings. Nothing to clean up.` },
-            ],
-            structuredContent: { project, findings: [] },
-          };
-        }
-        if (!supportsForms(context)) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: "This client cannot show forms. Ask the user which findings to clean up.",
-              },
-            ],
-            structuredContent: {
-              project,
-              formsSupported: false,
-              categories: Object.fromEntries(
-                [...byCategory].map(([id, findings]) => [id, findings.length]),
-              ),
-            },
-          };
-        }
-
-        let focus: CategoryId | undefined = category;
-        if (focus === undefined) {
-          const firstForm = await elicit(
-            context,
-            `What should Codex clean up first in ${project.name}?`,
-            categoryForm(byCategory),
-          );
-          const first = firstForm.result;
-          if (first.action !== "accept") return declined(firstForm, project, byCategory);
-          focus = String(first.content["focus"]) as CategoryId;
-        }
-        const candidates = byCategory.get(focus) ?? [];
-        if (candidates.length === 0) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `${project.name} has no ${CATEGORY_TITLES[focus].toLowerCase()} findings.`,
-              },
-            ],
-            structuredContent: { project, category: focus, findings: [] },
-          };
-        }
-
-        const secondForm = await elicit(
-          context,
-          `Choose the ${CATEGORY_TITLES[focus].toLowerCase()} findings to clean up. Open a finding to see its code.`,
-          findingsForm(project, candidates),
-        );
-        const second = secondForm.result;
-        if (second.action !== "accept") return declined(secondForm, project, byCategory);
-
-        const chosen = new Set(
-          (Array.isArray(second.content["findings"])
-            ? second.content["findings"]
-            : [second.content["findings"]]
-          ).map(String),
-        );
-        const selected = candidates.filter((finding) =>
-          chosen.has(findingUri(project.root, finding.id)),
-        );
-        const approach = String(second.content["approach"] ?? "fix");
-        const constraints = Array.isArray(second.content["constraints"])
-          ? second.content["constraints"].map(String)
-          : [];
-        return {
-          content: [
-            {
-              type: "text",
-              text: `${APPROACH_INSTRUCTIONS[approach] ?? APPROACH_INSTRUCTIONS["fix"]}`,
-            },
-          ],
-          structuredContent: {
-            project,
-            category: focus,
-            approach,
-            instructions: APPROACH_INSTRUCTIONS[approach] ?? APPROACH_INSTRUCTIONS["fix"],
-            constraints,
-            findings: selected.map((finding) => ({
-              id: finding.id,
-              rule: finding.rule,
-              location: location(finding),
-              message: finding.message,
-              verify: finding.verify,
-              actions: finding.actions.map((action) => action.description),
-            })),
-          },
-        };
+      async ({ path, category }, extra: Extra): Promise<CallToolResult> => {
+        const prepared = await prepareCleanup(context, visibility, path, extra);
+        if (!prepared.ok) return prepared.result;
+        const { project, byCategory } = prepared;
+        const focused = await chooseCategory(context, project, byCategory, category);
+        if (!focused.ok) return focused.result;
+        return chooseFindings(context, project, byCategory, focused.focus);
       },
     );
   };
@@ -384,19 +452,23 @@ export const registerForms = (context: ServerContext): void => {
         title: recent.grade === null ? recent.name : `${recent.name} (grade ${recent.grade})`,
         description: recent.root,
       }));
-      const outcome = await elicit(context, "Choose a JavaScript or TypeScript project for Fallow.", {
-        type: "object",
-        required: ["project"],
-        properties: {
-          project: {
-            type: "string",
-            title: "Project folder",
-            format: "uri",
-            "x-openai-input": { type: "resource", options, userOptions: { kind: "directory" } },
-            ...(options[0] === undefined ? {} : { default: options[0].uri }),
+      const outcome = await elicit(
+        context,
+        "Choose a JavaScript or TypeScript project for Fallow.",
+        {
+          type: "object",
+          required: ["project"],
+          properties: {
+            project: {
+              type: "string",
+              title: "Project folder",
+              format: "uri",
+              "x-openai-input": { type: "resource", options, userOptions: { kind: "directory" } },
+              ...(options[0] === undefined ? {} : { default: options[0].uri }),
+            },
           },
-        },
-      } as Requested);
+        } as Requested,
+      );
       const form = outcome.result;
       if (form.action !== "accept") {
         return pickerResult(

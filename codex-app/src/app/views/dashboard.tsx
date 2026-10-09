@@ -1,5 +1,12 @@
 import type { JSX } from "preact";
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type StateUpdater,
+} from "preact/hooks";
 import { CATEGORY_ORDER, CATEGORY_TITLES } from "../../shared/categories.ts";
 import type { CategoryId, Finding, Level, ProjectRef, Report } from "../../shared/contracts.ts";
 import {
@@ -120,7 +127,89 @@ type DashboardProps = {
   onView: (view: ReturnType<typeof viewOf>) => void;
 };
 
-export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.Element => {
+type Setter<T> = Dispatch<StateUpdater<T>>;
+type DashboardState = {
+  tab: Tab;
+  setTab: Setter<Tab>;
+  category: CategoryId | null;
+  setCategory: Setter<CategoryId | null>;
+  level: "all" | Level;
+  setLevel: Setter<"all" | Level>;
+  query: string;
+  setQuery: Setter<string>;
+  groupBy: "file" | "rule";
+  setGroupBy: Setter<"file" | "rule">;
+  setDetailId: Setter<string | null>;
+  formNotice: boolean;
+  setFormNotice: Setter<boolean>;
+  busy: "refresh" | "scope" | "cleanup" | null;
+  selected: Set<string>;
+  setSelected: Setter<Set<string>>;
+  inline: boolean;
+  filtered: Finding[];
+  detail: Finding | null;
+  selectedFindings: Finding[];
+  toggle: (finding: Finding) => void;
+  toggleMany: (findings: Finding[], select: boolean) => void;
+  rerun: (kind: "refresh" | "scope", scope: Report["scope"]) => Promise<void>;
+  planCleanup: () => Promise<void>;
+  openFindings: (next: CategoryId | null) => void;
+};
+type DashboardSectionProps = { host: Host; report: Report; state: DashboardState };
+type CleanupPlan = {
+  status?: string;
+  instructions?: string;
+  constraints?: string[];
+  findings?: Array<{ id: string }>;
+};
+const findingDetail = (findings: Finding[], id: string | null): Finding | null => {
+  if (id === null) return null;
+  return findings.find((finding) => finding.id === id) ?? null;
+};
+const cleanupInstruction = (plan: CleanupPlan, instructions: string): string => {
+  const constraints = plan.constraints ?? [];
+  return [
+    instructions,
+    ...(constraints.length > 0 ? [`Constraints: ${constraints.join("; ")}.`] : []),
+  ].join(" ");
+};
+const cleanupIds = (plan: CleanupPlan | undefined): Set<string> =>
+  new Set((plan?.findings ?? []).map((finding) => finding.id));
+const cleanupCategory = (category: CategoryId | null): { category?: CategoryId } =>
+  category === null ? {} : { category };
+const cleanupFormNotShown = (plan: CleanupPlan | undefined): boolean =>
+  plan?.status === "form_not_shown";
+const cleanupProblem = (error: unknown, project: ProjectRef): ReturnType<typeof viewOf> => ({
+  view: "problem",
+  problem: {
+    code: "cleanup_failed",
+    title: "The cleanup form could not open",
+    detail: error instanceof Error ? error.message : String(error),
+    fix: null,
+  },
+  project,
+});
+const matchesCategory = (finding: Finding, category: CategoryId | null): boolean =>
+  category === null || finding.category === category;
+const matchesLevel = (finding: Finding, level: "all" | Level): boolean =>
+  level === "all" || finding.level === level;
+const sendCleanupPlan = async (
+  host: Host,
+  report: Report,
+  plan: CleanupPlan | undefined,
+): Promise<void> => {
+  const ids = cleanupIds(plan);
+  if (plan === undefined) return;
+  if (plan.instructions === undefined) return;
+  if (ids.size === 0) return;
+  await host.send(
+    cleanupInstruction(plan, plan.instructions),
+    report.findings.filter((finding) => ids.has(finding.id)),
+    report.project,
+  );
+};
+
+const useDashboard = ({ host, report, route, onView }: DashboardProps): DashboardState => {
   const initial = useMemo(() => parseRoute(route ?? host.deepLink), [route]);
   const [tab, setTab] = useState<Tab>(initial.tab);
   const [category, setCategory] = useState<CategoryId | null>(initial.category);
@@ -149,14 +238,13 @@ export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.
       .filter((term) => term.length > 0);
     return report.findings.filter(
       (finding) =>
-        (category === null || finding.category === category) &&
-        (level === "all" || finding.level === level) &&
+        matchesCategory(finding, category) &&
+        matchesLevel(finding, level) &&
         matches(finding, terms),
     );
   }, [report.findings, category, level, query]);
 
-  const detail =
-    detailId === null ? null : (report.findings.find((finding) => finding.id === detailId) ?? null);
+  const detail = findingDetail(report.findings, detailId);
   const selectedFindings = report.findings.filter((finding) => selected.has(finding.id));
 
   const toggle = (finding: Finding): void =>
@@ -174,7 +262,9 @@ export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.
   const rerun = async (kind: "refresh" | "scope", scope: Report["scope"]): Promise<void> => {
     setBusy(kind);
     try {
-      onView(await host.callView("fallow_app_run", { root: report.project.root, scope, force: true }));
+      onView(
+        await host.callView("fallow_app_run", { root: report.project.root, scope, force: true }),
+      );
     } finally {
       setBusy(null);
     }
@@ -185,42 +275,16 @@ export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.
     try {
       const result = await host.call("fallow_app_plan_cleanup", {
         path: report.project.root,
-        ...(category === null ? {} : { category }),
+        ...cleanupCategory(category),
       });
-      const plan = result.structuredContent as
-        | {
-            status?: string;
-            instructions?: string;
-            constraints?: string[];
-            findings?: Array<{ id: string }>;
-          }
-        | undefined;
-      if (plan?.status === "form_not_shown") {
+      const plan = result.structuredContent as CleanupPlan | undefined;
+      if (cleanupFormNotShown(plan)) {
         setFormNotice(true);
         return;
       }
-      const ids = new Set((plan?.findings ?? []).map((finding) => finding.id));
-      if (plan?.instructions === undefined || ids.size === 0) return;
-      const constraints = plan.constraints ?? [];
-      await host.send(
-        [
-          plan.instructions,
-          ...(constraints.length > 0 ? [`Constraints: ${constraints.join("; ")}.`] : []),
-        ].join(" "),
-        report.findings.filter((finding) => ids.has(finding.id)),
-        report.project,
-      );
+      await sendCleanupPlan(host, report, plan);
     } catch (error) {
-      onView({
-        view: "problem",
-        problem: {
-          code: "cleanup_failed",
-          title: "The cleanup form could not open",
-          detail: error instanceof Error ? error.message : String(error),
-          fix: null,
-        },
-        project: report.project,
-      });
+      onView(cleanupProblem(error, report.project));
     } finally {
       setBusy(null);
     }
@@ -233,248 +297,350 @@ export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.
     if (inline && host.canExpand) void host.expand();
   };
 
+  return {
+    tab,
+    setTab,
+    category,
+    setCategory,
+    level,
+    setLevel,
+    query,
+    setQuery,
+    groupBy,
+    setGroupBy,
+    setDetailId,
+    formNotice,
+    setFormNotice,
+    busy,
+    selected,
+    setSelected,
+    inline,
+    filtered,
+    detail,
+    selectedFindings,
+    toggle,
+    toggleMany,
+    rerun,
+    planCleanup,
+    openFindings,
+  };
+};
+
+export const Dashboard = (props: DashboardProps): JSX.Element => {
+  const state = useDashboard(props);
+  const { host, report } = props;
+  const { inline, tab } = state;
   return (
     <div class={`f-dashboard ${inline ? "f-inline" : "f-full"}`}>
-      <header class="f-topbar">
-        <div class="f-topbar-title">
-          <FallowMark />
-          <div class="f-title-text">
-            <h1>{report.project.name}</h1>
-            <p class="f-subtle">
-              {report.project.branch === null ? null : (
-                <span class="f-chip">
-                  <Icon name="branch" size={12} />
-                  {report.project.branch}
-                </span>
-              )}
-              <span title={new Date(report.analyzedAt).toLocaleString()}>
-                {report.scope === "changed"
-                  ? `Changed since ${report.base ?? "base"}`
-                  : "Whole project"}{" "}
-                · {relativeTime(report.analyzedAt)}
-              </span>
-            </p>
-          </div>
-        </div>
-        <div class="f-topbar-actions">
-          {inline ? null : (
-            <div class="f-segmented" role="group" aria-label="Scope">
-              <button
-                type="button"
-                class="cursor-interaction"
-                aria-pressed={report.scope === "full"}
-                disabled={busy !== null}
-                onClick={() => report.scope === "full" || void rerun("scope", "full")}
-              >
-                Project
-              </button>
-              <button
-                type="button"
-                class="cursor-interaction"
-                aria-pressed={report.scope === "changed"}
-                disabled={busy !== null}
-                onClick={() => report.scope === "changed" || void rerun("scope", "changed")}
-              >
-                Changed
-              </button>
-            </div>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            icon="refresh"
-            title="Run fallow again"
-            busy={busy === "refresh" || busy === "scope"}
-            onClick={() => void rerun("refresh", report.scope)}
-          />
-          {host.canExpand ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              icon="expand"
-              title="Open full screen"
-              onClick={() => void host.expand()}
-            />
-          ) : null}
-        </div>
-      </header>
-
-      {formNotice ? (
-        <div class="f-banner f-banner-warn" role="status">
-          <Icon name="info" size={14} />
-          <span>
-            Codex did not show the cleanup form. It declines forms when the thread runs in Full
-            access mode. Switch the thread to Default permissions, or select findings and use Fix
-            with Codex.
-          </span>
-          <Button size="sm" variant="ghost" icon="close" title="Dismiss" onClick={() => setFormNotice(false)} />
-        </div>
-      ) : null}
-
+      <DashboardHeader host={host} report={report} state={state} />
+      <CleanupFormNotice state={state} />
       {report.notices.map((notice) => (
         <div key={notice} class="f-banner f-banner-warn" role="status">
           <Icon name="alert" size={14} />
           <span>{notice}</span>
         </div>
       ))}
-
-      {inline ? null : (
-        <div class="f-tabs" role="tablist" aria-label="Sections">
-          {(["overview", "findings", "insights"] as const).map((name) => (
-            <button
-              type="button"
-              key={name}
-              role="tab"
-              id={`f-tab-${name}`}
-              aria-selected={tab === name}
-              aria-controls="f-panel"
-              class="cursor-interaction"
-              onClick={() => {
-                setTab(name);
-                setDetailId(null);
-              }}
-            >
-              {name === "overview"
-                ? "Overview"
-                : name === "findings"
-                  ? `Findings ${report.counts.total}`
-                  : "Insights"}
-            </button>
-          ))}
-        </div>
-      )}
-
+      <DashboardTabs host={host} report={report} state={state} />
       <div
         class="f-main"
         {...(inline ? {} : { role: "tabpanel", id: "f-panel", "aria-labelledby": `f-tab-${tab}` })}
       >
-        {tab === "overview" || inline ? (
-          <Overview
-            report={report}
-            inline={inline}
-            onCategory={openFindings}
-            onFinding={(finding) => {
-              setDetailId(finding.id);
-              setTab("findings");
-              if (inline && host.canExpand) void host.expand();
-            }}
-            onCleanup={() => void planCleanup()}
-            cleanupBusy={busy === "cleanup"}
-            host={host}
-          />
-        ) : tab === "insights" ? (
-          <Insights report={report} />
-        ) : detail !== null ? (
-          <FindingDetail
-            host={host}
-            project={report.project}
-            finding={detail}
-            attached={selected.has(detail.id)}
-            onBack={() => setDetailId(null)}
-            onAttach={() => toggle(detail)}
-          />
-        ) : (
-          <div class="f-findings">
-            <div class="f-filters">
-              <label class="f-search">
-                <Icon name="search" size={14} />
-                <input
-                  class="form-control"
-                  type="search"
-                  placeholder="Search findings, files, symbols"
-                  aria-label="Search findings"
-                  value={query}
-                  onInput={(event) => setQuery(event.currentTarget.value)}
-                />
-              </label>
-              <div class="f-segmented" role="group" aria-label="Severity">
-                {(["all", "error", "warn"] as const).map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    class="cursor-interaction"
-                    aria-pressed={level === value}
-                    onClick={() => setLevel(value)}
-                  >
-                    {value === "all"
-                      ? "All"
-                      : value === "error"
-                        ? `Errors ${report.counts.byLevel.error}`
-                        : `Warnings ${report.counts.byLevel.warn}`}
-                  </button>
-                ))}
-              </div>
-              <div class="f-segmented" role="group" aria-label="Group by">
-                <button
-                  type="button"
-                  class="cursor-interaction"
-                  aria-pressed={groupBy === "file"}
-                  onClick={() => setGroupBy("file")}
-                >
-                  By file
-                </button>
-                <button
-                  type="button"
-                  class="cursor-interaction"
-                  aria-pressed={groupBy === "rule"}
-                  onClick={() => setGroupBy("rule")}
-                >
-                  By rule
-                </button>
-              </div>
-            </div>
-            <div class="f-chips" role="group" aria-label="Category">
-              <button
-                type="button"
-                class="f-filter-chip cursor-interaction"
-                aria-pressed={category === null}
-                onClick={() => setCategory(null)}
-              >
-                All {report.counts.total}
-              </button>
-              {categoryCounts(report).map((entry) => (
-                <button
-                  key={entry.category}
-                  type="button"
-                  class="f-filter-chip cursor-interaction"
-                  aria-pressed={category === entry.category}
-                  onClick={() => setCategory(category === entry.category ? null : entry.category)}
-                >
-                  <CategoryGlyph category={entry.category} size={12} />
-                  {CATEGORY_TITLES[entry.category]} {entry.count}
-                </button>
-              ))}
-            </div>
-            {report.omitted > 0 ? (
-              <p class="f-note">
-                <Icon name="info" size={14} /> Showing the first {report.findings.length} of{" "}
-                {report.counts.total} findings. Codex reads all of them through @Fallow mentions.
-              </p>
-            ) : null}
-            <FindingList
-              host={host}
-              project={report.project}
-              findings={filtered}
-              selected={selected}
-              onToggle={toggle}
-              onToggleMany={toggleMany}
-              onOpen={(finding) => setDetailId(finding.id)}
-              groupBy={groupBy}
-            />
-          </div>
-        )}
+        <DashboardPanel host={host} report={report} state={state} />
       </div>
+      <DashboardSelection host={host} report={report} state={state} />
+    </div>
+  );
+};
 
-      {selected.size > 0 && !inline ? (
-        <SelectionBar
-          host={host}
-          project={report.project}
-          findings={selectedFindings}
-          onClear={() => setSelected(new Set())}
+const DashboardHeader = (props: DashboardSectionProps): JSX.Element => (
+  <header class="f-topbar">
+    <DashboardTitle report={props.report} />
+    <DashboardActions {...props} />
+  </header>
+);
+const DashboardTitle = ({ report }: { report: Report }): JSX.Element => (
+  <div class="f-topbar-title">
+    <FallowMark />
+    <div class="f-title-text">
+      <h1>{report.project.name}</h1>
+      <p class="f-subtle">
+        {report.project.branch === null ? null : (
+          <span class="f-chip">
+            <Icon name="branch" size={12} />
+            {report.project.branch}
+          </span>
+        )}
+        <span title={new Date(report.analyzedAt).toLocaleString()}>
+          {report.scope === "changed" ? `Changed since ${report.base ?? "base"}` : "Whole project"}{" "}
+          · {relativeTime(report.analyzedAt)}
+        </span>
+      </p>
+    </div>
+  </div>
+);
+const DashboardActions = ({ host, report, state }: DashboardSectionProps): JSX.Element => {
+  const { busy, rerun } = state;
+  return (
+    <div class="f-topbar-actions">
+      <DashboardScope host={host} report={report} state={state} />
+      <Button
+        size="sm"
+        variant="ghost"
+        icon="refresh"
+        title="Run fallow again"
+        busy={busy === "refresh" || busy === "scope"}
+        onClick={() => void rerun("refresh", report.scope)}
+      />
+      {host.canExpand ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          icon="expand"
+          title="Open full screen"
+          onClick={() => void host.expand()}
         />
       ) : null}
     </div>
   );
+};
+const DashboardScope = ({ report, state }: DashboardSectionProps): JSX.Element | null => {
+  const { inline, busy, rerun } = state;
+  if (inline) return null;
+  return (
+    <div class="f-segmented" role="group" aria-label="Scope">
+      <button
+        type="button"
+        class="cursor-interaction"
+        aria-pressed={report.scope === "full"}
+        disabled={busy !== null}
+        onClick={() => report.scope === "full" || void rerun("scope", "full")}
+      >
+        Project
+      </button>
+      <button
+        type="button"
+        class="cursor-interaction"
+        aria-pressed={report.scope === "changed"}
+        disabled={busy !== null}
+        onClick={() => report.scope === "changed" || void rerun("scope", "changed")}
+      >
+        Changed
+      </button>
+    </div>
+  );
+};
+const CleanupFormNotice = ({ state }: { state: DashboardState }): JSX.Element | null => {
+  const { formNotice, setFormNotice } = state;
+  if (!formNotice) return null;
+  return (
+    <div class="f-banner f-banner-warn" role="status">
+      <Icon name="info" size={14} />
+      <span>
+        Codex did not show the cleanup form. It declines forms when the thread runs in Full access
+        mode. Switch the thread to Default permissions, or select findings and use Fix with Codex.
+      </span>
+      <Button
+        size="sm"
+        variant="ghost"
+        icon="close"
+        title="Dismiss"
+        onClick={() => setFormNotice(false)}
+      />
+    </div>
+  );
+};
+const DashboardTabs = ({ report, state }: DashboardSectionProps): JSX.Element | null => {
+  const { inline, tab, setTab, setDetailId } = state;
+  if (inline) return null;
+  const labels: Record<Tab, string> = {
+    overview: "Overview",
+    findings: `Findings ${report.counts.total}`,
+    insights: "Insights",
+  };
+  return (
+    <div class="f-tabs" role="tablist" aria-label="Sections">
+      {(["overview", "findings", "insights"] as const).map((name) => (
+        <button
+          type="button"
+          key={name}
+          role="tab"
+          id={`f-tab-${name}`}
+          aria-selected={tab === name}
+          aria-controls="f-panel"
+          class="cursor-interaction"
+          onClick={() => {
+            setTab(name);
+            setDetailId(null);
+          }}
+        >
+          {labels[name]}
+        </button>
+      ))}
+    </div>
+  );
+};
+const DashboardPanel = (props: DashboardSectionProps): JSX.Element => {
+  if (props.state.inline) return <DashboardOverview {...props} />;
+  const Panel = DASHBOARD_PANELS[props.state.tab];
+  return <Panel {...props} />;
+};
+const DashboardOverview = ({ host, report, state }: DashboardSectionProps): JSX.Element => {
+  const { inline, openFindings, setDetailId, setTab, planCleanup, busy } = state;
+  return (
+    <Overview
+      report={report}
+      inline={inline}
+      onCategory={openFindings}
+      onFinding={(finding) => {
+        setDetailId(finding.id);
+        setTab("findings");
+        if (inline && host.canExpand) void host.expand();
+      }}
+      onCleanup={() => void planCleanup()}
+      cleanupBusy={busy === "cleanup"}
+      host={host}
+    />
+  );
+};
+const DashboardInsights = ({ report }: DashboardSectionProps): JSX.Element => (
+  <Insights report={report} />
+);
+const DashboardFindings = ({ host, report, state }: DashboardSectionProps): JSX.Element => {
+  const { detail, selected, setDetailId, toggle } = state;
+  if (detail === null) return <DashboardFindingList host={host} report={report} state={state} />;
+  return (
+    <FindingDetail
+      host={host}
+      project={report.project}
+      finding={detail}
+      attached={selected.has(detail.id)}
+      onBack={() => setDetailId(null)}
+      onAttach={() => toggle(detail)}
+    />
+  );
+};
+const DashboardFindingList = ({ host, report, state }: DashboardSectionProps): JSX.Element => {
+  const { filtered, selected, toggle, toggleMany, setDetailId, groupBy } = state;
+  return (
+    <div class="f-findings">
+      <DashboardFilters host={host} report={report} state={state} />
+      <DashboardCategories host={host} report={report} state={state} />
+      {report.omitted > 0 ? (
+        <p class="f-note">
+          <Icon name="info" size={14} /> Showing the first {report.findings.length} of{" "}
+          {report.counts.total} findings. Codex reads all of them through @Fallow mentions.
+        </p>
+      ) : null}
+      <FindingList
+        host={host}
+        project={report.project}
+        findings={filtered}
+        selected={selected}
+        onToggle={toggle}
+        onToggleMany={toggleMany}
+        onOpen={(finding) => setDetailId(finding.id)}
+        groupBy={groupBy}
+      />
+    </div>
+  );
+};
+const DashboardFilters = ({ report, state }: DashboardSectionProps): JSX.Element => {
+  const { query, setQuery, level, setLevel, groupBy, setGroupBy } = state;
+  const labels: Record<"all" | "error" | "warn", string> = {
+    all: "All",
+    error: `Errors ${report.counts.byLevel.error}`,
+    warn: `Warnings ${report.counts.byLevel.warn}`,
+  };
+  return (
+    <div class="f-filters">
+      <label class="f-search">
+        <Icon name="search" size={14} />
+        <input
+          class="form-control"
+          type="search"
+          placeholder="Search findings, files, symbols"
+          aria-label="Search findings"
+          value={query}
+          onInput={(event) => setQuery(event.currentTarget.value)}
+        />
+      </label>
+      <div class="f-segmented" role="group" aria-label="Severity">
+        {(["all", "error", "warn"] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            class="cursor-interaction"
+            aria-pressed={level === value}
+            onClick={() => setLevel(value)}
+          >
+            {labels[value]}
+          </button>
+        ))}
+      </div>
+      <div class="f-segmented" role="group" aria-label="Group by">
+        <button
+          type="button"
+          class="cursor-interaction"
+          aria-pressed={groupBy === "file"}
+          onClick={() => setGroupBy("file")}
+        >
+          By file
+        </button>
+        <button
+          type="button"
+          class="cursor-interaction"
+          aria-pressed={groupBy === "rule"}
+          onClick={() => setGroupBy("rule")}
+        >
+          By rule
+        </button>
+      </div>
+    </div>
+  );
+};
+const DashboardCategories = ({ report, state }: DashboardSectionProps): JSX.Element => {
+  const { category, setCategory } = state;
+  return (
+    <div class="f-chips" role="group" aria-label="Category">
+      <button
+        type="button"
+        class="f-filter-chip cursor-interaction"
+        aria-pressed={category === null}
+        onClick={() => setCategory(null)}
+      >
+        All {report.counts.total}
+      </button>
+      {categoryCounts(report).map((entry) => (
+        <button
+          key={entry.category}
+          type="button"
+          class="f-filter-chip cursor-interaction"
+          aria-pressed={category === entry.category}
+          onClick={() => setCategory(category === entry.category ? null : entry.category)}
+        >
+          <CategoryGlyph category={entry.category} size={12} />
+          {CATEGORY_TITLES[entry.category]} {entry.count}
+        </button>
+      ))}
+    </div>
+  );
+};
+const DashboardSelection = ({ host, report, state }: DashboardSectionProps): JSX.Element | null => {
+  const { selected, inline, selectedFindings, setSelected } = state;
+  if (selected.size === 0 || inline) return null;
+  return (
+    <SelectionBar
+      host={host}
+      project={report.project}
+      findings={selectedFindings}
+      onClear={() => setSelected(new Set())}
+    />
+  );
+};
+const DASHBOARD_PANELS: Record<Tab, (props: DashboardSectionProps) => JSX.Element> = {
+  overview: DashboardOverview,
+  findings: DashboardFindings,
+  insights: DashboardInsights,
 };
 
 const SelectionBar = ({
@@ -645,7 +811,9 @@ const Overview = ({
  * The report order alone would show six findings of the same file.
  */
 const startHere = (findings: Finding[], count: number): Finding[] => {
-  const queues = CATEGORY_ORDER.map((category) => findings.filter((finding) => finding.category === category));
+  const queues = CATEGORY_ORDER.map((category) =>
+    findings.filter((finding) => finding.category === category),
+  );
   const perFile = new Map<string, number>();
   const picked: Finding[] = [];
   while (picked.length < count && queues.some((queue) => queue.length > 0)) {
