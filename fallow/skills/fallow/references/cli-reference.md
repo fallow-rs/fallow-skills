@@ -1498,6 +1498,11 @@ Each `--path` hop carries `type_only` and `dynamic`. A `dynamic` hop loads its t
 <!-- generated:flags:trace:start -->
 | Flag | Type | Default | Description |
 |---|---|---|---|
+| `--dependency` | `string` | - | How the code uses each imported name of a package: file and call counts, one hop through project wrappers, and a count of each use that the trace cannot resolve |
+| `--specifier` | `string` | - | With `--dependency`, report only these imported names (repeatable or comma-separated). Turns on the site page |
+| `--sites` | `bool` | `false` | With `--dependency`, list the usage sites with file, line and column |
+| `--limit` | `string` | - | With `--dependency`, the largest number of sites on a page (1 to 500, default 50). Turns on the site page |
+| `--cursor` | `string` | - | With `--dependency`, the `next_cursor` of the previous page. Turns on the site page |
 | `--path` | `string` | - | Shortest import path between two modules, as two file paths (e.g. `--path src/app.ts src/db.ts`). Mutually exclusive with the symbol target and the call-chain flags |
 | `--eager-only` | `bool` | `false` | With `--path`, follow only static value imports, so the route explains why TO loads before FROM runs. `import()`, lazy globs, worker loads and `import type` do not qualify |
 | `--callers` | `bool` | `false` | Walk UP to callers (modules that import the symbol). When neither `--callers` nor `--callees` is set, both directions are walked |
@@ -1877,7 +1882,7 @@ Uploads retry network failures, HTTP 429, and HTTP 502/503/504 up to three attem
 | `--repo <NAME>` | string | `package.json` `repository.url`, then `git remote get-url origin` parsed to `owner/repo` | Repo identifier used in the source-map API path. Must match the beacon's `projectId` (and `upload-inventory`'s `--project-id`); pass `--repo <bare-name>` explicitly if the beacon reports a bare name. |
 | `--git-sha <SHA>` | string | `$GITHUB_SHA` -> `$CI_COMMIT_SHA` -> `$COMMIT_SHA` -> `git rev-parse HEAD` | Commit SHA, 7-40 hex chars. |
 | `--endpoint <URL>` | string | `$FALLOW_API_URL` or `https://api.fallow.cloud` | Override for staging / on-prem. |
-| `--strip-path <BOOL>` | bool | `true` | Upload basename-only `fileName` values. Use `--strip-path=false` when runtime coverage reports paths like `assets/app.js`. |
+| `--strip-path <BOOL>` | bool | `true` | Upload basename-only `fileName` values. Use `--strip-path=false` when runtime coverage reports paths like `assets/app.js`. Maps that share a basename are sent under their build-directory path, so no map replaces another. The command warns when a map's `sources` do not resolve to files in the repository (for example `sourceRoot: "/"` in `tsconfig.json`). |
 | `--dry-run` | bool | `false` | Print what would upload; no API key or network call. |
 | `--concurrency <N>` | integer | `4` | Parallel upload fanout. |
 | `--fail-fast` | bool | `false` | Stop on the first upload failure. |
