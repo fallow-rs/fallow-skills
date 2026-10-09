@@ -123,8 +123,13 @@ export const resolveFallow = async (
   return (await user()) ?? (source === "auto" ? NPX : null);
 };
 
-/** Only these variables reach fallow, so tokens in the Codex environment stay out of a project binary. */
-const ENV_ALLOWLIST = /^(PATH|PATHEXT|HOME|USERPROFILE|HOMEDRIVE|HOMEPATH|TMPDIR|TEMP|TMP|LANG|LANGUAGE|LC_[A-Z]+|TZ|SYSTEMROOT|SYSTEMDRIVE|COMSPEC|WINDIR|APPDATA|LOCALAPPDATA|PROGRAMDATA|XDG_[A-Z_]+|SHELL|USER|LOGNAME|TERM|SSL_CERT_FILE|SSL_CERT_DIR|NODE_EXTRA_CA_CERTS|HTTPS?_PROXY|NO_PROXY|https?_proxy|no_proxy|FALLOW_[A-Z0-9_]+|GIT_[A-Z_]+)$/;
+/**
+ * Only these variables reach fallow, so tokens in the Codex environment stay out of a project binary.
+ * Case-insensitive, because Windows keeps names such as `Path` and `SystemRoot`. `npm_config_*` keeps a
+ * private registry or proxy working for npx; `NODE_OPTIONS` stays out, since it can load code.
+ */
+const ENV_ALLOWLIST =
+  /^(PATH|PATHEXT|HOME|USERPROFILE|HOMEDRIVE|HOMEPATH|TMPDIR|TEMP|TMP|LANG|LANGUAGE|LC_[A-Z]+|TZ|SYSTEMROOT|SYSTEMDRIVE|COMSPEC|WINDIR|APPDATA|LOCALAPPDATA|PROGRAMDATA|XDG_[A-Z_]+|SHELL|USER|LOGNAME|TERM|SSL_CERT_FILE|SSL_CERT_DIR|NODE_EXTRA_CA_CERTS|HTTPS?_PROXY|NO_PROXY|ALL_PROXY|NPM_CONFIG_[A-Z0-9_]+|FALLOW_[A-Z0-9_]+|GIT_[A-Z_]+)$/i;
 
 const childEnvironment = (): NodeJS.ProcessEnv => ({
   ...Object.fromEntries(Object.entries(process.env).filter(([name]) => ENV_ALLOWLIST.test(name))),

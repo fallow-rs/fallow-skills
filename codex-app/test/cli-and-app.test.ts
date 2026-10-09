@@ -84,6 +84,23 @@ describe("runFallow", { skip: IS_WINDOWS ? "uses POSIX shell scripts as fake bin
     assert.ok(Date.now() - started < 10_000);
   });
 
+  it("passes only allowlisted environment variables to fallow", async () => {
+    process.env["SECRET_API_TOKEN"] = "do-not-leak";
+    process.env["FALLOW_TEST_FLAG"] = "kept";
+    try {
+      const root = projectWithFallow(
+        `printf '{"kind":"combined","secret":"%s","flag":"%s"}' "$SECRET_API_TOKEN" "$FALLOW_TEST_FLAG"`,
+      );
+      const result = await run(root)();
+      assert.ok(result.ok);
+      assert.equal(result.json["secret"], "");
+      assert.equal(result.json["flag"], "kept");
+    } finally {
+      delete process.env["SECRET_API_TOKEN"];
+      delete process.env["FALLOW_TEST_FLAG"];
+    }
+  });
+
   it("forwards the sandbox state unchanged and runs the project binary inside it", async () => {
     const root = projectWithFallow(`echo '{"kind":"combined"}'`);
     const { log, sandbox } = fakeSandbox(root);

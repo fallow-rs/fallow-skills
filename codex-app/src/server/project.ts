@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { open, readdir, readFile, stat } from "node:fs/promises";
+import { open, readdir, readFile, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +17,15 @@ const THREAD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 const isWithinDirectory = (base: string, candidate: string): boolean => {
   const path = relative(base, candidate);
   return path === "" || (!path.startsWith("..") && !isAbsolute(path));
+};
+
+/** Like `isWithinDirectory`, after both paths resolve symbolic links. */
+const isWithinRealDirectory = async (base: string, candidate: string): Promise<boolean> => {
+  const [realBase, realCandidate] = await Promise.all([
+    realpath(base).catch(() => null),
+    realpath(candidate).catch(() => null),
+  ]);
+  return realBase !== null && realCandidate !== null && isWithinDirectory(realBase, realCandidate);
 };
 
 const isDirectory = async (path: string): Promise<boolean> => {
@@ -230,7 +239,8 @@ export const resolveProject = async (
     const local = absolute ?? (base === null ? null : resolve(base, explicitRoot));
     // In a Codex thread, a path from the model stays inside the working directory of the thread.
     const allowed =
-      local !== null && (cwd === null ? await allowRoot(local) : isWithinDirectory(cwd, local));
+      local !== null &&
+      (cwd === null ? await allowRoot(local) : await isWithinRealDirectory(cwd, local));
     if (allowed && (await isDirectory(local))) return remember(local, "argument");
     if (cwd !== null) return null;
   }

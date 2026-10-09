@@ -48,22 +48,22 @@ export const useAttachmentSync = (host: Host, project: ProjectRef, findings: Fin
   const pushed = useRef<string>(keyOf(selected));
   const ownUpdates = useRef(new Set<string>());
   const inFlight = useRef(0);
+  const sequence = useRef(0);
 
-  useEffect(
-    () =>
-      host.subscribe(() => {
-        if (inFlight.current > 0) return;
-        const state = host.attachedState();
-        if (state === null) return;
-        if (state.updateId !== null && ownUpdates.current.has(state.updateId)) return;
-        const ids = [...state.ids].filter((id) => byId.has(id));
-        const key = keyOf(ids);
-        if (key === pushed.current) return;
-        pushed.current = key;
-        setSelected(new Set(ids));
-      }),
-    [host, byId],
-  );
+  /** Takes the host's attachments as the selection, unless they are the echo of our own update. */
+  const syncFromHost = (): void => {
+    if (inFlight.current > 0) return;
+    const state = host.attachedState();
+    if (state === null) return;
+    if (state.updateId !== null && ownUpdates.current.has(state.updateId)) return;
+    const ids = [...state.ids].filter((id) => byId.has(id));
+    const key = keyOf(ids);
+    if (key === pushed.current) return;
+    pushed.current = key;
+    setSelected(new Set(ids));
+  };
+
+  useEffect(() => host.subscribe(syncFromHost), [host, byId]);
 
   // A refresh can remove findings; drop their ids from the selection.
   useEffect(() => {
@@ -79,6 +79,8 @@ export const useAttachmentSync = (host: Host, project: ProjectRef, findings: Fin
     if (key === pushed.current) return;
     const timer = setTimeout(() => {
       inFlight.current += 1;
+      sequence.current += 1;
+      const call = sequence.current;
       const chosen = [...selected].flatMap((id) => {
         const finding = byId.get(id);
         return finding === undefined ? [] : [finding];
@@ -87,13 +89,16 @@ export const useAttachmentSync = (host: Host, project: ProjectRef, findings: Fin
         .attach(project, chosen)
         .then((updateId) => {
           if (updateId !== null) ownUpdates.current.add(updateId);
-          pushed.current = key;
+          // An older call that finishes last must not overwrite the newest selection.
+          if (call === sequence.current) pushed.current = key;
         })
         .catch(() => {
           // Leave `pushed` as it was, so the next change pushes the full selection again.
         })
         .finally(() => {
           inFlight.current -= 1;
+          // The user may have removed a chip while the update was in flight.
+          if (inFlight.current === 0) syncFromHost();
         });
     }, 250);
     return () => clearTimeout(timer);

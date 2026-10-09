@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { open, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, open, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { parse, printParseErrorCode, type ParseError } from "jsonc-parser";
 import { z } from "zod";
@@ -65,9 +66,14 @@ const basesFor = async (context: ServerContext, extra: Extra, root: string | und
 };
 
 const readLines = async (path: string, line: number, context: number) => {
-  const handle = await open(path, "r");
+  // O_NOFOLLOW and the inode check close the window between `realpath` and `open`, in which a
+  // process in the repository could swap the file for a symbolic link.
+  const expected = await lstat(path);
+  const handle = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   try {
-    const { size } = await handle.stat();
+    const opened = await handle.stat();
+    if (opened.ino !== expected.ino || opened.dev !== expected.dev || !opened.isFile()) return null;
+    const { size } = opened;
     if (size > MAX_SOURCE_BYTES) return null;
     const text = (await handle.readFile()).toString("utf8");
     const all = text.split(/\r?\n/);

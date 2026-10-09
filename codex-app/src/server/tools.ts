@@ -10,7 +10,7 @@ import type { Analysis } from "./analysis.ts";
 import { appFacing, isKnownRoot, problemResult, READ_ONLY, viewResult, type Extra, type ServerContext } from "./context.ts";
 import { fallowVersion } from "./fallow-cli.ts";
 import { AUDIT_ICON } from "./icons.ts";
-import { resolveProject, sandboxFor } from "./project.ts";
+import { resolveProject, sandboxFor, sandboxFromMeta } from "./project.ts";
 import { BASE_REF_PATTERN } from "./state.ts";
 import { auditSummary, auditText, findingMarkdown, reportSummary, reportText } from "./summary.ts";
 
@@ -292,7 +292,15 @@ export const registerTools = (context: ServerContext): void => {
       _meta: uiMeta(context, { visibility: ["model"] }),
     },
     async ({ path, scope, base, production, refresh }, extra) =>
-      openDashboard(context, extra, { root: path, scope, base, production, force: refresh, trusted: true }),
+      openDashboard(context, extra, {
+        root: path,
+        scope,
+        base,
+        production,
+        force: refresh,
+        // Any folder only with a Codex sandbox; without one, a folder must be a known project.
+        trusted: sandboxFromMeta(extra._meta) !== null,
+      }),
   );
 
   server.registerTool(
@@ -312,7 +320,7 @@ export const registerTools = (context: ServerContext): void => {
       annotations: READ_ONLY,
       _meta: uiMeta(context, { visibility: ["model"] }),
     },
-    async ({ path, base }, extra) => openAudit(context, extra, { root: path, base, trusted: true }),
+    async ({ path, base }, extra) => openAudit(context, extra, { root: path, base, trusted: sandboxFromMeta(extra._meta) !== null }),
   );
 
   app.registerTool(
