@@ -17,9 +17,9 @@ set -euo pipefail
 # - It runs only in a project that chose fallow (a fallow config file or a
 #   `fallow` dependency in package.json). It always audits the session tree,
 #   plus each opted-in tree that a git commit or push targets. Only a command
-#   on a short allowlist with a certain target (git -C <dir> commit, or
-#   cd <dir> && git push, with literal words and inert options) audits the
-#   target alone.
+#   on a short allowlist (git -C <dir> commit, or cd <dir> && git push, with
+#   literal words and inert options) audits the target alone, and only when
+#   git reports that the target is another repository than the session's.
 # - Codex also loads this hook from the plugin. It defers to a gate that
 #   `fallow agent install` registered for Claude Code or for Codex.
 # - A missing fallow binary, a missing jq or a fallow binary below the version
@@ -72,14 +72,18 @@ if [ "$HAVE_JQ" -eq 1 ]; then
 fi
 [ -n "$START" ] && [ -d "$START" ] || START="$PWD"
 
-# Prints the nearest opted-in directory at or above $1. The walk stops at the
-# first .git entry. Returns 1 when no directory opts in.
+# Prints the nearest opted-in directory at or above $1. Without $2 the walk
+# stops at the first .git entry. With $2 it stops after directory $2, the top
+# of the work tree that git reported. Returns 1 when no directory opts in.
 find_root() {
-  local dir="$1"
+  local dir="$1" stop="${2:-}"
   until opted_in "$dir"; do
-    if [ -e "$dir/.git" ] || [ "$dir" = / ]; then
+    if [ -n "$stop" ]; then
+      [ "$dir" != "$stop" ] || return 1
+    elif [ -e "$dir/.git" ]; then
       return 1
     fi
+    [ "$dir" != / ] || return 1
     dir="$(dirname "$dir")"
   done
   printf '%s' "$dir"
@@ -110,84 +114,112 @@ join_path() {
   esac
 }
 
-# Prints the physical path of directory $1, relative to the session
-# directory. Returns 1 when $1 is not a directory.
-resolve_dir() {
-  local dir="$1"
-  case "$dir" in
-    /*) ;;
-    *) dir="$START/$dir" ;;
-  esac
-  (CDPATH='' cd -- "$dir" 2>/dev/null && pwd -P)
+# Prints the physical path of directory $1. Returns 1 when it is not one.
+physical() {
+  (CDPATH='' cd -- "$1" 2>/dev/null && pwd -P)
 }
 
-# Loose scan: the original word-splitting detector. It splits $1 at control
-# operators and at blanks, and ignores quotes. Git-level options between `git`
-# and the subcommand (git -c k=v commit, git -C dir push, git --no-pager
-# commit, git --git-dir=/x push) still count, while subcommand lookalikes in
-# arguments (git log commit-message.txt) do not. See issue #2106. It adds the
-# number of git commit and push commands to LOOSE_WRITES. It adds each
-# directory that a `cd`, -C, --work-tree or --git-dir names to TARGETS.
+# Runs git rev-parse in a subshell, from the session directory, after the
+# move that git_location describes.
+git_rev_parse() (
+  local mode="$1"
+  shift
+  CDPATH='' cd -- "$START" 2>/dev/null || exit 1
+  case "$mode" in
+    cd-L) CDPATH='' cd -L -- "$1" 2>/dev/null || exit 1 ;;
+    cd-P) CDPATH='' cd -P -- "$1" 2>/dev/null || exit 1 ;;
+  esac
+  if [ "$mode" = -C ]; then
+    git "$@" rev-parse --show-toplevel --absolute-git-dir --show-prefix --path-format=absolute --git-common-dir 2>/dev/null
+  else
+    git rev-parse --show-toplevel --absolute-git-dir --show-prefix --path-format=absolute --git-common-dir 2>/dev/null
+  fi
+)
+
+# Prints four lines for the repository that git uses when it runs from the
+# session directory: the top of the work tree, the absolute git directory, the
+# work tree directory where git runs, and the common git directory that linked
+# worktrees share with their main worktree. The first argument names how git
+# gets there: `-C` followed by git -C arguments, `cd-L <dir>` or `cd-P <dir>`
+# for a logical or physical shell cd, or `none`. Returns 1 when git reports no
+# work tree.
+git_location() {
+  local mode="$1" out top gitdir prefix common
+  shift
+  out="$(git_rev_parse "$mode" "$@")" || return 1
+  top="$(printf '%s\n' "$out" | sed -n 1p)"
+  gitdir="$(printf '%s\n' "$out" | sed -n 2p)"
+  prefix="$(printf '%s\n' "$out" | sed -n 3p)"
+  common="$(printf '%s\n' "$out" | sed -n 4p)"
+  [ -n "$top" ] && [ -n "$gitdir" ] && [ -n "$common" ] || return 1
+  top="$(physical "$top")" || return 1
+  gitdir="$(physical "$gitdir")" || return 1
+  common="$(physical "$common")" || return 1
+  printf '%s\n%s\n%s\n%s\n' "$top" "$gitdir" "$top${prefix:+/${prefix%/}}" "$common"
+}
+
+# Loose scan: the original word-splitting detector, in one awk pass so a long
+# command costs linear time. It splits each input at control operators and at
+# blanks, and ignores quotes. Git-level options between `git` and the
+# subcommand (git -c k=v commit, git -C dir push, git --no-pager commit,
+# git --git-dir=/x push) still count, while subcommand lookalikes in arguments
+# (git log commit-message.txt) do not. See issue #2106. It sets LOOSE_WRITES to
+# the number of git commit and push commands. It adds each directory that a
+# `cd`, -C, --work-tree or --git-dir names to TARGETS.
 LOOSE_WRITES=0
 TARGETS=()
+# shellcheck disable=SC2016
+LOOSE_SCAN='
+function join(base, path) {
+  if (path ~ /^\// || base == "") return path
+  return base "/" path
+}
+{
+  state = "find"; first = 1; dir = ""
+  for (i = 1; i <= NF; i++) {
+    w = $i
+    if (state == "find") {
+      if (w == "git") { state = "options"; dir = "" }
+      else if (w == "cd" && first) state = "cd"
+      first = 0
+      continue
+    }
+    if (state == "cd") { print "T " w; state = "find"; continue }
+    if (state == "value") { state = "options"; continue }
+    if (state == "C") { dir = join(dir, w); state = "options"; continue }
+    if (state == "tree") { sub(/\/\.git$/, "", w); print "T " join(dir, w); state = "options"; continue }
+    if (w == "commit" || w == "push") {
+      writes++
+      if (dir != "") print "T " dir
+      state = "find"
+      continue
+    }
+    if (w == "-C") { state = "C"; continue }
+    if (w == "--work-tree" || w == "--git-dir") { state = "tree"; continue }
+    if (w ~ /^--(work-tree|git-dir)=/) {
+      sub(/^[^=]*=/, "", w); sub(/\/\.git$/, "", w); print "T " join(dir, w)
+      continue
+    }
+    if (w == "-c" || w == "--namespace" || w == "--config-env" || w == "--super-prefix" || w == "--exec-path" || w == "--list-cmds" || w == "--attr-source") {
+      state = "value"
+      continue
+    }
+    if (w ~ /^-/) continue
+    # A different subcommand; this word can still start a later git.
+    state = "find"
+    if (w == "git") { state = "options"; dir = "" }
+  }
+}
+END { print "W " (writes + 0) }
+'
 scan_loose() {
-  local cmd="$1" segment dir dir_value
-  # Control operators separate simple commands; each becomes its own line.
-  while IFS= read -r segment; do
-    # Intentional word splitting; globbing is disabled by the caller.
-    # shellcheck disable=SC2086
-    set -- $segment
-    if [ "${1:-}" = cd ] && [ "$#" -ge 2 ]; then
-      TARGETS+=("$2")
-    fi
-    while [ "$#" -gt 0 ]; do
-      if [ "$1" != "git" ]; then
-        shift
-        continue
-      fi
-      shift
-      dir=""
-      while [ "$#" -gt 0 ]; do
-        case "$1" in
-          commit | push)
-            LOOSE_WRITES=$((LOOSE_WRITES + 1))
-            [ -n "$dir" ] && TARGETS+=("$dir")
-            shift
-            break
-            ;;
-          -C)
-            [ "$#" -gt 1 ] && dir="$(join_path "$dir" "$2")"
-            shift
-            [ "$#" -gt 0 ] && shift
-            ;;
-          --work-tree | --git-dir)
-            [ "$#" -gt 1 ] && TARGETS+=("$(join_path "$dir" "${2%/.git}")")
-            shift
-            [ "$#" -gt 0 ] && shift
-            ;;
-          --work-tree=* | --git-dir=*)
-            dir_value="${1#*=}"
-            TARGETS+=("$(join_path "$dir" "${dir_value%/.git}")")
-            shift
-            ;;
-          -c | --namespace | --config-env | --super-prefix | --exec-path | --list-cmds | --attr-source)
-            # Global option whose value arrives as the next word.
-            shift
-            [ "$#" -gt 0 ] && shift
-            ;;
-          -*)
-            # Value-less global option (--no-pager) or inline-value form
-            # (-cuser.name=x).
-            shift
-            ;;
-          *)
-            # A different subcommand; resume scanning for a later `git` word.
-            break
-            ;;
-        esac
-      done
-    done
-  done < <(printf '%s\n' "$cmd" | tr ';|&()' '\n\n\n\n\n')
+  local line
+  while IFS= read -r line; do
+    case "$line" in
+      "W "*) LOOSE_WRITES="${line#W }" ;;
+      "T "*) TARGETS+=("${line#T }") ;;
+    esac
+  done < <(printf '%s\n' "$@" | tr ';|&()' '\n\n\n\n\n' | LC_ALL=C awk "$LOOSE_SCAN")
 }
 
 # The allowlist. ALLOWED_DIR is set to the target when the whole command is
@@ -206,6 +238,9 @@ scan_loose() {
 # or an environment prefix. The caller also requires that the target is a
 # directory inside a git work tree.
 ALLOWED_DIR=""
+ALLOWED_MODE=""
+ALLOWED_SUBCOMMAND=""
+ALLOWED_DIRS=()
 SAFE_CHARS='A-Za-z0-9_./=:,@+%-'
 DIR_RE="^([${SAFE_CHARS%-}][${SAFE_CHARS}]*|'[ ${SAFE_CHARS}]+'|\"[ ${SAFE_CHARS}]+\")"
 WORD_RE="^[${SAFE_CHARS}]+"
@@ -235,23 +270,30 @@ match_allowlist() {
       / | /* | . | .. | ./* | ../*) dir="$word" ;;
       *) return 1 ;;
     esac
+    ALLOWED_MODE="cd"
+    ALLOWED_DIRS=("$word")
     take '^&&' || return 1
   fi
   take '^git([ 	]|$)' || return 1
   if [ -z "$dir" ]; then
+    ALLOWED_MODE=-C
     while take '^-C[ 	]'; do
       take "$DIR_RE" || return 1
       unquote
       dir="$(join_path "$dir" "$word")"
+      ALLOWED_DIRS+=(-C "$word")
     done
   fi
   take '^(commit|push)([ 	]|$)' || return 1
+  ALLOWED_SUBCOMMAND="${word%%[ 	]*}"
   while :; do
     [[ "$rest" =~ $BLANK_RE ]] && rest="${rest:${#BASH_REMATCH[0]}}"
     [ -n "$rest" ] || break
     case "$prev" in
       -m | --message)
         take "$MSG_RE" || take "$WORD_RE" || return 1
+        # The message is a value, so the next word is an option again.
+        word=""
         ;;
       *)
         take "$WORD_RE" || return 1
@@ -271,19 +313,6 @@ match_allowlist() {
   ALLOWED_DIR="${dir:-.}"
 }
 
-# Returns 0 when physical directory $1 is inside a git work tree: a parent
-# holds a .git entry, and $1 is not inside a .git directory.
-in_work_tree() {
-  local dir="$1"
-  case "$dir/" in
-    */.git/*) return 1 ;;
-  esac
-  until [ -e "$dir/.git" ]; do
-    [ "$dir" != / ] || return 1
-    dir="$(dirname "$dir")"
-  done
-}
-
 # Longest command, in characters, that the allowlist reads.
 ALLOWLIST_MAX=16384
 
@@ -295,8 +324,11 @@ FLAT="$(printf '%s' "$CMD" | tr -d '\\"'"'"'$()`{}' | tr '\n' ' ')"
 set -f
 case "$FLAT" in
   *git*commit* | *git*push*)
-    scan_loose "$CMD"
-    scan_loose "$FLAT"
+    if [ "$FLAT" = "$CMD" ]; then
+      scan_loose "$CMD"
+    else
+      scan_loose "$CMD" "$FLAT"
+    fi
     if [ "${#CMD}" -le "$ALLOWLIST_MAX" ]; then
       match_allowlist "$CMD" || ALLOWED_DIR=""
     fi
@@ -311,29 +343,86 @@ if [ "$LOOSE_WRITES" -eq 0 ] && [ -z "$ALLOWED_DIR" ]; then
   exit 0
 fi
 
-# Each directory that exists is a start for the opted-in walk. An allowlisted
-# command whose target is not a directory in a git work tree audits the
-# session directory.
+# Git decides where a write lands. The gate asks git for the work tree top and
+# the git directory of each target, and of the session directory. The session
+# audit is skipped only for an allowlisted command whose target differs from
+# the session in both top and git directory. A push also needs a different
+# common git directory, because linked worktrees share their refs: a push from
+# another worktree of the same repository can push the session branch. If git
+# cannot answer, or the session package lies inside the target work tree, the
+# session is audited.
+# Each start is "<directory>|<work tree top>". An empty top means the walk
+# stops at the first .git entry, as for the session.
 STARTS=()
-if [ -n "$ALLOWED_DIR" ] && resolved="$(resolve_dir "$ALLOWED_DIR")" && in_work_tree "$resolved"; then
-  STARTS+=("$resolved")
-else
-  STARTS+=("$(resolve_dir "$START" || printf '%s' "$START")")
+SESSION_TOP=""
+SESSION_GITDIR=""
+SESSION_COMMON=""
+if session_location="$(git_location none)"; then
+  SESSION_TOP="$(printf '%s\n' "$session_location" | sed -n 1p)"
+  SESSION_GITDIR="$(printf '%s\n' "$session_location" | sed -n 2p)"
+  SESSION_COMMON="$(printf '%s\n' "$session_location" | sed -n 4p)"
+fi
+SESSION_ROOT="$(find_root "$START" || true)"
+SESSION_ROOT_PHYSICAL=""
+[ -z "$SESSION_ROOT" ] || SESSION_ROOT_PHYSICAL="$(physical "$SESSION_ROOT" || true)"
+
+# Adds the location in $1 (from git_location) to STARTS. Returns 1 when the
+# location shares the top or the git directory with the session, when $2 is
+# push and the location shares the common git directory, or when the location
+# holds the session package.
+add_target() {
+  local top gitdir dir common
+  top="$(printf '%s\n' "$1" | sed -n 1p)"
+  gitdir="$(printf '%s\n' "$1" | sed -n 2p)"
+  dir="$(printf '%s\n' "$1" | sed -n 3p)"
+  common="$(printf '%s\n' "$1" | sed -n 4p)"
+  STARTS+=("$dir|$top")
+  [ -n "$SESSION_TOP" ] || return 1
+  [ "$top" != "$SESSION_TOP" ] && [ "$gitdir" != "$SESSION_GITDIR" ] || return 1
+  if [ "${2:-}" != commit ]; then
+    [ "$common" != "$SESSION_COMMON" ] || return 1
+  fi
+  case "$SESSION_ROOT_PHYSICAL/" in
+    "$top"/*) return 1 ;;
+  esac
+}
+
+AUDIT_SESSION=1
+if [ -n "$ALLOWED_DIR" ]; then
+  AUDIT_SESSION=0
+  if [ "$ALLOWED_MODE" = cd ]; then
+    for mode in cd-L cd-P; do
+      if location="$(git_location "$mode" "${ALLOWED_DIRS[0]}")"; then
+        add_target "$location" "$ALLOWED_SUBCOMMAND" || AUDIT_SESSION=1
+      else
+        AUDIT_SESSION=1
+      fi
+    done
+  elif location="$(git_location -C ${ALLOWED_DIRS[@]+"${ALLOWED_DIRS[@]}"})"; then
+    add_target "$location" "$ALLOWED_SUBCOMMAND" || AUDIT_SESSION=1
+  else
+    AUDIT_SESSION=1
+  fi
+fi
+if [ "$AUDIT_SESSION" -eq 1 ]; then
+  STARTS+=("$START|")
   if [ "${#TARGETS[@]}" -gt 0 ]; then
     for target in "${TARGETS[@]}"; do
       case "$target" in
         \'*\' | \"*\") target="${target:1:${#target}-2}" ;;
       esac
-      if resolved="$(resolve_dir "$target")"; then
-        STARTS+=("$resolved")
+      if location="$(git_location cd-P "$target")"; then
+        add_target "$location" || true
       fi
     done
   fi
 fi
 
+# ROOTS holds the physical path of each opted-in directory to audit, once.
 ROOTS=()
 for start in ${STARTS[@]+"${STARTS[@]}"}; do
-  root="$(find_root "$start")" || continue
+  root="$(find_root "${start%%|*}" "${start#*|}")" || continue
+  root="$(physical "$root")" || continue
   seen=0
   if [ "${#ROOTS[@]}" -gt 0 ]; then
     for known in "${ROOTS[@]}"; do
@@ -361,10 +450,9 @@ registers_gate() {
   [ -f "$settings" ] && [ -f "$script" ] && grep -q 'fallow-gate\.sh' "$settings" 2>/dev/null
 }
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$START}"
-SESSION_ROOT="$(find_root "$(resolve_dir "$START" || printf '%s' "$START")" || true)"
 covered_by_installed_gate() {
   local root="$1" pair settings script
-  [ -n "$SESSION_ROOT" ] && [ "$root" = "$SESSION_ROOT" ] || return 1
+  [ -n "$SESSION_ROOT_PHYSICAL" ] && [ "$root" = "$SESSION_ROOT_PHYSICAL" ] || return 1
   for pair in \
     "$PROJECT_DIR/.claude/settings.json|$PROJECT_DIR/.claude/hooks/fallow-gate.sh" \
     "$PROJECT_DIR/.claude/settings.local.json|$PROJECT_DIR/.claude/hooks/fallow-gate.sh" \
