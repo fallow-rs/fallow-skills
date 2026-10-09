@@ -256,5 +256,34 @@ describe(
       })) as CallToolResult;
       assert.equal(rejected.isError, true);
     });
+
+    it("tells the model when Codex declines a form without showing it", { skip: hasFallow ? false : "fallow is not installed" }, async () => {
+      const declining = new Client(
+        { name: "full-access-host", version: "1.0.0" },
+        { capabilities: { extensions: { "openai/elicitation": { form: {} } } } as never },
+      );
+      declining.fallbackRequestHandler = async () => ({ action: "decline" });
+      await declining.connect(
+        new StdioClientTransport({
+          command: process.execPath,
+          args: [server.pathname],
+          cwd: plugin.pathname,
+          env: { ...process.env, FALLOW_CODEX_APP_STATE: join(project, ".state-2.json") } as Record<string, string>,
+          stderr: "inherit",
+        }),
+      );
+      try {
+        const result = (await declining.callTool({
+          name: "fallow_plan_cleanup",
+          arguments: {},
+          _meta: { "codex/sandbox-state-meta": { sandboxCwd: pathToFileURL(project).href } },
+        })) as CallToolResult;
+        const summary = result.structuredContent as { status: string; categories: Record<string, number> };
+        assert.equal(summary.status, "form_not_shown");
+        assert.ok((summary.categories["dead-code"] ?? 0) > 0);
+      } finally {
+        await declining.close();
+      }
+    });
   },
 );

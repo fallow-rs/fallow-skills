@@ -69,6 +69,21 @@ the model (score, totals, the top findings with verify commands), and the full
 view for the app travels in `_meta["fallow/view"]`, which the model does not
 read.
 
+## Known host behavior
+
+These come from Codex itself, not from the app:
+
+- **Forms in Full access.** When a thread runs in Full access mode, Codex declines MCP forms
+  without showing them. The cleanup planner and the project picker detect the instant decline:
+  the model hears that the form was not shown, and the app shows a notice. Use Default
+  permissions for the forms.
+- **`.fallowrc.json` opens in the built-in viewer.** Codex keeps its own JSON viewer as the
+  default. Choose **Fallow Config** under Settings, File type handlers, for `.fallowrc.json` and
+  `.fallowrc.jsonc`. `.sarif` files open in the Fallow viewer by default.
+- **Mentions before the first message.** In a new thread, the composer has no thread yet, so
+  **@Fallow** lists the findings of the last analyzed project and names it. After the first
+  message, mentions follow the project of the thread.
+
 ## Layout
 
 ```text
