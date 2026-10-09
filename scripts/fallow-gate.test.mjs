@@ -258,6 +258,7 @@ const runCase = (command, verdict = "pass", setup = () => {}) => {
     h: fixture.home,
   };
   writeFileSync(join(fixture.root, "note.txt"), "text\n");
+  mkdirSync(join(fixture.project, "nested", ".git"), { recursive: true });
   setup(dirs);
   const result = runGate(fixture, command(dirs), {}, fixture.project, fixture.project);
   return { fixture, result };
@@ -278,7 +279,10 @@ for (const [name, command, expected] of [
   ["a single-quoted message can hold shell text", ({ o }) => `git -C '${o}' commit -m 'a; b $(x)'`, []],
   ["a double-quoted message can span lines", ({ o }) => `git -C "${o}" commit -m "line one\n\nline two"`, []],
   ["cd && git commit audits only the cd directory", ({ o }) => `cd ${o} && git commit -m "fix: thing"`, []],
-  ["cd && git push with arguments audits the cd directory", ({ i }) => `cd ${i} && git push --force-with-lease origin feat/x:feat/x`, ["optin"]],
+  ["cd && git push with arguments audits the cd directory", ({ i }) => `cd ${i} && git push -u origin feat/x:feat/x`, ["optin"]],
+  ["inert commit options keep the target", ({ o }) => `git -C ${o} commit --amend --no-edit -S -q -a`, []],
+  ["a tab can separate words", ({ o }) => `git -C ${o} commit -m x\tfile.txt`, []],
+  ["a relative cd that starts with ./ keeps the target", () => "cd ./nested && git commit -m x", []],
 ]) {
   test(`allowlist: ${name}`, { skip }, () => {
     const { fixture, result } = runCase(command);
@@ -342,6 +346,29 @@ for (const [name, command, expected] of [
   ["a pipe after the write", ({ o }) => `git -C ${o} commit -m x 2>&1 | tail -3`, ["project"]],
   ["a backslash inside git", () => "g\\it push", ["project"]],
   ["a very long command", ({ o }) => `${LONG_PREFIX} && git -C ${o} commit -m x`, ["project"]],
+  ["a substitution inside a double-quoted message", ({ o }) => `git -C ${o} commit -m "$(cd .. && git push)"`, ["project"]],
+  ["a backtick inside a double-quoted message", ({ o }) => `git -C ${o} commit -m "\`git push\`"`, ["project"]],
+  ["a substitution in --message=", ({ o }) => `git -C ${o} commit --message="$(git push)"`, ["project"]],
+  ["git -c core.hooksPath before -C", ({ o }) => `git -c core.hooksPath=/tmp -C ${o} commit -m x`, ["project"]],
+  ["git -c core.hooksPath after -C", ({ o }) => `git -C ${o} -c core.hooksPath=/tmp commit -m x`, ["project"]],
+  ["commit -F", ({ o }) => `git -C ${o} commit -F /etc/hosts`, ["project"]],
+  ["commit --template", ({ o }) => `git -C ${o} commit --template=/tmp/t -m x`, ["project"]],
+  ["an attached -m value", ({ o }) => `git -C ${o} commit -mx`, ["project"]],
+  ["push --exec", ({ o }) => `git -C ${o} push --exec=/tmp/x origin`, ["project"]],
+  ["push --receive-pack", ({ o }) => `git -C ${o} push --receive-pack=/tmp/x origin`, ["project"]],
+  ["a push option", ({ o }) => `git -C ${o} push -o ci.skip origin`, ["project"]],
+  ["push --force-with-lease", ({ o }) => `git -C ${o} push --force-with-lease origin HEAD`, ["project"]],
+  ["a -- separator", ({ o }) => `git -C ${o} commit -m x -- file`, ["project"]],
+  ["a carriage return before another command", ({ o }) => `git -C ${o} commit -m x\r; git push`, ["project"]],
+  ["a no-break space before another command", ({ o }) => `git -C ${o} commit -m x\u00a0; git push`, ["project"]],
+  ["a caret in a word", ({ o }) => `git -C ${o} commit -m x HEAD^`, ["project"]],
+  ["a brace expansion", ({ o }) => `git -C ${o} commit -m x {a,b}`, ["project"]],
+  ["a comment sign", ({ o }) => `git -C ${o} commit -m x #; git push`, ["project"]],
+  ["a redirection", ({ o }) => `git -C ${o} commit -m x >/dev/null`, ["project"]],
+  ["a target outside a git work tree", ({ r }) => `git -C ${r} commit -m x`, ["project"]],
+  ["a target inside a .git directory", ({ o }) => `git -C ${o}/.git commit -m x`, ["project"]],
+  ["a relative cd that CDPATH can move", () => "cd nested && git commit -m x", ["project"]],
+  ["a backslash before git", ({ o }) => `\\git -C ${o} commit -m x; git push`, ["project"]],
 ]) {
   test(`session audit: ${name}`, { skip }, () => {
     const { fixture, result } = runCase(command);

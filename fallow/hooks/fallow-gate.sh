@@ -18,7 +18,8 @@ set -euo pipefail
 #   `fallow` dependency in package.json). It always audits the session tree,
 #   plus each opted-in tree that a git commit or push targets. Only a command
 #   on a short allowlist with a certain target (git -C <dir> commit, or
-#   cd <dir> && git push) audits the target alone.
+#   cd <dir> && git push, with literal words and inert options) audits the
+#   target alone.
 # - Codex also loads this hook from the plugin. It defers to a gate that
 #   `fallow agent install` registered for Claude Code or for Codex.
 # - A missing fallow binary, a missing jq or a fallow binary below the version
@@ -190,20 +191,29 @@ scan_loose() {
 }
 
 # The allowlist. ALLOWED_DIR is set to the target when the whole command is
-# one of these, with blanks between the words:
+# one of these, with spaces or tabs between the words:
 #   git [-C <dir>]... (commit|push) <args>
 #   cd <dir> && git (commit|push) <args>
-# <dir> is a plain word, or one pair of quotes around letters, digits, spaces
-# and `_ . / @ % + = : , -`. <args> are plain words, and the word after -m or
-# --message can be a quoted message ('...', or "..." without $, ` or \).
-# Anything else, such as another operator, a newline outside the message, a
-# substitution, a variable, a glob or an environment prefix, does not match.
+# <dir> is a plain word, or one pair of quotes around a plain word that can
+# also hold spaces. A plain word holds only letters, digits and
+# `- _ . / = : , @ + %`. A `cd` directory starts with `/`, `./` or `../` (or
+# is `.` or `..`), so CDPATH cannot move it. <args> are plain words, and the
+# options in them are only -m, --message, -S, -q, -a, --amend, --no-edit and
+# -u. The word after -m or --message can be a quoted message ('...', or "..."
+# without $, ` or \). Anything else does not match: another operator, a
+# newline outside the message, a substitution, a variable, a glob, a tilde,
+# git -c, an option such as -F, --template, --exec or --receive-pack, `--`,
+# or an environment prefix. The caller also requires that the target is a
+# directory inside a git work tree.
 ALLOWED_DIR=""
-DIR_RE='^([A-Za-z0-9_./@%+=:,][A-Za-z0-9_./@%+=:,-]*|'"'"'[A-Za-z0-9_./@%+=:, -]+'"'"'|"[A-Za-z0-9_./@%+=:, -]+")'
-WORD_RE='^[A-Za-z0-9_./@%+=:,^-]+'
+SAFE_CHARS='A-Za-z0-9_./=:,@+%-'
+DIR_RE="^([${SAFE_CHARS%-}][${SAFE_CHARS}]*|'[ ${SAFE_CHARS}]+'|\"[ ${SAFE_CHARS}]+\")"
+WORD_RE="^[${SAFE_CHARS}]+"
 MSG_RE='^('"'"'[^'"'"']*'"'"'|"[^"$`\\]*")'
 BLANK_RE='^[ 	]+'
 match_allowlist() {
+  # Byte-wise ranges, so [A-Za-z] matches no letter outside ASCII.
+  local LC_ALL=C
   local rest="$1" dir="" word prev=""
   # Takes the next blanks, then the next token that matches $1, into word.
   take() {
@@ -218,12 +228,15 @@ match_allowlist() {
       \'*\' | \"*\") word="${word:1:${#word}-2}" ;;
     esac
   }
-  take '^cd[ 	]' && {
+  if take '^cd[ 	]'; then
     take "$DIR_RE" || return 1
     unquote
-    dir="$word"
+    case "$word" in
+      / | /* | . | .. | ./* | ../*) dir="$word" ;;
+      *) return 1 ;;
+    esac
     take '^&&' || return 1
-  }
+  fi
   take '^git([ 	]|$)' || return 1
   if [ -z "$dir" ]; then
     while take '^-C[ 	]'; do
@@ -237,8 +250,16 @@ match_allowlist() {
     [[ "$rest" =~ $BLANK_RE ]] && rest="${rest:${#BASH_REMATCH[0]}}"
     [ -n "$rest" ] || break
     case "$prev" in
-      -m | --message) take "$MSG_RE" || take "$WORD_RE" || return 1 ;;
-      *) take "$WORD_RE" || return 1 ;;
+      -m | --message)
+        take "$MSG_RE" || take "$WORD_RE" || return 1
+        ;;
+      *)
+        take "$WORD_RE" || return 1
+        case "$word" in
+          -m | --message | -S | -q | -a | --amend | --no-edit | -u) ;;
+          -*) return 1 ;;
+        esac
+        ;;
     esac
     # The next word must start after a blank.
     case "${rest:0:1}" in
@@ -248,6 +269,19 @@ match_allowlist() {
     prev="$word"
   done
   ALLOWED_DIR="${dir:-.}"
+}
+
+# Returns 0 when physical directory $1 is inside a git work tree: a parent
+# holds a .git entry, and $1 is not inside a .git directory.
+in_work_tree() {
+  local dir="$1"
+  case "$dir/" in
+    */.git/*) return 1 ;;
+  esac
+  until [ -e "$dir/.git" ]; do
+    [ "$dir" != / ] || return 1
+    dir="$(dirname "$dir")"
+  done
 }
 
 # Longest command, in characters, that the allowlist reads.
@@ -278,9 +312,10 @@ if [ "$LOOSE_WRITES" -eq 0 ] && [ -z "$ALLOWED_DIR" ]; then
 fi
 
 # Each directory that exists is a start for the opted-in walk. An allowlisted
-# command whose target is not a directory audits the session directory.
+# command whose target is not a directory in a git work tree audits the
+# session directory.
 STARTS=()
-if [ -n "$ALLOWED_DIR" ] && resolved="$(resolve_dir "$ALLOWED_DIR")"; then
+if [ -n "$ALLOWED_DIR" ] && resolved="$(resolve_dir "$ALLOWED_DIR")" && in_work_tree "$resolved"; then
   STARTS+=("$resolved")
 else
   STARTS+=("$(resolve_dir "$START" || printf '%s' "$START")")
