@@ -72,7 +72,7 @@ const makeCase = ({
     );
     chmodSync(fake, 0o755);
   }
-  return { bin, project, home, calls };
+  return { root, bin, project, home, calls };
 };
 
 const runGate = (fixture, command, extraEnv = {}, cwd = fixture.project, inputCwd = undefined) =>
@@ -229,6 +229,60 @@ test("the walk starts at the cwd of the hook input", { skip }, () => {
   assert.equal(result.status, 2);
   const auditDir = auditCalls(fixture)[0].split(" @ ")[1];
   assert.equal(realpathSync(auditDir), realpathSync(fixture.project));
+});
+
+const makeRepo = (fixture, name, { optIn }) => {
+  const dir = join(fixture.root, name);
+  mkdirSync(join(dir, ".git"), { recursive: true });
+  if (optIn) writeFileSync(join(dir, ".fallowrc.json"), "{}\n");
+  return dir;
+};
+
+const auditDirFor = (fixture, command) => {
+  const result = runGate(fixture, command, {}, fixture.project, fixture.project);
+  const calls = auditCalls(fixture);
+  return { result, dir: calls.length > 0 ? realpathSync(calls[0].split(" @ ")[1]) : null };
+};
+
+for (const [name, command, expected] of [
+  ["a plain commit audits the session directory", () => "git commit -m 'change'", "project"],
+  ["git -C with an absolute path audits that directory", (f) => `git -C ${join(f.root, "other")} commit -m x`, "other"],
+  ["cd and && audits the cd directory", (f) => `cd ${join(f.root, "other")} && git commit -m x`, "other"],
+  ["cd and ; audits the cd directory", (f) => `cd ${join(f.root, "other")}; git push`, "other"],
+  ["a relative git -C path resolves from the session directory", () => "git -C ../other commit -m x", "other"],
+  ["a quoted path with spaces is one target", (f) => `git -C "${join(f.root, "my other")}" commit -m 'a; b'`, "my other"],
+  ["--work-tree names the target", () => "git --work-tree=../other --git-dir=../other/.git commit -m x", "other"],
+  ["--git-dir names the parent of .git as the target", () => "git --git-dir ../other/.git push", "other"],
+  ["a target that is not a directory falls back to the session directory", () => "git -C ../missing commit -m x", "project"],
+  ["a file as target falls back to the session directory", () => "git -C ../note.txt commit -m x", "project"],
+]) {
+  test(name, { skip }, () => {
+    const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+    makeRepo(fixture, "other", { optIn: true });
+    makeRepo(fixture, "my other", { optIn: true });
+    writeFileSync(join(fixture.root, "note.txt"), "text\n");
+    const { result, dir } = auditDirFor(fixture, command(fixture));
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(auditCalls(fixture).length, 1);
+    assert.equal(dir, realpathSync(join(fixture.root, expected)));
+  });
+}
+
+test("a target that is not opted in to fallow skips the gate", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1 });
+  const plain = makeRepo(fixture, "plain", { optIn: false });
+  const result = runGate(fixture, `git -C ${plain} commit -m x`, {}, fixture.project, fixture.project);
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  assert.deepEqual(auditCalls(fixture), []);
+});
+
+test("an opted-in target blocks on a fail verdict from an unopted session", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1, optIn: false });
+  const other = makeRepo(fixture, "other", { optIn: true });
+  const result = runGate(fixture, `cd '${other}' && git commit -m x`, {}, fixture.project, fixture.project);
+  assert.equal(result.status, 2);
+  assert.equal(auditCalls(fixture).length, 1);
 });
 
 test("a package.json script named fallow does not opt the project in", { skip }, () => {

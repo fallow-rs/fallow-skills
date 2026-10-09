@@ -15,7 +15,9 @@ set -euo pipefail
 #   does nothing, so the audit runs once.
 # - It runs only in a project that chose fallow (a fallow config file or a
 #   `fallow` dependency in package.json), and it audits the nearest such
-#   directory above the session directory.
+#   directory above the directory that the git command targets (git -C dir,
+#   --work-tree, --git-dir, or an earlier cd), else above the session
+#   directory.
 # - Codex also loads this hook from the plugin. It defers to a gate that
 #   `fallow agent install` registered for Claude Code or for Codex.
 # - A missing fallow binary, a missing jq or a fallow binary below the version
@@ -41,9 +43,10 @@ INPUT="$(cat)"
 # The plugin is installed for the user, not for one project, so the gate runs
 # only in a project that chose fallow: a fallow config file, or `fallow` in the
 # dependencies, devDependencies, optionalDependencies or peerDependencies of
-# package.json. The walk starts at the `cwd` of the hook input (the session
-# directory), goes up to the nearest directory that matches, and stops at the
-# first .git entry. The audit then runs in that directory.
+# package.json. The walk starts at the directory that the git command targets,
+# else at the `cwd` of the hook input (the session directory). It goes up to
+# the nearest directory that matches, and stops at the first .git entry. The
+# audit then runs in that directory.
 HAVE_JQ=0
 command -v jq >/dev/null 2>&1 && HAVE_JQ=1
 opted_in() {
@@ -60,11 +63,269 @@ opted_in() {
   fi
 }
 START=""
+CMD=""
 if [ "$HAVE_JQ" -eq 1 ]; then
   START="$(jq -r '.cwd // empty' <<<"$INPUT" 2>/dev/null || true)"
+  CMD="$(jq -r '.tool_input.command // empty' <<<"$INPUT" 2>/dev/null || true)"
 fi
 [ -n "$START" ] && [ -d "$START" ] || START="$PWD"
-ROOT="$START"
+
+# The tokenizer splits CMD into WORDS. Quotes and backslashes group characters
+# into one word and are removed. A control operator outside quotes (; | & ( )
+# or a newline) ends a simple command and is stored as the word SEP. A line
+# without quotes, backslashes or operators takes the fast path of plain word
+# splitting. The tokenizer stops after the first line that completes a git
+# commit or push, so a long commit message costs little.
+SEP=$'\x1f'
+WORDS=()
+tokenize() {
+  local line rest word="" in_word=0 quote="" joined part
+  local -a plain
+  flush() {
+    if [ "$in_word" -eq 1 ]; then
+      WORDS+=("$word")
+    fi
+    word=""
+    in_word=0
+  }
+  while IFS= read -r line; do
+    if [ -z "$quote" ] && [ "$in_word" -eq 0 ]; then
+      case "$line" in
+        *[\'\"\\\;\|\&\(\)]*) ;;
+        *)
+          # Intentional word splitting; globbing is disabled by the caller.
+          # shellcheck disable=SC2206
+          plain=($line)
+          if [ "${#plain[@]}" -gt 0 ]; then
+            WORDS+=("${plain[@]}")
+          fi
+          WORDS+=("$SEP")
+          continue
+          ;;
+      esac
+    fi
+    rest="$line"
+    joined=0
+    while :; do
+      if [ "$quote" = "'" ]; then
+        if [[ "$rest" == *"'"* ]]; then
+          word+="${rest%%\'*}"
+          rest="${rest#*\'}"
+          quote=""
+        else
+          word+="$rest"$'\n'
+          break
+        fi
+      elif [ "$quote" = '"' ]; then
+        while :; do
+          part="${rest%%[\"\\\\]*}"
+          word+="$part"
+          rest="${rest:${#part}}"
+          case "${rest:0:1}" in
+            '"')
+              rest="${rest:1}"
+              quote=""
+              break
+              ;;
+            \\)
+              if [ "${#rest}" -eq 1 ]; then
+                joined=1
+                break
+              fi
+              word+="${rest:1:1}"
+              rest="${rest:2}"
+              ;;
+            *)
+              break
+              ;;
+          esac
+        done
+        if [ -n "$quote" ]; then
+          [ "$joined" -eq 1 ] || word+=$'\n'
+          break
+        fi
+      fi
+      [ -n "$rest" ] || break
+      case "${rest:0:1}" in
+        ';' | '|' | '&' | '(' | ')')
+          flush
+          WORDS+=("$SEP")
+          rest="${rest:1}"
+          ;;
+        [[:space:]])
+          flush
+          rest="${rest:1}"
+          ;;
+        "'" | '"')
+          in_word=1
+          quote="${rest:0:1}"
+          rest="${rest:1}"
+          ;;
+        \\)
+          in_word=1
+          if [ "${#rest}" -eq 1 ]; then
+            joined=1
+            break
+          fi
+          word+="${rest:1:1}"
+          rest="${rest:2}"
+          ;;
+        *)
+          in_word=1
+          part="${rest%%[[:space:]\"\'\\\\;|&()]*}"
+          word+="$part"
+          rest="${rest:${#part}}"
+          ;;
+      esac
+    done
+    if [ -z "$quote" ] && [ "$joined" -eq 0 ]; then
+      flush
+      WORDS+=("$SEP")
+      case "$line" in
+        *git*commit* | *git*push*)
+          find_git_write && return 0
+          ;;
+      esac
+    fi
+  done <<<"$1"
+  flush
+  find_git_write || true
+}
+
+# Appends path $2 to directory $1. An absolute $2 replaces $1, and a leading
+# ~ becomes $HOME.
+join_path() {
+  local base="$1" path="$2"
+  case "$path" in
+    \~) path="$HOME" ;;
+    \~/*) path="$HOME/${path#\~/}" ;;
+  esac
+  case "$path" in
+    /*) printf '%s' "$path" ;;
+    *) printf '%s' "${base:+$base/}$path" ;;
+  esac
+}
+
+# Sets GIT_WRITE=1 when a simple command in WORDS runs git commit or git push.
+# The scan reads options between `git` and the subcommand (git -c k=v commit,
+# git -C dir push, git --no-pager commit, git --git-dir=/x push), while
+# subcommand lookalikes in arguments (git log commit-message.txt) do not count.
+# See issue #2106. TARGET becomes the directory that the first such git command
+# works in, relative to the session directory: an earlier `cd`, then -C, then
+# --work-tree or the parent of a --git-dir that ends in .git. TARGET stays
+# empty when the command names no directory.
+find_git_write() {
+  local i=0 n="${#WORDS[@]}" first=1 cd_dir="" dir tree gitdir word
+  GIT_WRITE=0
+  TARGET=""
+  while [ "$i" -lt "$n" ]; do
+    word="${WORDS[$i]}"
+    i=$((i + 1))
+    if [ "$word" = "$SEP" ]; then
+      first=1
+      continue
+    fi
+    if [ "$first" -eq 1 ] && [ "$word" = cd ]; then
+      first=0
+      if [ "$i" -lt "$n" ] && [ "${WORDS[$i]}" != "$SEP" ]; then
+        cd_dir="$(join_path "$cd_dir" "${WORDS[$i]}")"
+        i=$((i + 1))
+      fi
+      continue
+    fi
+    first=0
+    [ "$word" = git ] || continue
+    dir="$cd_dir"
+    tree=""
+    gitdir=""
+    while [ "$i" -lt "$n" ]; do
+      word="${WORDS[$i]}"
+      i=$((i + 1))
+      case "$word" in
+        commit | push)
+          GIT_WRITE=1
+          if [ -n "$tree" ]; then
+            dir="$(join_path "$dir" "$tree")"
+          elif [ -n "$gitdir" ]; then
+            gitdir="$(join_path "$dir" "$gitdir")"
+            gitdir="${gitdir%/}"
+            case "$gitdir" in
+              .git) dir="." ;;
+              */.git) dir="${gitdir%/.git}" ;;
+              *) dir="$gitdir" ;;
+            esac
+          fi
+          TARGET="$dir"
+          return 0
+          ;;
+        -C)
+          [ "$i" -lt "$n" ] && dir="$(join_path "$dir" "${WORDS[$i]}")"
+          i=$((i + 1))
+          ;;
+        --work-tree)
+          [ "$i" -lt "$n" ] && tree="${WORDS[$i]}"
+          i=$((i + 1))
+          ;;
+        --work-tree=*)
+          tree="${word#--work-tree=}"
+          ;;
+        --git-dir)
+          [ "$i" -lt "$n" ] && gitdir="${WORDS[$i]}"
+          i=$((i + 1))
+          ;;
+        --git-dir=*)
+          gitdir="${word#--git-dir=}"
+          ;;
+        -c | --namespace | --config-env | --super-prefix | --exec-path | --list-cmds | --attr-source)
+          # Global option whose value arrives as the next word.
+          i=$((i + 1))
+          ;;
+        "$SEP")
+          first=1
+          break
+          ;;
+        -*)
+          # Value-less global option (--no-pager) or inline-value form
+          # (--namespace=x, -cuser.name=x).
+          ;;
+        *)
+          # A different subcommand; resume scanning for a later `git` word.
+          break
+          ;;
+      esac
+    done
+  done
+  return 1
+}
+
+GIT_WRITE=0
+TARGET=""
+case "$CMD" in
+  *git*commit* | *git*push*)
+    set -f
+    tokenize "$CMD"
+    set +f
+    ;;
+esac
+
+# A git write that names another directory (git -C other commit, cd other &&
+# git push) audits that directory, not the session directory. A target that
+# is not a directory leaves the walk at the session directory.
+WALK_FROM="$START"
+if [ -n "$TARGET" ]; then
+  case "$TARGET" in
+    /*) ;;
+    *) TARGET="$START/$TARGET" ;;
+  esac
+  if RESOLVED="$(CDPATH='' cd -- "$TARGET" 2>/dev/null && pwd -P)"; then
+    WALK_FROM="$RESOLVED"
+    if [ -n "${FALLOW_GATE_DEBUG:-}" ]; then
+      echo "fallow plugin gate: the command targets $WALK_FROM." >&2
+    fi
+  fi
+fi
+
+ROOT="$WALK_FROM"
 until opted_in "$ROOT"; do
   if [ -e "$ROOT/.git" ] || [ "$ROOT" = / ]; then
     if [ -n "${FALLOW_GATE_DEBUG:-}" ]; then
@@ -87,58 +348,6 @@ if [ "$HAVE_JQ" -eq 0 ]; then
   exit 0
 fi
 
-CMD="$(jq -r '.tool_input.command // empty' <<<"$INPUT")"
-
-# Tokenize instead of matching one regex so git-level options between `git`
-# and the subcommand (git -c k=v commit, git -C dir push, git --no-pager
-# commit, git --git-dir=/x push) still route into the audit, while subcommand
-# lookalikes in arguments (git log commit-message.txt) do not. See issue #2106.
-is_git_write_command() {
-  local cmd="$1" segment
-  # Control operators separate simple commands; each becomes its own line.
-  while IFS= read -r segment; do
-    # Intentional word splitting; globbing is disabled below.
-    # shellcheck disable=SC2086
-    set -- $segment
-    while [ "$#" -gt 0 ]; do
-      if [ "$1" != "git" ]; then
-        shift
-        continue
-      fi
-      shift
-      while [ "$#" -gt 0 ]; do
-        case "$1" in
-          commit | push)
-            return 0
-            ;;
-          -c | -C | --git-dir | --work-tree | --namespace | --config-env | --super-prefix | --exec-path | --list-cmds | --attr-source)
-            # Global option whose value arrives as the next word.
-            shift
-            [ "$#" -gt 0 ] && shift
-            ;;
-          -*)
-            # Value-less global option (--no-pager) or inline-value form
-            # (--git-dir=/x, -cuser.name=x).
-            shift
-            ;;
-          *)
-            # A different subcommand; resume scanning for a later `git` word.
-            break
-            ;;
-        esac
-      done
-    done
-  done < <(printf '%s\n' "$cmd" | tr ';|&()' '\n\n\n\n\n')
-  return 1
-}
-
-set -f
-if is_git_write_command "$CMD"; then
-  GIT_WRITE=1
-else
-  GIT_WRITE=0
-fi
-set +f
 if [ "$GIT_WRITE" -eq 0 ]; then
   if [ -n "${FALLOW_GATE_DEBUG:-}" ]; then
     echo "fallow plugin gate: not a git commit/push, skipping audit." >&2
