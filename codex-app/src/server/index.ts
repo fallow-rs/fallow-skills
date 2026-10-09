@@ -1,26 +1,25 @@
 import { readFile } from "node:fs/promises";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
 import { SERVER_ICON } from "./icons.ts";
 import { registerFallowApp } from "./register.ts";
 import { createStateStore } from "./state.ts";
 
 const DEV_VERSION = "0.0.0-dev";
 
+const PluginManifest = z.object({ version: z.string() });
+
 /**
  * Reads the plugin version from the manifest next to the built server.
  * The build does not embed the version, so a version bump does not change the built files.
  */
 const pluginVersion = async (): Promise<string> => {
-  try {
-    const manifest: unknown = JSON.parse(
-      await readFile(new URL("../.codex-plugin/plugin.json", import.meta.url), "utf8"),
-    );
-    if (typeof manifest !== "object" || manifest === null || !("version" in manifest)) return DEV_VERSION;
-    return typeof manifest.version === "string" ? manifest.version : DEV_VERSION;
-  } catch {
-    return DEV_VERSION;
-  }
+  const manifest = await readFile(new URL("../.codex-plugin/plugin.json", import.meta.url), "utf8")
+    .then((text): unknown => JSON.parse(text))
+    .catch(() => null);
+  const parsed = PluginManifest.safeParse(manifest);
+  return parsed.success ? parsed.data.version : DEV_VERSION;
 };
 
 const [html, version] = await Promise.all([
