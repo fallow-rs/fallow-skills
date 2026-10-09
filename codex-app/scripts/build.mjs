@@ -34,7 +34,7 @@ const buildApp = async () => {
     .replace("/* APP_SCRIPT */", () => script.replace(/<\/script/gi, "<\\/script"));
 };
 
-const buildServer = (output, version) =>
+const buildServer = (output) =>
   build({
     entryPoints: [join(source, "src", "server", "index.ts")],
     bundle: true,
@@ -48,7 +48,6 @@ const buildServer = (output, version) =>
     minifyWhitespace: true,
     minifySyntax: true,
     legalComments: "none",
-    define: { __FALLOW_APP_VERSION__: JSON.stringify(version) },
     banner: {
       js: "// Built from codex-app/ in fallow-rs/fallow-skills. Do not edit; run `npm run build`.\nimport { createRequire as __fallowCreateRequire } from 'node:module';\nconst require = __fallowCreateRequire(import.meta.url);",
     },
@@ -61,7 +60,7 @@ export const buildPlugin = async (output = DEFAULT_OUTPUT) => {
   const version = String(manifest.version);
   await rm(output, { recursive: true, force: true });
   await mkdir(output, { recursive: true });
-  const [html] = await Promise.all([buildApp(), buildServer(output, version)]);
+  const [html] = await Promise.all([buildApp(), buildServer(output)]);
   await writeFile(join(output, "app.html"), html);
   await writeFile(
     join(output, "mcp.json"),

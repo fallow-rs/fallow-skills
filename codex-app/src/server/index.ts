@@ -1,19 +1,37 @@
 import { readFile } from "node:fs/promises";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
 import { SERVER_ICON } from "./icons.ts";
 import { registerFallowApp } from "./register.ts";
 import { createStateStore } from "./state.ts";
 
-declare const __FALLOW_APP_VERSION__: string;
+const DEV_VERSION = "0.0.0-dev";
 
-const html = await readFile(new URL("./app.html", import.meta.url), "utf8");
+const PluginManifest = z.object({ version: z.string() });
+
+/**
+ * Reads the plugin version from the manifest next to the built server.
+ * The build does not embed the version, so a version bump does not change the built files.
+ */
+const pluginVersion = async (): Promise<string> => {
+  const manifest = await readFile(new URL("../.codex-plugin/plugin.json", import.meta.url), "utf8")
+    .then((text): unknown => JSON.parse(text))
+    .catch(() => null);
+  const parsed = PluginManifest.safeParse(manifest);
+  return parsed.success ? parsed.data.version : DEV_VERSION;
+};
+
+const [html, version] = await Promise.all([
+  readFile(new URL("./app.html", import.meta.url), "utf8"),
+  pluginVersion(),
+]);
 
 const server = new McpServer(
   {
     name: "fallow-app",
     title: "Fallow",
-    version: typeof __FALLOW_APP_VERSION__ === "string" ? __FALLOW_APP_VERSION__ : "0.0.0-dev",
+    version,
     icons: [SERVER_ICON],
     websiteUrl: "https://fallow.tools",
   },
