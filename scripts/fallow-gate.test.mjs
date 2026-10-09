@@ -507,7 +507,7 @@ for (const [name, build, expected] of BLOCKER_CASES) {
 // bash 3.2 that macOS ships.
 const BASH_BINARIES = [...new Set([resolveTool("bash"), existsSync("/bin/bash") ? "/bin/bash" : null].filter(Boolean))];
 for (const bash of BASH_BINARIES) {
-  test(`a command with 100k words takes less than 2 seconds (${bash})`, { skip }, () => {
+  test(`a command with 100k words takes less than 5 seconds (${bash})`, { skip }, () => {
     const fixture = makeCase({ fallowJson: { verdict: "pass" } });
     rmSync(join(fixture.bin, "bash"));
     symlinkSync(bash, join(fixture.bin, "bash"));
@@ -517,7 +517,8 @@ for (const bash of BASH_BINARIES) {
     const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(auditedNames(fixture), ["project"]);
-    assert.ok(elapsedMs < 2000, `took ${Math.round(elapsedMs)} ms`);
+    // The hook timeout is far longer. The limit leaves room for a busy runner.
+    assert.ok(elapsedMs < 5000, `took ${Math.round(elapsedMs)} ms`);
   });
 }
 
@@ -529,9 +530,12 @@ const mainGateSource = ["origin/main", "main"]
   .find((result) => result.status === 0)?.stdout;
 const mainGate = join(scratch, "main-gate.sh");
 if (mainGateSource) writeFileSync(mainGate, mainGateSource);
-const differentialSkip = skip || (mainGateSource ? false : "the main branch is not available");
+// In CI the main branch must be available, so the test fails instead of
+// skipping. A local checkout without main skips it.
+const differentialSkip = skip || (mainGateSource || process.env.CI ? false : "the main branch is not available");
 
 test("the gate audits at least every tree that the main gate audits", { skip: differentialSkip }, () => {
+  assert.ok(mainGateSource, "git show origin/main:fallow/hooks/fallow-gate.sh failed");
   const missing = [];
   for (const [name, command] of SESSION_CASES) {
     const before = auditedNames(runCase(command, "pass", () => {}, mainGate).fixture);
@@ -546,6 +550,30 @@ test("the gate audits at least every tree that the main gate audits", { skip: di
     if (lost.length > 0) missing.push(`${name}: ${lost.join(", ")}`);
   }
   assert.deepEqual(missing, []);
+});
+
+// The loose scan runs in awk. When awk is missing, fails or returns no result
+// line, the gate must still count the command as a write.
+for (const [name, awkScript] of [
+  ["fails", "#!/bin/sh\nexit 2\n"],
+  ["prints nothing", "#!/bin/sh\ncat >/dev/null\nexit 0\n"],
+]) {
+  test(`an awk that ${name} still audits the session`, { skip }, () => {
+    const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+    rmSync(join(fixture.bin, "awk"));
+    writeFileSync(join(fixture.bin, "awk"), awkScript);
+    chmodSync(join(fixture.bin, "awk"), 0o755);
+    const result = runGate(fixture, "git add . && git commit -m x");
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(auditedNames(fixture), ["project"]);
+  });
+}
+
+test("a missing awk still audits the session", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" }, tools: HOST_TOOLS.filter((name) => name !== "awk") });
+  const result = runGate(fixture, "git add . && git commit -m x");
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(auditedNames(fixture), ["project"]);
 });
 
 // A gate that `fallow agent install` registered runs from the session

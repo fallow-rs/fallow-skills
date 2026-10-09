@@ -213,13 +213,26 @@ function join(base, path) {
 END { print "W " (writes + 0) }
 '
 scan_loose() {
-  local line
-  while IFS= read -r line; do
-    case "$line" in
-      "W "*) LOOSE_WRITES="${line#W }" ;;
-      "T "*) TARGETS+=("${line#T }") ;;
-    esac
-  done < <(printf '%s\n' "$@" | tr ';|&()' '\n\n\n\n\n' | LC_ALL=C awk "$LOOSE_SCAN")
+  local out line result=0
+  # A missing or failing awk must not hide a write. Without the result line,
+  # the gate counts the command as a write.
+  if out="$(printf '%s\n' "$@" | tr ';|&()' '\n\n\n\n\n' | LC_ALL=C awk "$LOOSE_SCAN" 2>/dev/null)"; then
+    while IFS= read -r line; do
+      case "$line" in
+        "W "*)
+          LOOSE_WRITES="${line#W }"
+          result=1
+          ;;
+        "T "*) TARGETS+=("${line#T }") ;;
+      esac
+    done <<<"$out"
+  fi
+  case "$LOOSE_WRITES" in
+    '' | *[!0-9]*) result=0 ;;
+  esac
+  if [ "$result" -eq 0 ]; then
+    LOOSE_WRITES=1
+  fi
 }
 
 # The allowlist. ALLOWED_DIR is set to the target when the whole command is
