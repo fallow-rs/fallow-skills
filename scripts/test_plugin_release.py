@@ -99,7 +99,8 @@ class PluginReleaseTest(unittest.TestCase):
         manifest_path = self.root / "fallow/.codex-plugin/plugin.json"
         original = json.loads(manifest_path.read_text(encoding="utf-8"))
         cases = (
-            ("mcpServers", {}, "may not define mcpServers"),
+            ("mcpServers", "./codex-app/mcp.json", "needs .codex-plugin/skills-only.json"),
+            ("extensions", {}, "needs .codex-plugin/skills-only.json"),
             ("apps", {}, "may not define apps"),
             ("screenshots", [], "may not include interface.screenshots"),
         )
@@ -114,6 +115,54 @@ class PluginReleaseTest(unittest.TestCase):
 
                 with self.assertRaisesRegex(ReleaseError, message):
                     build_archive(self.root, Path(f"dist-{field}"))
+
+    def test_app_manifest_packages_the_skills_only_overlay(self):
+        manifest_path = self.root / "fallow/.codex-plugin/plugin.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["mcpServers"] = "./codex-app/mcp.json"
+        manifest["extensions"] = {"com.openai": {"onboardingSkill": "./skills/onboarding/SKILL.md"}}
+        manifest["interface"]["shortDescription"] = "App and skills"
+        manifest["interface"]["capabilities"] = ["Interactive", "Static analysis"]
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        self._write_json(
+            "fallow/.codex-plugin/skills-only.json",
+            {
+                "omitSkills": ["onboarding"],
+                "interface": {"shortDescription": "Skills only", "capabilities": ["Static analysis"]},
+            },
+        )
+        self._write("fallow/skills/onboarding/SKILL.md", "---\nname: onboarding\n---\n")
+        self._write("fallow/codex-app/mcp.json", "{}")
+        self._write("fallow/codex-app/server.mjs", "// server")
+
+        archive = build_archive(self.root, Path("dist-app"))
+
+        with ZipFile(archive) as bundle:
+            names = bundle.namelist()
+            packaged = json.loads(bundle.read(".codex-plugin/plugin.json"))
+        self.assertNotIn("skills/onboarding/SKILL.md", names)
+        self.assertFalse(any(name.startswith("codex-app/") for name in names))
+        self.assertNotIn(".codex-plugin/skills-only.json", names)
+        self.assertNotIn("mcpServers", packaged)
+        self.assertNotIn("extensions", packaged)
+        self.assertEqual(packaged["interface"]["shortDescription"], "Skills only")
+        self.assertEqual(packaged["interface"]["capabilities"], ["Static analysis"])
+        self.assertEqual(packaged["interface"]["logo"], "./assets/icon.png")
+
+    def test_skills_only_overlay_is_validated(self):
+        manifest_path = self.root / "fallow/.codex-plugin/plugin.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["mcpServers"] = "./codex-app/mcp.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        cases = (
+            ({"omitSkills": ["../escape"]}, "omitSkills must list skill folder names"),
+            ({"interface": {"logo": "./other.png"}}, "interface may only set"),
+        )
+        for overlay, message in cases:
+            with self.subTest(overlay=overlay):
+                self._write_json("fallow/.codex-plugin/skills-only.json", overlay)
+                with self.assertRaisesRegex(ReleaseError, message):
+                    build_archive(self.root, Path("dist-overlay"))
 
     def test_symlinked_skill_content_is_rejected(self):
         target = self.root / "outside.txt"

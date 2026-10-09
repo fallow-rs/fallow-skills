@@ -37,6 +37,15 @@ codex plugin marketplace add fallow-rs/fallow-skills
 codex plugin add fallow@fallow-skills
 ```
 
+In the Codex desktop app, this install also adds the **Fallow app**: a code
+health dashboard in the sidebar, a **Code Health** tab beside each thread,
+**@Fallow** mentions for findings, a `.fallowrc.json` editor with an impact
+preview, a `.sarif` viewer, a branch audit, and a cleanup planner that asks
+you which findings to fix. Select findings to attach them to the composer, or
+send them to Codex with one click. The app runs the fallow CLI on your machine,
+inside the Codex sandbox of the thread when one is available. See
+[codex-app/README.md](codex-app/README.md) for every extension it uses.
+
 ### Fallow Impact statusline
 
 Claude Code users can add the compact Fallow Impact segment to their statusline:
@@ -88,6 +97,7 @@ statusline behavior for the Claude Code and Codex surfaces.
 | [fallow](fallow/skills/fallow/) | Codebase intelligence for JS and TS, code and styles: quality, changed-code risk, cleanup opportunities, circular deps, duplication, complexity, design-system drift, and runtime evidence | "check code health", "audit this PR", "find cleanup opportunities", "find duplicates", "what code actually runs" |
 | [fallow-review](fallow/skills/fallow-review/) | Graph-grounded review of changed-code risk, blast radius, and consequential structural decisions | "review this branch", "review this PR", "check changed code before merge" |
 | [fallow-setup](fallow/skills/fallow-setup/) | Set up or modernize code-quality tooling: detect existing tools, configure and install Fallow, wire agents, and add a CI gate | "set up quality tooling for this repo", "make this repo agent-ready", "add a code-health gate to CI" |
+| [fallow-codex-onboarding](fallow/skills/fallow-codex-onboarding/) | Codex only: set up the Fallow app after install, choose defaults, run the first analysis | "Set up" in the Codex plugin page, "set up the Fallow app" |
 
 ## Reference Documentation
 

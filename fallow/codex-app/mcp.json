@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "fallow-app": {
+      "command": "node",
+      "args": [
+        "./codex-app/server.mjs"
+      ],
+      "cwd": "."
+    }
+  }
+}

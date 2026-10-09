@@ -1,0 +1,7 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  // esbuild bundles these entry points in scripts/build.mjs and scripts/harness/serve.mjs.
+  "entry": ["src/server/index.ts", "src/app/main.tsx", "scripts/**/*.{mjs,ts}", "test/**/*.test.ts"],
+  // The server reads the built app next to itself at runtime: new URL("./app.html", import.meta.url).
+  "ignoreUnresolvedImports": ["./app.html"]
+}

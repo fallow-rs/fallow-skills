@@ -259,16 +259,62 @@ def _collect_component(path: Path) -> set[Path]:
     return files
 
 
-def _submission_files(plugin_root: Path) -> tuple[str, set[Path]]:
+SKILLS_ONLY_OVERLAY = Path(".codex-plugin/skills-only.json")
+# Fields that only the local marketplace install can use. The directory takes skills only.
+APP_ONLY_FIELDS = ("mcpServers", "extensions")
+OVERLAY_INTERFACE_FIELDS = ("shortDescription", "longDescription", "capabilities", "defaultPrompt")
+
+
+def _skills_only_manifest(
+    plugin_root: Path, manifest: dict[str, object]
+) -> tuple[dict[str, object], set[str]]:
+    """Return the manifest for the skills-only ZIP and the skill folders it leaves out.
+
+    A manifest that declares an MCP server must ship `.codex-plugin/skills-only.json`, so the
+    directory listing never describes an app that the ZIP does not contain.
+    """
+    has_app = any(field in manifest for field in APP_ONLY_FIELDS)
+    overlay_path = plugin_root / SKILLS_ONLY_OVERLAY
+    if not overlay_path.is_file():
+        if has_app:
+            raise ReleaseError(
+                f"A manifest with {' or '.join(APP_ONLY_FIELDS)} needs {SKILLS_ONLY_OVERLAY} for the skills-only listing"
+            )
+        return manifest, set()
+
+    overlay = _load_json(overlay_path)
+    omitted = overlay.get("omitSkills", [])
+    if not isinstance(omitted, list) or not all(
+        isinstance(name, str) and re.fullmatch(r"[a-z0-9-]+", name) for name in omitted
+    ):
+        raise ReleaseError(f"{SKILLS_ONLY_OVERLAY} omitSkills must list skill folder names")
+    interface_overlay = overlay.get("interface", {})
+    if not isinstance(interface_overlay, dict) or not set(interface_overlay) <= set(
+        OVERLAY_INTERFACE_FIELDS
+    ):
+        raise ReleaseError(
+            f"{SKILLS_ONLY_OVERLAY} interface may only set {', '.join(OVERLAY_INTERFACE_FIELDS)}"
+        )
+
+    result = {key: value for key, value in manifest.items() if key not in APP_ONLY_FIELDS}
+    interface = manifest.get("interface", {})
+    if isinstance(interface, dict):
+        result["interface"] = {**interface, **interface_overlay}
+    return result, set(omitted)
+
+
+def _submission_files(plugin_root: Path) -> tuple[str, set[Path], bytes]:
     manifest_path = plugin_root / ".codex-plugin/plugin.json"
     if manifest_path.is_symlink() or not manifest_path.is_file():
         raise ReleaseError("Missing regular .codex-plugin/plugin.json")
     manifest = _load_json(manifest_path)
     version = _validate_version(manifest.get("version"))
 
-    for field in ("mcpServers", "apps"):
-        if field in manifest:
-            raise ReleaseError(f"Skills-only submissions may not define {field}")
+    if "apps" in manifest:
+        raise ReleaseError("Skills-only submissions may not define apps")
+    original_bytes = manifest_path.read_bytes()
+    transformed = (plugin_root / SKILLS_ONLY_OVERLAY).is_file()
+    manifest, omitted_skills = _skills_only_manifest(plugin_root, manifest)
 
     interface = manifest.get("interface", {})
     if not isinstance(interface, dict):
@@ -281,7 +327,11 @@ def _submission_files(plugin_root: Path) -> tuple[str, set[Path]]:
         raise ReleaseError("Manifest skills must reference a directory")
 
     files = {manifest_path}
-    files.update(_collect_component(skills))
+    files.update(
+        path
+        for path in _collect_component(skills)
+        if path.relative_to(skills).parts[0] not in omitted_skills
+    )
     if manifest.get("hooks"):
         files.update(
             _collect_component(_resolve_component(plugin_root, manifest["hooks"], "hooks"))
@@ -294,7 +344,12 @@ def _submission_files(plugin_root: Path) -> tuple[str, set[Path]]:
                     f"interface.{field} must reference one regular visual asset"
                 )
             files.add(asset)
-    return version, files
+    manifest_bytes = (
+        (json.dumps(manifest, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+        if transformed
+        else original_bytes
+    )
+    return version, files, manifest_bytes
 
 
 def _archive_members(plugin_root: Path, files: set[Path]) -> list[tuple[Path, str]]:
@@ -343,7 +398,8 @@ def build_archive(
     """Build and return a deterministic OpenAI skills-only ZIP."""
     synchronized_version = check_versions(repo_root, expected_version)
     plugin_root = repo_root / PLUGIN_ROOT
-    manifest_version, files = _submission_files(plugin_root)
+    manifest_version, files, manifest_bytes = _submission_files(plugin_root)
+    manifest_path = plugin_root / ".codex-plugin/plugin.json"
     if manifest_version != synchronized_version:
         raise ReleaseError(
             f"Codex manifest version {manifest_version} differs from {synchronized_version}"
@@ -375,7 +431,8 @@ def build_archive(
                 info.compress_type = ZIP_DEFLATED
                 info.create_system = 3
                 info.external_attr = (stat.S_IFREG | mode) << 16
-                bundle.writestr(info, path.read_bytes(), compresslevel=9)
+                contents = manifest_bytes if path == manifest_path else path.read_bytes()
+                bundle.writestr(info, contents, compresslevel=9)
         if temporary.stat().st_size > ARCHIVE_LIMIT:
             raise ReleaseError("Compressed archive exceeds the 100 MB upload limit")
         temporary.replace(archive)
