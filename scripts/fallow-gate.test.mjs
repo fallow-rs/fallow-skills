@@ -22,9 +22,9 @@ const hooksConfig = join(pluginRoot, "hooks", "hooks.json");
 
 // Only these tools reach the gate, so a fallow, npx or yarn on the host PATH
 // cannot change the result.
-const HOST_TOOLS = ["bash", "jq", "cat", "tr", "sed", "sort", "head", "mktemp", "rm", "grep", "dirname"];
+const HOST_TOOLS = ["bash", "jq", "cat", "tr", "sed", "sort", "head", "mktemp", "rm", "grep", "dirname", "awk", "git"];
 
-const scratch = mkdtempSync(join(tmpdir(), "fallow-gate-test-"));
+const scratch = realpathSync(mkdtempSync(join(tmpdir(), "fallow-gate-test-")));
 after(() => rmSync(scratch, { recursive: true, force: true }));
 
 const resolveTool = (name) => {
@@ -36,6 +36,14 @@ const missingTools = HOST_TOOLS.filter((name) => resolveTool(name) === null);
 const skip = missingTools.length > 0 ? `missing host tools: ${missingTools.join(", ")}` : false;
 
 let caseCounter = 0;
+
+// Creates a real git repository, so git rev-parse in the gate sees it.
+const gitInit = (dir) => {
+  mkdirSync(dir, { recursive: true });
+  const result = spawnSync("git", ["init", "-q", dir], { encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+  return dir;
+};
 
 const makeCase = ({
   fallowJson = null,
@@ -51,7 +59,7 @@ const makeCase = ({
   const home = join(root, "home");
   for (const dir of [bin, project, home]) mkdirSync(dir, { recursive: true });
   for (const name of tools) symlinkSync(resolveTool(name), join(bin, name));
-  mkdirSync(join(project, ".git"));
+  gitInit(project);
   if (optIn) writeFileSync(join(project, ".fallowrc.json"), "{}\n");
 
   const calls = join(root, "fallow-calls.log");
@@ -72,11 +80,11 @@ const makeCase = ({
     );
     chmodSync(fake, 0o755);
   }
-  return { bin, project, home, calls };
+  return { root, bin, project, home, calls };
 };
 
-const runGate = (fixture, command, extraEnv = {}, cwd = fixture.project, inputCwd = undefined) =>
-  spawnSync(join(fixture.bin, "bash"), [gate], {
+const runGate = (fixture, command, extraEnv = {}, cwd = fixture.project, inputCwd = undefined, gatePath = gate) =>
+  spawnSync(join(fixture.bin, "bash"), [gatePath], {
     cwd,
     encoding: "utf8",
     input: JSON.stringify({ tool_name: "Bash", tool_input: { command }, ...(inputCwd ? { cwd: inputCwd } : {}) }),
@@ -229,6 +237,393 @@ test("the walk starts at the cwd of the hook input", { skip }, () => {
   assert.equal(result.status, 2);
   const auditDir = auditCalls(fixture)[0].split(" @ ")[1];
   assert.equal(realpathSync(auditDir), realpathSync(fixture.project));
+});
+
+const makeRepo = (fixture, name, { optIn }) => {
+  const dir = gitInit(join(fixture.root, name));
+  if (optIn) writeFileSync(join(dir, ".fallowrc.json"), "{}\n");
+  return dir;
+};
+
+// Each case names the directories the gate must audit. "project" is the
+// session directory. "optout" is a repository without fallow, and "optin" and
+// "my optin" are repositories with fallow.
+const auditedNames = (fixture) =>
+  auditCalls(fixture)
+    .map((line) => realpathSync(line.split(" @ ")[1]))
+    .map((dir) => dir.slice(realpathSync(fixture.root).length + 1))
+    .sort();
+
+const runCase = (command, verdict = "pass", setup = () => {}, gatePath = gate) => {
+  const fixture = makeCase({ fallowJson: { verdict }, fallowExit: verdict === "fail" ? 1 : 0 });
+  const dirs = {
+    o: makeRepo(fixture, "optout", { optIn: false }),
+    i: makeRepo(fixture, "optin", { optIn: true }),
+    s: makeRepo(fixture, "my optin", { optIn: true }),
+    r: fixture.root,
+    p: fixture.project,
+    h: fixture.home,
+  };
+  writeFileSync(join(fixture.root, "note.txt"), "text\n");
+  gitInit(join(fixture.project, "nested"));
+  // An empty .git directory is not a repository, so git uses the session one.
+  mkdirSync(join(fixture.project, "emptygit", ".git"), { recursive: true });
+  setup(dirs);
+  const result = runGate(fixture, command(dirs), {}, fixture.project, fixture.project, gatePath);
+  return { fixture, result };
+};
+
+// The allowlist: the whole command is one git commit or push with a certain
+// target. The gate audits only that target, and nothing when the target does
+// not opt in to fallow.
+for (const [name, command, expected] of [
+  ["a plain commit audits the session directory", () => "git commit -m 'change'", ["project"]],
+  ["a plain push audits the session directory", () => "git push", ["project"]],
+  ["git -C with an absolute path audits only that directory", ({ o }) => `git -C ${o} commit -m x`, []],
+  ["git -C push with arguments audits only that directory", ({ o }) => `git -C ${o} push origin HEAD`, []],
+  ["a relative git -C path resolves from the session directory", () => "git -C ../optin commit -m x", ["optin"]],
+  ["repeated git -C paths join", () => "git -C .. -C optin commit -m x", ["optin"]],
+  ["git -C with an opted-in target audits it", ({ i }) => `git -C ${i} commit -m x`, ["optin"]],
+  ["a quoted path with spaces is one target", ({ r }) => `git -C "${r}/my optin" commit -m 'a; b'`, ["my optin"]],
+  ["a single-quoted message can hold shell text", ({ o }) => `git -C '${o}' commit -m 'a; b $(x)'`, []],
+  ["a double-quoted message can span lines", ({ o }) => `git -C "${o}" commit -m "line one\n\nline two"`, []],
+  ["cd && git commit audits only the cd directory", ({ o }) => `cd ${o} && git commit -m "fix: thing"`, []],
+  ["cd && git push with arguments audits the cd directory", ({ i }) => `cd ${i} && git push -u origin feat/x:feat/x`, ["optin"]],
+  ["inert commit options keep the target", ({ o }) => `git -C ${o} commit --amend --no-edit -S -q -a`, []],
+  ["a tab can separate words", ({ o }) => `git -C ${o} commit -m x\tfile.txt`, []],
+  ["a relative cd into a nested repository keeps the target", () => "cd ./nested && git commit -m x", []],
+  ["a relative git -C into a nested repository keeps the target", () => "git -C nested commit -m x", []],
+]) {
+  test(`allowlist: ${name}`, { skip }, () => {
+    const { fixture, result } = runCase(command);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(auditedNames(fixture), expected);
+  });
+}
+
+const LONG_PREFIX = `echo ${"x ".repeat(9000)}`;
+
+// Every other form audits the session directory, plus each target that the
+// loose scan finds and that opts in to fallow.
+const SESSION_CASES = [
+  ["a target that is not a directory", ({ o }) => `git -C ${o}/missing commit -m x`, ["project"]],
+  ["a file as target", () => "git -C ../note.txt commit -m x", ["project"]],
+  ["cd ; git push", ({ i }) => `cd ${i}; git push`, ["optin", "project"]],
+  ["--work-tree and --git-dir", () => "git --work-tree=../optin --git-dir=../optin/.git commit -m x", ["optin", "project"]],
+  ["--git-dir alone", () => "git --git-dir ../optin/.git push", ["optin", "project"]],
+  ["a second write without a target", ({ i }) => `git -C ${i} commit -m x && git push`, ["optin", "project"]],
+  ["a git -c option", ({ o }) => `git -c user.name=x -C ${o} commit -m x`, ["project"]],
+  ["ANSI-C quoting", ({ o }) => `git -C ${o} commit -m $'a\\'; git push'`, ["project"]],
+  ["escaped quotes inside double quotes", ({ o }) => `git -C ${o} commit -m "say \\"x\\"; git push"`, ["project"]],
+  ["a line continuation", ({ o }) => `git -C ${o} \\\ncommit -m x`, ["project"]],
+  ["a line continuation without a target", () => "git commit \\\n  -m x", ["project"]],
+  ["bash -c", () => "bash -c 'git commit -m x'", ["project"]],
+  ["sh -c with a cd inside", ({ o }) => `sh -c 'cd ${o}; git commit -m x'`, ["project"]],
+  ["eval", () => 'eval "git commit -m x"', ["project"]],
+  ["eval next to a targeted push", ({ o }) => `eval 'git commit -m x' && git -C ${o} push`, ["project"]],
+  ["env git commit", () => "env git commit -m x", ["project"]],
+  ["env git -C", ({ o }) => `env git -C ${o} commit -m x`, ["project"]],
+  ["command git commit", () => "command git commit -m x", ["project"]],
+  ["a command substitution as target", () => 'git -C "$(pwd)" commit -m x', ["project"]],
+  ["a backtick substitution as target", () => 'git -C "`pwd`" commit -m x', ["project"]],
+  ["a substitution after the message", ({ o }) => `git -C ${o} commit -m "a"$(id)`, ["project"]],
+  ["a tilde target", () => "git -C ~/x commit -m x", ["project"]],
+  ["a glob target", ({ o }) => `git -C ${o}* commit -m x`, ["project"]],
+  ["cd && git -C", ({ o }) => `cd ${o} && git -C . commit -m x`, ["project"]],
+  ["cd into a missing directory then &&", ({ o }) => `cd ${o}/missing && git commit -m x`, ["project"]],
+  ["cd into a missing directory then ;", ({ o }) => `cd ${o}/missing; git commit -m x`, ["project"]],
+  ["cd then ||", ({ o }) => `cd ${o} || git commit -m x`, ["project"]],
+  ["cd then a pipe", ({ o }) => `cd ${o} | git commit -m x`, ["project"]],
+  ["cd in the background", ({ o }) => `cd ${o} & git commit -m x`, ["project"]],
+  ["a cd and a write in one subshell", ({ o }) => `( cd ${o} && git commit -m x )`, ["project"]],
+  ["a cd in a closed subshell", ({ o }) => `( cd ${o} ) && git commit -m x`, ["project"]],
+  ["a cd in a closed subshell before ;", ({ o }) => `(cd ${o}); git commit -m x`, ["project"]],
+  ["a GIT_DIR prefix", ({ o }) => `GIT_DIR=.git git -C ${o} commit -m x`, ["project"]],
+  ["a GIT_WORK_TREE prefix", ({ o }) => `GIT_WORK_TREE=. git -C ${o} commit -m x`, ["project"]],
+  ["an exported GIT_DIR", ({ o }) => `export GIT_DIR=$PWD/.git; git -C ${o} commit -m x`, ["project"]],
+  ["env with GIT_DIR", ({ o }) => `env GIT_DIR=.git git -C ${o} push`, ["project"]],
+  ["--git-dir with an opted-out --work-tree", ({ o }) => `git --git-dir=.git --work-tree=${o} commit -m x`, ["project"]],
+  ["quoted git text alone", () => 'echo "git commit"', ["project"]],
+  ["quoted git text next to a real commit", () => 'echo "git commit" && git commit -m x', ["project"]],
+  ["quoted git text next to a targeted push", ({ o }) => `echo "git commit" && git -C ${o} push`, ["project"]],
+  ["quoted text with an operator", () => 'echo "x; git commit -m y"', ["project"]],
+  ["cd - before a later push", ({ o }) => `cd ${o} && git commit -m x && cd - && git push`, ["project"]],
+  ["pushd", ({ o }) => `cd ${o} && pushd /tmp && git push`, ["project"]],
+  ["a cd in a here-document body", ({ o }) => `cat <<EOF\ncd ${o}\nEOF\ngit commit -m x`, ["project"]],
+  ["a here-document commit message", ({ o }) => `git -C ${o} commit -F - <<'EOF'\nfix: x; it's (fine)\nEOF`, ["project"]],
+  ["a here-document in a command substitution", ({ o }) => `git -C ${o} commit -m "$(cat <<'EOF'\nfix: thing\n\nbody\nEOF\n)"`, ["project"]],
+  ["redirections after cd", ({ o }) => `cd ${o} >/dev/null 2>&1 && git commit -m x`, ["project"]],
+  ["a pipe after the write", ({ o }) => `git -C ${o} commit -m x 2>&1 | tail -3`, ["project"]],
+  ["a backslash inside git", () => "g\\it push", ["project"]],
+  ["a very long command", ({ o }) => `${LONG_PREFIX} && git -C ${o} commit -m x`, ["project"]],
+  ["a substitution inside a double-quoted message", ({ o }) => `git -C ${o} commit -m "$(cd .. && git push)"`, ["project"]],
+  ["a backtick inside a double-quoted message", ({ o }) => `git -C ${o} commit -m "\`git push\`"`, ["project"]],
+  ["a substitution in --message=", ({ o }) => `git -C ${o} commit --message="$(git push)"`, ["project"]],
+  ["git -c core.hooksPath before -C", ({ o }) => `git -c core.hooksPath=/tmp -C ${o} commit -m x`, ["project"]],
+  ["git -c core.hooksPath after -C", ({ o }) => `git -C ${o} -c core.hooksPath=/tmp commit -m x`, ["project"]],
+  ["commit -F", ({ o }) => `git -C ${o} commit -F /etc/hosts`, ["project"]],
+  ["commit --template", ({ o }) => `git -C ${o} commit --template=/tmp/t -m x`, ["project"]],
+  ["an attached -m value", ({ o }) => `git -C ${o} commit -mx`, ["project"]],
+  ["push --exec", ({ o }) => `git -C ${o} push --exec=/tmp/x origin`, ["project"]],
+  ["push --receive-pack", ({ o }) => `git -C ${o} push --receive-pack=/tmp/x origin`, ["project"]],
+  ["a push option", ({ o }) => `git -C ${o} push -o ci.skip origin`, ["project"]],
+  ["push --force-with-lease", ({ o }) => `git -C ${o} push --force-with-lease origin HEAD`, ["project"]],
+  ["a -- separator", ({ o }) => `git -C ${o} commit -m x -- file`, ["project"]],
+  ["a carriage return before another command", ({ o }) => `git -C ${o} commit -m x\r; git push`, ["project"]],
+  ["a no-break space before another command", ({ o }) => `git -C ${o} commit -m x\u00a0; git push`, ["project"]],
+  ["a caret in a word", ({ o }) => `git -C ${o} commit -m x HEAD^`, ["project"]],
+  ["a brace expansion", ({ o }) => `git -C ${o} commit -m x {a,b}`, ["project"]],
+  ["a comment sign", ({ o }) => `git -C ${o} commit -m x #; git push`, ["project"]],
+  ["a redirection", ({ o }) => `git -C ${o} commit -m x >/dev/null`, ["project"]],
+  ["a target outside a git work tree", ({ r }) => `git -C ${r} commit -m x`, ["project"]],
+  ["a target inside a .git directory", ({ o }) => `git -C ${o}/.git commit -m x`, ["project"]],
+  ["a relative cd that CDPATH can move", () => "cd nested && git commit -m x", ["project"]],
+  ["a backslash before git", ({ o }) => `\\git -C ${o} commit -m x; git push`, ["project"]],
+  ["an option after a message read as a message", ({ o }) => `git -C ${o} commit -m -m --no-verify`, ["project"]],
+  ["a git -C into an empty .git directory", () => "git -C emptygit commit -m x", ["project"]],
+  ["a cd into an empty .git directory", () => "cd ./emptygit && git commit -m x", ["project"]],
+];
+for (const [name, command, expected] of SESSION_CASES) {
+  test(`session audit: ${name}`, { skip }, () => {
+    const { fixture, result } = runCase(command);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(auditedNames(fixture), expected);
+  });
+}
+
+// Cases where git picks a different repository than a path walk would.
+// Each builder returns the fixture, the session directory and the command.
+const BLOCKER_CASES = [
+  [
+    "a target above the opted-in session package audits the session",
+    (gatePath) => {
+      const fixture = makeCase({ fallowJson: { verdict: "pass" }, optIn: false });
+      const mono = gitInit(join(fixture.root, "mono"));
+      const app = join(mono, "packages", "app");
+      mkdirSync(app, { recursive: true });
+      writeFileSync(join(app, ".fallowrc.json"), "{}\n");
+      return { fixture, cwd: app, command: "git -C ../.. commit -m x", gatePath };
+    },
+    ["mono/packages/app"],
+  ],
+  [
+    "a cd to the top above the opted-in session package audits the session",
+    (gatePath) => {
+      const fixture = makeCase({ fallowJson: { verdict: "pass" }, optIn: false });
+      const mono = gitInit(join(fixture.root, "mono"));
+      const app = join(mono, "packages", "app");
+      mkdirSync(app, { recursive: true });
+      writeFileSync(join(app, ".fallowrc.json"), "{}\n");
+      return { fixture, cwd: app, command: `cd ${mono} && git push`, gatePath };
+    },
+    ["mono/packages/app"],
+  ],
+  [
+    "a gitfile that points at the session repository audits the session",
+    (gatePath) => {
+      const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+      const linked = join(fixture.project, "linked");
+      mkdirSync(linked);
+      writeFileSync(join(linked, ".git"), `gitdir: ${join(fixture.project, ".git")}\n`);
+      return { fixture, cwd: fixture.project, command: "git -C linked commit -m x", gatePath };
+    },
+    ["project"],
+  ],
+  [
+    "git -C resolves .. physically from a symlinked session directory",
+    (gatePath) => {
+      const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+      const holder = join(fixture.root, "l");
+      gitInit(join(holder, "project"));
+      symlinkSync(fixture.project, join(holder, "link"));
+      return { fixture, cwd: join(holder, "link"), command: "git -C ../project commit -m x", gatePath };
+    },
+    ["project"],
+  ],
+];
+
+// Runs git on the host, outside the gate.
+const hostGit = (args) => {
+  const result = spawnSync("git", ["-c", "user.name=test", "-c", "user.email=test@example.com", ...args], { encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+  return result.stdout.trim();
+};
+
+// Adds a linked worktree B of the session repository. Linked worktrees share
+// the refs of the session repository, which this check confirms with git.
+const addLinkedWorktree = (fixture) => {
+  hostGit(["-C", fixture.project, "commit", "--allow-empty", "-q", "-m", "init"]);
+  const linked = join(fixture.root, "B");
+  hostGit(["-C", fixture.project, "worktree", "add", "-q", "-b", "feat-b", linked]);
+  const common = (dir) => realpathSync(hostGit(["-C", dir, "rev-parse", "--path-format=absolute", "--git-common-dir"]));
+  assert.equal(common(linked), common(fixture.project));
+  return { linked, branch: hostGit(["-C", fixture.project, "branch", "--show-current"]) };
+};
+
+BLOCKER_CASES.push(
+  [
+    "a push from a linked worktree of the session repository audits the session",
+    (gatePath) => {
+      const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+      const { branch } = addLinkedWorktree(fixture);
+      return { fixture, cwd: fixture.project, command: `git -C ../B push origin ${branch}`, gatePath };
+    },
+    ["project"],
+  ],
+  [
+    "push --tags from a linked worktree of the session repository audits the session",
+    (gatePath) => {
+      const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+      addLinkedWorktree(fixture);
+      return { fixture, cwd: fixture.project, command: "git -C ../B push --tags", gatePath };
+    },
+    ["project"],
+  ],
+);
+
+test("a commit in a linked worktree audits only that worktree", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  addLinkedWorktree(fixture);
+  const result = runGate(fixture, "git -C ../B commit -m x", {}, fixture.project, fixture.project);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(auditedNames(fixture), []);
+});
+
+const runBlocker = (build, gatePath = gate) => {
+  const { fixture, cwd, command } = build(gatePath);
+  const result = runGate(fixture, command, {}, cwd, cwd, gatePath);
+  return { fixture, result };
+};
+
+for (const [name, build, expected] of BLOCKER_CASES) {
+  test(`git location: ${name}`, { skip }, () => {
+    const { fixture, result } = runBlocker(build);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(auditedNames(fixture), expected);
+  });
+}
+
+// A very long command must stay well inside the hook timeout, also on the
+// bash 3.2 that macOS ships.
+const BASH_BINARIES = [...new Set([resolveTool("bash"), existsSync("/bin/bash") ? "/bin/bash" : null].filter(Boolean))];
+for (const bash of BASH_BINARIES) {
+  test(`a command with 100k words takes less than 5 seconds (${bash})`, { skip }, () => {
+    const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+    rmSync(join(fixture.bin, "bash"));
+    symlinkSync(bash, join(fixture.bin, "bash"));
+    const paths = Array.from({ length: 100000 }, (_, i) => `"src/file${i}.ts"`).join(" ");
+    const started = process.hrtime.bigint();
+    const result = runGate(fixture, `git add ${paths} && git commit -m "x"`);
+    const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(auditedNames(fixture), ["project"]);
+    // The hook timeout is far longer. The limit leaves room for a busy runner.
+    assert.ok(elapsedMs < 5000, `took ${Math.round(elapsedMs)} ms`);
+  });
+}
+
+// The gate must never audit fewer trees than the gate on main, except for the
+// allowlist forms above. The main gate comes from origin/main (or main).
+const repoRoot = join(pluginRoot, "..");
+const mainGateSource = ["origin/main", "main"]
+  .map((ref) => spawnSync("git", ["show", `${ref}:fallow/hooks/fallow-gate.sh`], { cwd: repoRoot, encoding: "utf8" }))
+  .find((result) => result.status === 0)?.stdout;
+const mainGate = join(scratch, "main-gate.sh");
+if (mainGateSource) writeFileSync(mainGate, mainGateSource);
+// In CI the main branch must be available, so the test fails instead of
+// skipping. A local checkout without main skips it.
+const differentialSkip = skip || (mainGateSource || process.env.CI ? false : "the main branch is not available");
+
+test("the gate audits at least every tree that the main gate audits", { skip: differentialSkip }, () => {
+  assert.ok(mainGateSource, "git show origin/main:fallow/hooks/fallow-gate.sh failed");
+  const missing = [];
+  for (const [name, command] of SESSION_CASES) {
+    const before = auditedNames(runCase(command, "pass", () => {}, mainGate).fixture);
+    const after = auditedNames(runCase(command, "pass", () => {}, gate).fixture);
+    const lost = before.filter((dir) => !after.includes(dir));
+    if (lost.length > 0) missing.push(`${name}: ${lost.join(", ")}`);
+  }
+  for (const [name, build] of BLOCKER_CASES) {
+    const before = auditedNames(runBlocker(build, mainGate).fixture);
+    const after = auditedNames(runBlocker(build, gate).fixture);
+    const lost = before.filter((dir) => !after.includes(dir));
+    if (lost.length > 0) missing.push(`${name}: ${lost.join(", ")}`);
+  }
+  assert.deepEqual(missing, []);
+});
+
+// The loose scan runs in awk. When awk is missing, fails or returns no result
+// line, the gate must still count the command as a write.
+for (const [name, awkScript] of [
+  ["fails", "#!/bin/sh\nexit 2\n"],
+  ["prints nothing", "#!/bin/sh\ncat >/dev/null\nexit 0\n"],
+]) {
+  test(`an awk that ${name} still audits the session`, { skip }, () => {
+    const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+    rmSync(join(fixture.bin, "awk"));
+    writeFileSync(join(fixture.bin, "awk"), awkScript);
+    chmodSync(join(fixture.bin, "awk"), 0o755);
+    const result = runGate(fixture, "git add . && git commit -m x");
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(auditedNames(fixture), ["project"]);
+  });
+}
+
+test("a missing awk still audits the session", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" }, tools: HOST_TOOLS.filter((name) => name !== "awk") });
+  const result = runGate(fixture, "git add . && git commit -m x");
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(auditedNames(fixture), ["project"]);
+});
+
+// A gate that `fallow agent install` registered runs from the session
+// directory and audits only the session tree. The plugin defers to it only
+// for that tree, and still audits every other target.
+for (const [name, setup, command, expected] of [
+  ["a session gate leaves an allowlisted target to the plugin", ({ p }) => registerInstalledGate(p, { withScript: true }), ({ i }) => `git -C ${i} commit -m x`, ["optin"]],
+  ["a session gate covers the session but not the target", ({ p }) => registerInstalledGate(p, { withScript: true }), ({ i }) => `git -C ${i} commit -m x && git push`, ["optin"]],
+  ["a user-level gate covers the session but not the target", ({ h }) => registerInstalledGate(h, { withScript: true }), ({ i }) => `git -C ${i} commit -m x && git push`, ["optin"]],
+  ["a session gate covers a target inside the session tree", ({ p }) => { mkdirSync(join(p, "sub")); registerInstalledGate(p, { withScript: true }); }, ({ p }) => `git -C ${p}/sub commit -m x`, []],
+  ["a gate registered only in the target does not run, so the plugin audits the target", ({ i }) => registerInstalledGate(i, { withScript: true }), ({ i }) => `git -C ${i} commit -m x`, ["optin"]],
+  ["without any registered gate the plugin audits the target and the session", () => {}, ({ i }) => `git -C ${i} commit -m x && git push`, ["optin", "project"]],
+]) {
+  test(`deferral: ${name}`, { skip }, () => {
+    const { fixture, result } = runCase(command, "pass", setup);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(auditedNames(fixture), expected);
+  });
+}
+
+test("a fail verdict in the session blocks a command outside the allowlist", { skip }, () => {
+  const { fixture, result } = runCase(({ o }) => `git -C ${o} commit -m x && git push`, "fail");
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /blocked by fallow 9\.9\.9/);
+  assert.deepEqual(auditedNames(fixture), ["project"]);
+});
+
+test("an allowlisted target without fallow skips the gate", { skip }, () => {
+  const { fixture, result } = runCase(({ o }) => `git -C ${o} commit -m x`, "fail");
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  assert.deepEqual(auditCalls(fixture), []);
+});
+
+test("an opted-in target blocks on a fail verdict from an unopted session", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1, optIn: false });
+  const other = makeRepo(fixture, "other", { optIn: true });
+  const result = runGate(fixture, `cd '${other}' && git commit -m x`, {}, fixture.project, fixture.project);
+  assert.equal(result.status, 2);
+  assert.equal(auditCalls(fixture).length, 1);
+});
+
+test("a fail verdict in any audited root blocks", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1, optIn: false });
+  const optout = makeRepo(fixture, "optout", { optIn: false });
+  const optin = makeRepo(fixture, "optin", { optIn: true });
+  const result = runGate(fixture, `git -C ${optout} commit -m x && git -C ${optin} push`, {}, fixture.project, fixture.project);
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /blocked by fallow 9\.9\.9/);
+  assert.deepEqual(auditedNames(fixture), ["optin"]);
 });
 
 test("a package.json script named fallow does not opt the project in", { skip }, () => {
