@@ -6,10 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- The commit gate audits the directory that a git commit or push targets. It reads `git -C <dir>`, `--work-tree`, `--git-dir` and an earlier `cd <dir>`. Before, it audited the session directory, so a finding in one worktree blocked a commit in another worktree.
-- A target that does not opt in to fallow needs no audit. A path with spaces in quotes stays one target.
-- The gate also audits the session directory when a write has no target, when a target is not a directory, and when it cannot follow the command. Examples are `sh -c`, `eval`, quoted git text, `GIT_DIR` variables, `cd` before `||`, `|` or `&`, and commands longer than 16 KB.
-- Each git write audits its own project. A fail verdict in any of them blocks the command.
+- The commit gate also audits the tree that a git commit or push targets. Before, it audited only the session directory, so a finding in one worktree blocked a commit in another worktree.
+- A command on a short allowlist audits only its target: `git -C <dir> commit|push <args>`, or `cd <dir> && git commit|push <args>`, with a literal directory and an optional quoted `-m` message. A target without fallow needs no audit.
+- Every other git commit or push audits the session directory plus each target that resolves. A fail verdict in any of them blocks the command.
+- A gate that `fallow agent install` registered only covers the session tree. The plugin still audits other targets.
 
 ## [1.4.0] - 2026-04-09
 

@@ -11,14 +11,14 @@ set -euo pipefail
 #
 # Differences from the installed gate:
 # - When `fallow agent install` or `fallow hooks install --target agent`
-#   already registered its own gate for this project or user, this script
-#   does nothing, so the audit runs once.
+#   registered its own gate for this session, this script does not audit the
+#   session tree again. That gate audits only the session tree, so this script
+#   still audits every other target.
 # - It runs only in a project that chose fallow (a fallow config file or a
-#   `fallow` dependency in package.json). For each git commit or push it
-#   audits the nearest such directory above the directory that the write
-#   targets (git -C dir, --work-tree, --git-dir, or an earlier cd). It also
-#   audits the session directory for a write without a target and for any
-#   command it cannot follow, so a parse difference never skips an audit.
+#   `fallow` dependency in package.json). It always audits the session tree,
+#   plus each opted-in tree that a git commit or push targets. Only a command
+#   on a short allowlist with a certain target (git -C <dir> commit, or
+#   cd <dir> && git push) audits the target alone.
 # - Codex also loads this hook from the plugin. It defers to a gate that
 #   `fallow agent install` registered for Claude Code or for Codex.
 # - A missing fallow binary, a missing jq or a fallow binary below the version
@@ -96,46 +96,87 @@ if [ "$HAVE_JQ" -eq 0 ]; then
   exit 0
 fi
 
-# The gate reads the command twice. The loose scan is the original
-# word-splitting detector: it counts git commit and git push words and ignores
-# quotes. The strict scan tokenizes like the shell and finds the directory of
-# each git write. The gate audits only the targets when the strict scan
-# understands the whole command. In every other case it also audits the
-# session directory, so a parse difference never skips an audit.
+# The gate always audits the session directory, except for a command on a
+# short allowlist where the target is certain. Then it audits only the target.
+# For every other git commit or push it audits the session directory and
+# every target that it can resolve, and a fail verdict in any of them blocks.
 
-# Loose scan. Prints how many git commit or push commands $1 holds when the
-# command is split at control operators and at blanks. Git-level options
-# between `git` and the subcommand (git -c k=v commit, git -C dir push,
-# git --no-pager commit, git --git-dir=/x push) still count, while subcommand
-# lookalikes in arguments (git log commit-message.txt) do not. See issue #2106.
-count_loose_writes() {
-  local cmd="$1" segment count=0
+# Appends path $2 to directory $1. An absolute $2 replaces $1.
+join_path() {
+  case "$2" in
+    /*) printf '%s' "$2" ;;
+    *) printf '%s' "${1:+$1/}$2" ;;
+  esac
+}
+
+# Prints the physical path of directory $1, relative to the session
+# directory. Returns 1 when $1 is not a directory.
+resolve_dir() {
+  local dir="$1"
+  case "$dir" in
+    /*) ;;
+    *) dir="$START/$dir" ;;
+  esac
+  (CDPATH='' cd -- "$dir" 2>/dev/null && pwd -P)
+}
+
+# Loose scan: the original word-splitting detector. It splits $1 at control
+# operators and at blanks, and ignores quotes. Git-level options between `git`
+# and the subcommand (git -c k=v commit, git -C dir push, git --no-pager
+# commit, git --git-dir=/x push) still count, while subcommand lookalikes in
+# arguments (git log commit-message.txt) do not. See issue #2106. It adds the
+# number of git commit and push commands to LOOSE_WRITES. It adds each
+# directory that a `cd`, -C, --work-tree or --git-dir names to TARGETS.
+LOOSE_WRITES=0
+TARGETS=()
+scan_loose() {
+  local cmd="$1" segment dir dir_value
   # Control operators separate simple commands; each becomes its own line.
   while IFS= read -r segment; do
     # Intentional word splitting; globbing is disabled by the caller.
     # shellcheck disable=SC2086
     set -- $segment
+    if [ "${1:-}" = cd ] && [ "$#" -ge 2 ]; then
+      TARGETS+=("$2")
+    fi
     while [ "$#" -gt 0 ]; do
       if [ "$1" != "git" ]; then
         shift
         continue
       fi
       shift
+      dir=""
       while [ "$#" -gt 0 ]; do
         case "$1" in
           commit | push)
-            count=$((count + 1))
+            LOOSE_WRITES=$((LOOSE_WRITES + 1))
+            [ -n "$dir" ] && TARGETS+=("$dir")
             shift
             break
             ;;
-          -c | -C | --git-dir | --work-tree | --namespace | --config-env | --super-prefix | --exec-path | --list-cmds | --attr-source)
+          -C)
+            [ "$#" -gt 1 ] && dir="$(join_path "$dir" "$2")"
+            shift
+            [ "$#" -gt 0 ] && shift
+            ;;
+          --work-tree | --git-dir)
+            [ "$#" -gt 1 ] && TARGETS+=("$(join_path "$dir" "${2%/.git}")")
+            shift
+            [ "$#" -gt 0 ] && shift
+            ;;
+          --work-tree=* | --git-dir=*)
+            dir_value="${1#*=}"
+            TARGETS+=("$(join_path "$dir" "${dir_value%/.git}")")
+            shift
+            ;;
+          -c | --namespace | --config-env | --super-prefix | --exec-path | --list-cmds | --attr-source)
             # Global option whose value arrives as the next word.
             shift
             [ "$#" -gt 0 ] && shift
             ;;
           -*)
             # Value-less global option (--no-pager) or inline-value form
-            # (--git-dir=/x, -cuser.name=x).
+            # (-cuser.name=x).
             shift
             ;;
           *)
@@ -146,413 +187,114 @@ count_loose_writes() {
       done
     done
   done < <(printf '%s\n' "$cmd" | tr ';|&()' '\n\n\n\n\n')
-  printf '%s' "$count"
 }
 
-# Strict scan, step 1. The tokenizer splits CMD into WORDS. Quotes ('', "",
-# $'') and backslashes group characters into one word and are removed. `;`,
-# `&&` and a newline end a simple command and become the word SEP. `|`, `||`,
-# `&`, `(` and `)` also end a simple command and become the word WEAK, because
-# a `cd` before them does not reliably change the directory of what follows.
-# The body of a here-document is not tokenized. Body text that names a git
-# commit or push sets UNSURE. A line without quotes, backslashes or operators
-# takes the fast path of plain word splitting.
-SEP=$'\x1f'
-WEAK=$'\x1e'
-WORDS=()
-UNSURE=0
-tokenize() {
-  local line rest word="" in_word=0 lead_quoted=0 quote="" joined part
-  local line_start w body_end="" body_strip=0
-  local -a plain heredocs
-  heredocs=()
-  flush() {
-    if [ "$in_word" -eq 1 ]; then
-      WORDS+=("$word")
-      if [ "$lead_quoted" -eq 0 ]; then
-        case "$word" in
-          "<<<"*) ;;
-          "<<-") heredocs+=("-") ;;
-          "<<") heredocs+=("+") ;;
-          "<<-"*) heredocs+=("-${word#<<-}") ;;
-          "<<"*) heredocs+=("+${word#<<}") ;;
-        esac
-      fi
-    fi
-    word=""
-    in_word=0
-    lead_quoted=0
+# The allowlist. ALLOWED_DIR is set to the target when the whole command is
+# one of these, with blanks between the words:
+#   git [-C <dir>]... (commit|push) <args>
+#   cd <dir> && git (commit|push) <args>
+# <dir> is a plain word, or one pair of quotes around letters, digits, spaces
+# and `_ . / @ % + = : , -`. <args> are plain words, and the word after -m or
+# --message can be a quoted message ('...', or "..." without $, ` or \).
+# Anything else, such as another operator, a newline outside the message, a
+# substitution, a variable, a glob or an environment prefix, does not match.
+ALLOWED_DIR=""
+DIR_RE='^([A-Za-z0-9_./@%+=:,][A-Za-z0-9_./@%+=:,-]*|'"'"'[A-Za-z0-9_./@%+=:, -]+'"'"'|"[A-Za-z0-9_./@%+=:, -]+")'
+WORD_RE='^[A-Za-z0-9_./@%+=:,^-]+'
+MSG_RE='^('"'"'[^'"'"']*'"'"'|"[^"$`\\]*")'
+BLANK_RE='^[ 	]+'
+match_allowlist() {
+  local rest="$1" dir="" word prev=""
+  # Takes the next blanks, then the next token that matches $1, into word.
+  take() {
+    [[ "$rest" =~ $BLANK_RE ]] && rest="${rest:${#BASH_REMATCH[0]}}"
+    [[ "$rest" =~ $1 ]] || return 1
+    word="${BASH_REMATCH[0]}"
+    rest="${rest:${#word}}"
   }
-  start_quote() {
-    [ "$in_word" -eq 1 ] || lead_quoted=1
-    in_word=1
-  }
-  while IFS= read -r line; do
-    if [ -n "$body_end" ]; then
-      w="$line"
-      if [ "$body_strip" -eq 1 ]; then
-        while [ "${w:0:1}" = $'\t' ]; do w="${w:1}"; done
-      fi
-      if [ "$w" = "$body_end" ]; then
-        body_end=""
-        if [ "${#heredocs[@]}" -gt 0 ]; then
-          body_end="${heredocs[0]:1}"
-          [ "${heredocs[0]:0:1}" = "-" ] && body_strip=1 || body_strip=0
-          heredocs=("${heredocs[@]:1}")
-        fi
-      else
-        case "$line" in
-          *git*commit* | *git*push*) UNSURE=1 ;;
-        esac
-      fi
-      continue
-    fi
-    line_start="${#WORDS[@]}"
-    if [ -z "$quote" ] && [ "$in_word" -eq 0 ]; then
-      case "$line" in
-        *[\'\"\\\;\|\&\(\)\<]*) ;;
-        *)
-          # Intentional word splitting; globbing is disabled by the caller.
-          # shellcheck disable=SC2206
-          plain=($line)
-          if [ "${#plain[@]}" -gt 0 ]; then
-            WORDS+=("${plain[@]}")
-          fi
-          WORDS+=("$SEP")
-          continue
-          ;;
-      esac
-    fi
-    rest="$line"
-    joined=0
-    while :; do
-      if [ "$quote" = "'" ]; then
-        if [[ "$rest" == *"'"* ]]; then
-          word+="${rest%%\'*}"
-          rest="${rest#*\'}"
-          quote=""
-        else
-          word+="$rest"$'\n'
-          break
-        fi
-      elif [ -n "$quote" ]; then
-        # A double quote, or ANSI-C quoting ($'...') where a backslash
-        # escapes any character, including a single quote.
-        while :; do
-          if [ "$quote" = '"' ]; then
-            part="${rest%%[\"\\\\]*}"
-          else
-            part="${rest%%[\'\\\\]*}"
-          fi
-          word+="$part"
-          rest="${rest:${#part}}"
-          case "${rest:0:1}" in
-            \\)
-              if [ "${#rest}" -eq 1 ]; then
-                joined=1
-                break
-              fi
-              word+="${rest:1:1}"
-              rest="${rest:2}"
-              ;;
-            '')
-              break
-              ;;
-            *)
-              rest="${rest:1}"
-              quote=""
-              break
-              ;;
-          esac
-        done
-        if [ -n "$quote" ]; then
-          [ "$joined" -eq 1 ] || word+=$'\n'
-          break
-        fi
-      fi
-      [ -n "$rest" ] || break
-      case "${rest:0:1}" in
-        ';')
-          flush
-          WORDS+=("$SEP")
-          rest="${rest:1}"
-          ;;
-        '&')
-          if [ "${rest:1:1}" = '&' ]; then
-            flush
-            WORDS+=("$SEP")
-            rest="${rest:2}"
-          elif [ "${rest:1:1}" = '>' ] || { [ "$in_word" -eq 1 ] && [[ "$word" == *[\<\>] ]]; }; then
-            # A redirection such as 2>&1 or &>file, not an operator.
-            in_word=1
-            word+='&'
-            rest="${rest:1}"
-          else
-            flush
-            WORDS+=("$WEAK")
-            rest="${rest:1}"
-          fi
-          ;;
-        '|' | '(' | ')')
-          flush
-          WORDS+=("$WEAK")
-          rest="${rest:1}"
-          ;;
-        [[:space:]])
-          flush
-          rest="${rest:1}"
-          ;;
-        "'")
-          if [ "$in_word" -eq 1 ] && [ "${word: -1}" = '$' ]; then
-            quote='$'
-          else
-            quote="'"
-          fi
-          start_quote
-          rest="${rest:1}"
-          ;;
-        '"')
-          quote='"'
-          start_quote
-          rest="${rest:1}"
-          ;;
-        \\)
-          in_word=1
-          if [ "${#rest}" -eq 1 ]; then
-            joined=1
-            break
-          fi
-          word+="${rest:1:1}"
-          rest="${rest:2}"
-          ;;
-        *)
-          in_word=1
-          part="${rest%%[[:space:]\"\'\\\\;|&()]*}"
-          word+="$part"
-          rest="${rest:${#part}}"
-          ;;
-      esac
-    done
-    if [ -z "$quote" ] && [ "$joined" -eq 0 ]; then
-      flush
-      WORDS+=("$SEP")
-      # A here-document operator with the delimiter in the next word.
-      for ((w = line_start; w < ${#WORDS[@]}; w++)); do
-        case "${WORDS[$w]}" in
-          "<<" | "<<-")
-            if [ "${#heredocs[@]}" -gt 0 ]; then
-              case "${heredocs[${#heredocs[@]} - 1]}" in
-                + | -) heredocs[${#heredocs[@]} - 1]+="${WORDS[$((w + 1))]-}" ;;
-              esac
-            fi
-            ;;
-        esac
-      done
-      if [ "${#heredocs[@]}" -gt 0 ]; then
-        body_end="${heredocs[0]:1}"
-        [ "${heredocs[0]:0:1}" = "-" ] && body_strip=1 || body_strip=0
-        heredocs=("${heredocs[@]:1}")
-      fi
-    fi
-  done <<<"$1"
-  flush
-}
-
-# Appends path $2 to directory $1. An absolute $2 replaces $1, and a leading
-# ~ becomes $HOME.
-join_path() {
-  local base="$1" path="$2"
-  case "$path" in
-    \~) path="$HOME" ;;
-    \~/*) path="$HOME/${path#\~/}" ;;
-  esac
-  case "$path" in
-    /*) printf '%s' "$path" ;;
-    *) printf '%s' "${base:+$base/}$path" ;;
-  esac
-}
-
-# Strict scan, step 2. Reads WORDS and records each git commit or push. The
-# directory of a write is the result of earlier `cd` commands, then -C, then
-# --work-tree and the parent of a --git-dir that ends in .git. TARGETS holds
-# these directories relative to the session directory. STRICT_WRITES counts
-# the writes. A write without a directory sets NEED_SESSION. A form that the
-# scan cannot follow sets UNSURE: a word that holds git command text (sh -c,
-# eval, quoted text), a GIT_ environment variable, a `cd` with an option or
-# without a directory, pushd or popd, and a `cd` before a WEAK operator.
-TARGETS=()
-STRICT_WRITES=0
-NEED_SESSION=0
-scan_writes() {
-  local i=0 n="${#WORDS[@]}" first=1 cd_dir="" weak_after_cd=0 dir tree gitdir word
-  while [ "$i" -lt "$n" ]; do
-    word="${WORDS[$i]}"
-    i=$((i + 1))
+  # Removes one pair of quotes around a directory.
+  unquote() {
     case "$word" in
-      "$SEP")
-        first=1
-        continue
-        ;;
-      "$WEAK")
-        first=1
-        [ -n "$cd_dir" ] && weak_after_cd=1
-        continue
-        ;;
-      *GIT_*)
-        UNSURE=1
-        ;;
-      *git*)
-        # Shell text inside one word, such as the script of sh -c or eval.
-        case "$word" in
-          *[[:space:]\;\|\&\(\)\`\$]*)
-            case "$word" in
-              *commit* | *push*) UNSURE=1 ;;
-            esac
-            ;;
-        esac
-        ;;
+      \'*\' | \"*\") word="${word:1:${#word}-2}" ;;
     esac
-    if [ "$first" -eq 1 ]; then
-      first=0
-      case "$word" in
-        cd)
-          if [ "$i" -lt "$n" ]; then
-            case "${WORDS[$i]}" in
-              "$SEP" | "$WEAK" | -*) UNSURE=1 ;;
-              *)
-                cd_dir="$(join_path "$cd_dir" "${WORDS[$i]}")"
-                i=$((i + 1))
-                ;;
-            esac
-          else
-            UNSURE=1
-          fi
-          continue
-          ;;
-        pushd | popd | chdir | builtin)
-          UNSURE=1
-          ;;
-      esac
-    fi
-    [ "$word" = git ] || continue
-    dir="$cd_dir"
-    tree=""
-    gitdir=""
-    while [ "$i" -lt "$n" ]; do
-      word="${WORDS[$i]}"
-      i=$((i + 1))
-      case "$word" in
-        commit | push)
-          STRICT_WRITES=$((STRICT_WRITES + 1))
-          [ "$weak_after_cd" -eq 1 ] && UNSURE=1
-          if [ -n "$gitdir" ]; then
-            gitdir="$(join_path "$dir" "$gitdir")"
-            gitdir="${gitdir%/}"
-            case "$gitdir" in
-              .git) TARGETS+=(".") ;;
-              */.git) TARGETS+=("${gitdir%/.git}") ;;
-              *) TARGETS+=("$gitdir") ;;
-            esac
-          fi
-          if [ -n "$tree" ]; then
-            TARGETS+=("$(join_path "$dir" "$tree")")
-          elif [ -z "$gitdir" ]; then
-            if [ -n "$dir" ]; then
-              TARGETS+=("$dir")
-            else
-              NEED_SESSION=1
-            fi
-          fi
-          break
-          ;;
-        -C)
-          [ "$i" -lt "$n" ] && dir="$(join_path "$dir" "${WORDS[$i]}")"
-          i=$((i + 1))
-          ;;
-        --work-tree)
-          [ "$i" -lt "$n" ] && tree="${WORDS[$i]}"
-          i=$((i + 1))
-          ;;
-        --work-tree=*)
-          tree="${word#--work-tree=}"
-          ;;
-        --git-dir)
-          [ "$i" -lt "$n" ] && gitdir="${WORDS[$i]}"
-          i=$((i + 1))
-          ;;
-        --git-dir=*)
-          gitdir="${word#--git-dir=}"
-          ;;
-        -c | --namespace | --config-env | --super-prefix | --exec-path | --list-cmds | --attr-source)
-          # Global option whose value arrives as the next word.
-          i=$((i + 1))
-          ;;
-        "$SEP" | "$WEAK")
-          i=$((i - 1))
-          break
-          ;;
-        -*)
-          # Value-less global option (--no-pager) or inline-value form
-          # (--namespace=x, -cuser.name=x).
-          ;;
-        *)
-          # A different subcommand; resume scanning for a later `git` word.
-          break
-          ;;
-      esac
+  }
+  take '^cd[ 	]' && {
+    take "$DIR_RE" || return 1
+    unquote
+    dir="$word"
+    take '^&&' || return 1
+  }
+  take '^git([ 	]|$)' || return 1
+  if [ -z "$dir" ]; then
+    while take '^-C[ 	]'; do
+      take "$DIR_RE" || return 1
+      unquote
+      dir="$(join_path "$dir" "$word")"
     done
+  fi
+  take '^(commit|push)([ 	]|$)' || return 1
+  while :; do
+    [[ "$rest" =~ $BLANK_RE ]] && rest="${rest:${#BASH_REMATCH[0]}}"
+    [ -n "$rest" ] || break
+    case "$prev" in
+      -m | --message) take "$MSG_RE" || take "$WORD_RE" || return 1 ;;
+      *) take "$WORD_RE" || return 1 ;;
+    esac
+    # The next word must start after a blank.
+    case "${rest:0:1}" in
+      '' | ' ' | '	') ;;
+      *) return 1 ;;
+    esac
+    prev="$word"
   done
+  ALLOWED_DIR="${dir:-.}"
 }
 
-# Longest command, in characters, that the strict scan reads.
-STRICT_SCAN_MAX=16384
+# Longest command, in characters, that the allowlist reads.
+ALLOWLIST_MAX=16384
 
-# Quotes and backslashes can split a word (g\it, "com"mit), so the quick
-# check reads the command without them.
-LOOSE_WRITES=0
-case "$(printf '%s' "$CMD" | tr -d '\\"'"'")" in
+# Quotes, backslashes, substitutions and line continuations can hide a git
+# word (g\it, "com"mit, git -C "$(pwd)" commit). The floor also counts a copy
+# of the command without these characters and with its lines joined.
+# shellcheck disable=SC2016
+FLAT="$(printf '%s' "$CMD" | tr -d '\\"'"'"'$()`{}' | tr '\n' ' ')"
+set -f
+case "$FLAT" in
   *git*commit* | *git*push*)
-    set -f
-    LOOSE_WRITES="$(count_loose_writes "$CMD")"
-    if [ "${#CMD}" -le "$STRICT_SCAN_MAX" ]; then
-      tokenize "$CMD"
-      scan_writes
-    else
-      # The strict scan costs too much time on a very long command. Audit the
-      # session directory, as the gate did before it read targets.
-      UNSURE=1
+    scan_loose "$CMD"
+    scan_loose "$FLAT"
+    if [ "${#CMD}" -le "$ALLOWLIST_MAX" ]; then
+      match_allowlist "$CMD" || ALLOWED_DIR=""
     fi
-    set +f
     ;;
 esac
+set +f
 
-if [ "$STRICT_WRITES" -eq 0 ] && [ "$LOOSE_WRITES" -eq 0 ] && [ "$UNSURE" -eq 0 ]; then
+if [ "$LOOSE_WRITES" -eq 0 ] && [ -z "$ALLOWED_DIR" ]; then
   if [ -n "${FALLOW_GATE_DEBUG:-}" ]; then
     echo "fallow plugin gate: not a git commit/push, skipping audit." >&2
   fi
   exit 0
 fi
-if [ "$UNSURE" -eq 1 ] || [ "$LOOSE_WRITES" -gt "$STRICT_WRITES" ]; then
-  NEED_SESSION=1
-fi
 
-# Each target directory that exists is a start for the opted-in walk. A target
-# that is not a directory falls back to the session directory.
+# Each directory that exists is a start for the opted-in walk. An allowlisted
+# command whose target is not a directory audits the session directory.
 STARTS=()
-if [ "${#TARGETS[@]}" -gt 0 ]; then
-  for target in "${TARGETS[@]}"; do
-    case "$target" in
-      /*) ;;
-      *) target="$START/$target" ;;
-    esac
-    if resolved="$(CDPATH='' cd -- "$target" 2>/dev/null && pwd -P)"; then
-      STARTS+=("$resolved")
-    else
-      NEED_SESSION=1
-    fi
-  done
+if [ -n "$ALLOWED_DIR" ] && resolved="$(resolve_dir "$ALLOWED_DIR")"; then
+  STARTS+=("$resolved")
+else
+  STARTS+=("$(resolve_dir "$START" || printf '%s' "$START")")
+  if [ "${#TARGETS[@]}" -gt 0 ]; then
+    for target in "${TARGETS[@]}"; do
+      case "$target" in
+        \'*\' | \"*\") target="${target:1:${#target}-2}" ;;
+      esac
+      if resolved="$(resolve_dir "$target")"; then
+        STARTS+=("$resolved")
+      fi
+    done
+  fi
 fi
-[ "$NEED_SESSION" -eq 1 ] && STARTS+=("$START")
 
 ROOTS=()
 for start in ${STARTS[@]+"${STARTS[@]}"}; do
@@ -573,34 +315,40 @@ if [ "${#ROOTS[@]}" -eq 0 ]; then
 fi
 
 # Defer to a gate that fallow already registered for Claude Code or Codex, so
-# the audit runs once per command. Defer only when the registered script also
+# the audit runs once per tree. Such a gate runs from the session directory
+# and audits only the session tree. It does not cover another target, and a
+# gate registered inside another tree does not run for this session. So the
+# plugin defers only for the session root, and only when a gate that this
+# session loads is registered. Defer only when the registered script also
 # exists. A stale settings entry must not turn off both gates.
 registers_gate() {
   local settings="$1" script="$2"
   [ -f "$settings" ] && [ -f "$script" ] && grep -q 'fallow-gate\.sh' "$settings" 2>/dev/null
 }
-defers_to() {
-  local pair settings script
-  for pair in "$@"; do
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$START}"
+SESSION_ROOT="$(find_root "$(resolve_dir "$START" || printf '%s' "$START")" || true)"
+covered_by_installed_gate() {
+  local root="$1" pair settings script
+  [ -n "$SESSION_ROOT" ] && [ "$root" = "$SESSION_ROOT" ] || return 1
+  for pair in \
+    "$PROJECT_DIR/.claude/settings.json|$PROJECT_DIR/.claude/hooks/fallow-gate.sh" \
+    "$PROJECT_DIR/.claude/settings.local.json|$PROJECT_DIR/.claude/hooks/fallow-gate.sh" \
+    "$root/.claude/settings.json|$root/.claude/hooks/fallow-gate.sh" \
+    "$root/.claude/settings.local.json|$root/.claude/hooks/fallow-gate.sh" \
+    "$root/.codex/hooks.json|$root/.codex/hooks/fallow-gate.sh" \
+    "$HOME/.codex/hooks.json|$HOME/.codex/hooks/fallow-gate.sh" \
+    "$HOME/.claude/settings.json|$HOME/.claude/hooks/fallow-gate.sh"; do
     settings="${pair%%|*}"
     script="${pair#*|}"
     if registers_gate "$settings" "$script"; then
       if [ -n "${FALLOW_GATE_DEBUG:-}" ]; then
-        echo "fallow plugin gate: $settings registers a fallow gate, deferring to it." >&2
+        echo "fallow plugin gate: $settings registers a fallow gate for $root, deferring to it." >&2
       fi
       return 0
     fi
   done
   return 1
 }
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$START}"
-if defers_to \
-  "$PROJECT_DIR/.claude/settings.json|$PROJECT_DIR/.claude/hooks/fallow-gate.sh" \
-  "$PROJECT_DIR/.claude/settings.local.json|$PROJECT_DIR/.claude/hooks/fallow-gate.sh" \
-  "$HOME/.codex/hooks.json|$HOME/.codex/hooks/fallow-gate.sh" \
-  "$HOME/.claude/settings.json|$HOME/.claude/hooks/fallow-gate.sh"; then
-  exit 0
-fi
 
 TMP_JSON="$(mktemp)"
 TMP_ERR="$(mktemp)"
@@ -696,10 +444,7 @@ audit_here() {
 }
 
 for root in "${ROOTS[@]}"; do
-  if defers_to \
-    "$root/.claude/settings.json|$root/.claude/hooks/fallow-gate.sh" \
-    "$root/.claude/settings.local.json|$root/.claude/hooks/fallow-gate.sh" \
-    "$root/.codex/hooks.json|$root/.codex/hooks/fallow-gate.sh"; then
+  if covered_by_installed_gate "$root"; then
     continue
   fi
   if [ -n "${FALLOW_GATE_DEBUG:-}" ]; then

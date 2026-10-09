@@ -238,40 +238,145 @@ const makeRepo = (fixture, name, { optIn }) => {
   return dir;
 };
 
-const auditDirFor = (fixture, command) => {
-  const result = runGate(fixture, command, {}, fixture.project, fixture.project);
-  const calls = auditCalls(fixture);
-  return { result, dir: calls.length > 0 ? realpathSync(calls[0].split(" @ ")[1]) : null };
+// Each case names the directories the gate must audit. "project" is the
+// session directory. "optout" is a repository without fallow, and "optin" and
+// "my optin" are repositories with fallow.
+const auditedNames = (fixture) =>
+  auditCalls(fixture)
+    .map((line) => realpathSync(line.split(" @ ")[1]))
+    .map((dir) => dir.slice(realpathSync(fixture.root).length + 1))
+    .sort();
+
+const runCase = (command, verdict = "pass", setup = () => {}) => {
+  const fixture = makeCase({ fallowJson: { verdict }, fallowExit: verdict === "fail" ? 1 : 0 });
+  const dirs = {
+    o: makeRepo(fixture, "optout", { optIn: false }),
+    i: makeRepo(fixture, "optin", { optIn: true }),
+    s: makeRepo(fixture, "my optin", { optIn: true }),
+    r: fixture.root,
+    p: fixture.project,
+    h: fixture.home,
+  };
+  writeFileSync(join(fixture.root, "note.txt"), "text\n");
+  setup(dirs);
+  const result = runGate(fixture, command(dirs), {}, fixture.project, fixture.project);
+  return { fixture, result };
 };
 
+// The allowlist: the whole command is one git commit or push with a certain
+// target. The gate audits only that target, and nothing when the target does
+// not opt in to fallow.
 for (const [name, command, expected] of [
-  ["a plain commit audits the session directory", () => "git commit -m 'change'", "project"],
-  ["git -C with an absolute path audits that directory", (f) => `git -C ${join(f.root, "other")} commit -m x`, "other"],
-  ["cd and && audits the cd directory", (f) => `cd ${join(f.root, "other")} && git commit -m x`, "other"],
-  ["cd and ; audits the cd directory", (f) => `cd ${join(f.root, "other")}; git push`, "other"],
-  ["a relative git -C path resolves from the session directory", () => "git -C ../other commit -m x", "other"],
-  ["a quoted path with spaces is one target", (f) => `git -C "${join(f.root, "my other")}" commit -m 'a; b'`, "my other"],
-  ["--work-tree names the target", () => "git --work-tree=../other --git-dir=../other/.git commit -m x", "other"],
-  ["--git-dir names the parent of .git as the target", () => "git --git-dir ../other/.git push", "other"],
-  ["a target that is not a directory falls back to the session directory", () => "git -C ../missing commit -m x", "project"],
-  ["a file as target falls back to the session directory", () => "git -C ../note.txt commit -m x", "project"],
+  ["a plain commit audits the session directory", () => "git commit -m 'change'", ["project"]],
+  ["a plain push audits the session directory", () => "git push", ["project"]],
+  ["git -C with an absolute path audits only that directory", ({ o }) => `git -C ${o} commit -m x`, []],
+  ["git -C push with arguments audits only that directory", ({ o }) => `git -C ${o} push origin HEAD`, []],
+  ["a relative git -C path resolves from the session directory", () => "git -C ../optin commit -m x", ["optin"]],
+  ["repeated git -C paths join", () => "git -C .. -C optin commit -m x", ["optin"]],
+  ["git -C with an opted-in target audits it", ({ i }) => `git -C ${i} commit -m x`, ["optin"]],
+  ["a quoted path with spaces is one target", ({ r }) => `git -C "${r}/my optin" commit -m 'a; b'`, ["my optin"]],
+  ["a single-quoted message can hold shell text", ({ o }) => `git -C '${o}' commit -m 'a; b $(x)'`, []],
+  ["a double-quoted message can span lines", ({ o }) => `git -C "${o}" commit -m "line one\n\nline two"`, []],
+  ["cd && git commit audits only the cd directory", ({ o }) => `cd ${o} && git commit -m "fix: thing"`, []],
+  ["cd && git push with arguments audits the cd directory", ({ i }) => `cd ${i} && git push --force-with-lease origin feat/x:feat/x`, ["optin"]],
 ]) {
-  test(name, { skip }, () => {
-    const fixture = makeCase({ fallowJson: { verdict: "pass" } });
-    makeRepo(fixture, "other", { optIn: true });
-    makeRepo(fixture, "my other", { optIn: true });
-    writeFileSync(join(fixture.root, "note.txt"), "text\n");
-    const { result, dir } = auditDirFor(fixture, command(fixture));
+  test(`allowlist: ${name}`, { skip }, () => {
+    const { fixture, result } = runCase(command);
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(auditCalls(fixture).length, 1);
-    assert.equal(dir, realpathSync(join(fixture.root, expected)));
+    assert.deepEqual(auditedNames(fixture), expected);
   });
 }
 
-test("a target that is not opted in to fallow skips the gate", { skip }, () => {
-  const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1 });
-  const plain = makeRepo(fixture, "plain", { optIn: false });
-  const result = runGate(fixture, `git -C ${plain} commit -m x`, {}, fixture.project, fixture.project);
+const LONG_PREFIX = `echo ${"x ".repeat(9000)}`;
+
+// Every other form audits the session directory, plus each target that the
+// loose scan finds and that opts in to fallow.
+for (const [name, command, expected] of [
+  ["a target that is not a directory", ({ o }) => `git -C ${o}/missing commit -m x`, ["project"]],
+  ["a file as target", () => "git -C ../note.txt commit -m x", ["project"]],
+  ["cd ; git push", ({ i }) => `cd ${i}; git push`, ["optin", "project"]],
+  ["--work-tree and --git-dir", () => "git --work-tree=../optin --git-dir=../optin/.git commit -m x", ["optin", "project"]],
+  ["--git-dir alone", () => "git --git-dir ../optin/.git push", ["optin", "project"]],
+  ["a second write without a target", ({ i }) => `git -C ${i} commit -m x && git push`, ["optin", "project"]],
+  ["a git -c option", ({ o }) => `git -c user.name=x -C ${o} commit -m x`, ["project"]],
+  ["ANSI-C quoting", ({ o }) => `git -C ${o} commit -m $'a\\'; git push'`, ["project"]],
+  ["escaped quotes inside double quotes", ({ o }) => `git -C ${o} commit -m "say \\"x\\"; git push"`, ["project"]],
+  ["a line continuation", ({ o }) => `git -C ${o} \\\ncommit -m x`, ["project"]],
+  ["a line continuation without a target", () => "git commit \\\n  -m x", ["project"]],
+  ["bash -c", () => "bash -c 'git commit -m x'", ["project"]],
+  ["sh -c with a cd inside", ({ o }) => `sh -c 'cd ${o}; git commit -m x'`, ["project"]],
+  ["eval", () => 'eval "git commit -m x"', ["project"]],
+  ["eval next to a targeted push", ({ o }) => `eval 'git commit -m x' && git -C ${o} push`, ["project"]],
+  ["env git commit", () => "env git commit -m x", ["project"]],
+  ["env git -C", ({ o }) => `env git -C ${o} commit -m x`, ["project"]],
+  ["command git commit", () => "command git commit -m x", ["project"]],
+  ["a command substitution as target", () => 'git -C "$(pwd)" commit -m x', ["project"]],
+  ["a backtick substitution as target", () => 'git -C "`pwd`" commit -m x', ["project"]],
+  ["a substitution after the message", ({ o }) => `git -C ${o} commit -m "a"$(id)`, ["project"]],
+  ["a tilde target", () => "git -C ~/x commit -m x", ["project"]],
+  ["a glob target", ({ o }) => `git -C ${o}* commit -m x`, ["project"]],
+  ["cd && git -C", ({ o }) => `cd ${o} && git -C . commit -m x`, ["project"]],
+  ["cd into a missing directory then &&", ({ o }) => `cd ${o}/missing && git commit -m x`, ["project"]],
+  ["cd into a missing directory then ;", ({ o }) => `cd ${o}/missing; git commit -m x`, ["project"]],
+  ["cd then ||", ({ o }) => `cd ${o} || git commit -m x`, ["project"]],
+  ["cd then a pipe", ({ o }) => `cd ${o} | git commit -m x`, ["project"]],
+  ["cd in the background", ({ o }) => `cd ${o} & git commit -m x`, ["project"]],
+  ["a cd and a write in one subshell", ({ o }) => `( cd ${o} && git commit -m x )`, ["project"]],
+  ["a cd in a closed subshell", ({ o }) => `( cd ${o} ) && git commit -m x`, ["project"]],
+  ["a cd in a closed subshell before ;", ({ o }) => `(cd ${o}); git commit -m x`, ["project"]],
+  ["a GIT_DIR prefix", ({ o }) => `GIT_DIR=.git git -C ${o} commit -m x`, ["project"]],
+  ["a GIT_WORK_TREE prefix", ({ o }) => `GIT_WORK_TREE=. git -C ${o} commit -m x`, ["project"]],
+  ["an exported GIT_DIR", ({ o }) => `export GIT_DIR=$PWD/.git; git -C ${o} commit -m x`, ["project"]],
+  ["env with GIT_DIR", ({ o }) => `env GIT_DIR=.git git -C ${o} push`, ["project"]],
+  ["--git-dir with an opted-out --work-tree", ({ o }) => `git --git-dir=.git --work-tree=${o} commit -m x`, ["project"]],
+  ["quoted git text alone", () => 'echo "git commit"', ["project"]],
+  ["quoted git text next to a real commit", () => 'echo "git commit" && git commit -m x', ["project"]],
+  ["quoted git text next to a targeted push", ({ o }) => `echo "git commit" && git -C ${o} push`, ["project"]],
+  ["quoted text with an operator", () => 'echo "x; git commit -m y"', ["project"]],
+  ["cd - before a later push", ({ o }) => `cd ${o} && git commit -m x && cd - && git push`, ["project"]],
+  ["pushd", ({ o }) => `cd ${o} && pushd /tmp && git push`, ["project"]],
+  ["a cd in a here-document body", ({ o }) => `cat <<EOF\ncd ${o}\nEOF\ngit commit -m x`, ["project"]],
+  ["a here-document commit message", ({ o }) => `git -C ${o} commit -F - <<'EOF'\nfix: x; it's (fine)\nEOF`, ["project"]],
+  ["a here-document in a command substitution", ({ o }) => `git -C ${o} commit -m "$(cat <<'EOF'\nfix: thing\n\nbody\nEOF\n)"`, ["project"]],
+  ["redirections after cd", ({ o }) => `cd ${o} >/dev/null 2>&1 && git commit -m x`, ["project"]],
+  ["a pipe after the write", ({ o }) => `git -C ${o} commit -m x 2>&1 | tail -3`, ["project"]],
+  ["a backslash inside git", () => "g\\it push", ["project"]],
+  ["a very long command", ({ o }) => `${LONG_PREFIX} && git -C ${o} commit -m x`, ["project"]],
+]) {
+  test(`session audit: ${name}`, { skip }, () => {
+    const { fixture, result } = runCase(command);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(auditedNames(fixture), expected);
+  });
+}
+
+// A gate that `fallow agent install` registered runs from the session
+// directory and audits only the session tree. The plugin defers to it only
+// for that tree, and still audits every other target.
+for (const [name, setup, command, expected] of [
+  ["a session gate leaves an allowlisted target to the plugin", ({ p }) => registerInstalledGate(p, { withScript: true }), ({ i }) => `git -C ${i} commit -m x`, ["optin"]],
+  ["a session gate covers the session but not the target", ({ p }) => registerInstalledGate(p, { withScript: true }), ({ i }) => `git -C ${i} commit -m x && git push`, ["optin"]],
+  ["a user-level gate covers the session but not the target", ({ h }) => registerInstalledGate(h, { withScript: true }), ({ i }) => `git -C ${i} commit -m x && git push`, ["optin"]],
+  ["a session gate covers a target inside the session tree", ({ p }) => { mkdirSync(join(p, "sub")); registerInstalledGate(p, { withScript: true }); }, ({ p }) => `git -C ${p}/sub commit -m x`, []],
+  ["a gate registered only in the target does not run, so the plugin audits the target", ({ i }) => registerInstalledGate(i, { withScript: true }), ({ i }) => `git -C ${i} commit -m x`, ["optin"]],
+  ["without any registered gate the plugin audits the target and the session", () => {}, ({ i }) => `git -C ${i} commit -m x && git push`, ["optin", "project"]],
+]) {
+  test(`deferral: ${name}`, { skip }, () => {
+    const { fixture, result } = runCase(command, "pass", setup);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(auditedNames(fixture), expected);
+  });
+}
+
+test("a fail verdict in the session blocks a command outside the allowlist", { skip }, () => {
+  const { fixture, result } = runCase(({ o }) => `git -C ${o} commit -m x && git push`, "fail");
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /blocked by fallow 9\.9\.9/);
+  assert.deepEqual(auditedNames(fixture), ["project"]);
+});
+
+test("an allowlisted target without fallow skips the gate", { skip }, () => {
+  const { fixture, result } = runCase(({ o }) => `git -C ${o} commit -m x`, "fail");
   assert.equal(result.status, 0);
   assert.equal(result.stderr, "");
   assert.deepEqual(auditCalls(fixture), []);
@@ -284,71 +389,6 @@ test("an opted-in target blocks on a fail verdict from an unopted session", { sk
   assert.equal(result.status, 2);
   assert.equal(auditCalls(fixture).length, 1);
 });
-
-// Each case names the directories the gate must audit. "project" is the
-// session directory. "optout" is a repository without fallow, so a write that
-// only targets it needs no audit. When the gate cannot follow a command, it
-// must still audit the session directory.
-const auditedNames = (fixture) =>
-  auditCalls(fixture)
-    .map((line) => realpathSync(line.split(" @ ")[1]))
-    .map((dir) => dir.slice(realpathSync(fixture.root).length + 1))
-    .sort();
-
-const LONG_PREFIX = `echo ${"x ".repeat(9000)}`;
-
-for (const [name, command, expected] of [
-  ["ANSI-C quoting cannot hide a later push", (o) => `git -C ${o} commit -m $'a\\'; git push'`, ["project"]],
-  ["escaped quotes keep git text in one word, and that text audits the session", (o) => `git -C ${o} commit -m "say \\"x\\"; git push"`, ["project"]],
-  ["a line continuation joins the git words", (o) => `git -C ${o} \\\ncommit -m x`, []],
-  ["a line continuation without a target audits the session", () => "git commit \\\n  -m x", ["project"]],
-  ["bash -c audits the session", () => "bash -c 'git commit -m x'", ["project"]],
-  ["sh -c with a cd inside audits the session", (o) => `sh -c 'cd ${o}; git commit -m x'`, ["project"]],
-  ["eval audits the session", () => 'eval "git commit -m x"', ["project"]],
-  ["eval next to a targeted push audits the session", (o) => `eval 'git commit -m x' && git -C ${o} push`, ["project"]],
-  ["env git commit audits the session", () => "env git commit -m x", ["project"]],
-  ["env git -C reads the target", (o) => `env git -C ${o} commit -m x`, []],
-  ["command git commit audits the session", () => "command git commit -m x", ["project"]],
-  ["a command substitution as target audits the session", () => 'git -C "$(pwd)" commit -m x', ["project"]],
-  ["a backtick substitution as target audits the session", () => 'git -C "`pwd`" commit -m x', ["project"]],
-  ["cd into a missing directory then && audits the session", (o) => `cd ${o}/missing && git commit -m x`, ["project"]],
-  ["cd into a missing directory then ; audits the session", (o) => `cd ${o}/missing; git commit -m x`, ["project"]],
-  ["cd then || audits the session", (o) => `cd ${o} || git commit -m x`, ["project"]],
-  ["cd then a pipe audits the session", (o) => `cd ${o} | git commit -m x`, ["project"]],
-  ["cd in the background audits the session", (o) => `cd ${o} & git commit -m x`, ["project"]],
-  ["a cd and a write in one subshell read the target", (o) => `( cd ${o} && git commit -m x )`, []],
-  ["a cd in a closed subshell audits the session", (o) => `( cd ${o} ) && git commit -m x`, ["project"]],
-  ["a cd in a closed subshell before ; audits the session", (o) => `(cd ${o}); git commit -m x`, ["project"]],
-  ["a GIT_DIR prefix audits the session", (o) => `GIT_DIR=.git git -C ${o} commit -m x`, ["project"]],
-  ["a GIT_WORK_TREE prefix audits the session", (o) => `GIT_WORK_TREE=. git -C ${o} commit -m x`, ["project"]],
-  ["an exported GIT_DIR audits the session", (o) => `export GIT_DIR=$PWD/.git; git -C ${o} commit -m x`, ["project"]],
-  ["env with GIT_DIR audits the session", (o) => `env GIT_DIR=.git git -C ${o} push`, ["project"]],
-  ["--git-dir and --work-tree audit both directories", (o) => `git --git-dir=.git --work-tree=${o} commit -m x`, ["project"]],
-  ["quoted git text alone audits the session", () => 'echo "git commit"', ["project"]],
-  ["quoted git text next to a real commit audits the session", () => 'echo "git commit" && git commit -m x', ["project"]],
-  ["quoted git text next to a targeted push audits the session", (o) => `echo "git commit" && git -C ${o} push`, ["project"]],
-  ["quoted text with an operator audits the session", () => 'echo "x; git commit -m y"', ["project"]],
-  ["a second write without a target audits the session", (o) => `git -C ${o} commit -m x && git push`, ["project"]],
-  ["cd - before a later push audits the session", (o) => `cd ${o} && git commit -m x && cd - && git push`, ["project"]],
-  ["pushd audits the session", (o) => `cd ${o} && pushd /tmp && git push`, ["project"]],
-  ["a cd in a here-document body does not move the target", (o) => `cat <<EOF\ncd ${o}\nEOF\ngit commit -m x`, ["project"]],
-  ["a here-document commit message keeps the target", (o) => `git -C ${o} commit -F - <<'EOF'\nfix: x; it's (fine)\nEOF`, []],
-  ["a here-document in a command substitution keeps the target", (o) => `git -C ${o} commit -m "$(cat <<'EOF'\nfix: thing\n\nbody\nEOF\n)"`, []],
-  ["redirections after cd keep the target", (o) => `cd ${o} >/dev/null 2>&1 && git commit -m x`, []],
-  ["a pipe after the write keeps the target", (o) => `git -C ${o} commit -m x 2>&1 | tail -3`, []],
-  ["a backslash inside git still counts", () => "g\\it push", ["project"]],
-  ["each write audits its own root", (o, i) => `git -C ${i} commit -m x && git push`, ["optin", "project"]],
-  ["a very long command audits the session", (o) => `${LONG_PREFIX} && git -C ${o} commit -m x`, ["project"]],
-]) {
-  test(name, { skip }, () => {
-    const fixture = makeCase({ fallowJson: { verdict: "pass" } });
-    const optout = makeRepo(fixture, "optout", { optIn: false });
-    const optin = makeRepo(fixture, "optin", { optIn: true });
-    const result = runGate(fixture, command(optout, optin), {}, fixture.project, fixture.project);
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(auditedNames(fixture), expected);
-  });
-}
 
 test("a fail verdict in any audited root blocks", { skip }, () => {
   const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1, optIn: false });
