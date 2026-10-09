@@ -38,7 +38,10 @@ const LEVEL_RANK: Record<Level, number> = { error: 0, warn: 1, info: 2 };
  * characters and line breaks, keep backticks out of code spans, and cap the length.
  */
 const clean = (text: string, max: number): string => {
-  const flat = text.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").replace(/`/g, "'").trim();
+  const flat = text
+    .replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ")
+    .replace(/`/g, "'")
+    .trim();
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 };
 
@@ -85,38 +88,64 @@ const pathOf = (item: Json): string | null =>
 
 const code = (value: string): string => `\`${value}\``;
 
+interface MessageContext {
+  info: RuleInfo;
+  item: Json;
+  symbol: string | null;
+  parent: string | null;
+}
+
+type MessageFormatter = (context: MessageContext) => string;
+
+const exportMessage: MessageFormatter = ({ info, item, symbol }): string => {
+  const name = code(symbol ?? "?");
+  return item["is_type_only"] === true || info.rule === "unused-type"
+    ? `Type export ${name} is never imported.`
+    : `Export ${name} is never imported.`;
+};
+
+const memberMessage: MessageFormatter = ({ symbol, parent }): string =>
+  parent === null
+    ? `Member ${code(symbol ?? "?")} is never used.`
+    : `Member ${code(`${parent}.${symbol ?? "?"}`)} is never used.`;
+
+const dependencyMessage: MessageFormatter = ({ item, symbol }): string =>
+  `${code(symbol ?? "?")} is listed in ${cleanOrNull(string(item["location"]), 40) ?? "package.json"} but never imported.`;
+
+const cycleMessage: MessageFormatter = ({ info, item }): string => {
+  const files = array(item["files"]).length;
+  return files > 0 ? `${info.title} through ${files} files.` : `${info.title}.`;
+};
+
+const defaultMessage: MessageFormatter = ({ info, symbol }): string =>
+  symbol === null ? `${info.title}.` : `${info.title}: ${code(symbol)}.`;
+
+const MESSAGE_FORMATTERS = new Map<string, MessageFormatter>([
+  ["unused-file", (): string => "No entry point reaches this file."],
+  ["unused-export", exportMessage],
+  ["unused-type", exportMessage],
+  ["unused-enum-member", memberMessage],
+  ["unused-class-member", memberMessage],
+  ["unused-dependency", dependencyMessage],
+  ["unused-dev-dependency", dependencyMessage],
+  ["unused-optional-dependency", dependencyMessage],
+  [
+    "unlisted-dependency",
+    ({ symbol }): string => `${code(symbol ?? "?")} is imported but not listed in package.json.`,
+  ],
+  [
+    "unresolved-import",
+    ({ symbol }): string => `Import ${code(symbol ?? "?")} does not resolve to a file or package.`,
+  ],
+  ["circular-dependency", cycleMessage],
+  ["re-export-cycle", cycleMessage],
+  ["package-cycle", cycleMessage],
+]);
+
 const messageFor = (info: RuleInfo, item: Json, symbol: string | null): string => {
   const parent = cleanOrNull(string(item["parent_name"]), 160);
-  switch (info.rule) {
-    case "unused-file":
-      return "No entry point reaches this file.";
-    case "unused-export":
-    case "unused-type":
-      return item["is_type_only"] === true || info.rule === "unused-type"
-        ? `Type export ${code(symbol ?? "?")} is never imported.`
-        : `Export ${code(symbol ?? "?")} is never imported.`;
-    case "unused-enum-member":
-    case "unused-class-member":
-      return parent === null
-        ? `Member ${code(symbol ?? "?")} is never used.`
-        : `Member ${code(`${parent}.${symbol ?? "?"}`)} is never used.`;
-    case "unused-dependency":
-    case "unused-dev-dependency":
-    case "unused-optional-dependency":
-      return `${code(symbol ?? "?")} is listed in ${cleanOrNull(string(item["location"]), 40) ?? "package.json"} but never imported.`;
-    case "unlisted-dependency":
-      return `${code(symbol ?? "?")} is imported but not listed in package.json.`;
-    case "unresolved-import":
-      return `Import ${code(symbol ?? "?")} does not resolve to a file or package.`;
-    case "circular-dependency":
-    case "re-export-cycle":
-    case "package-cycle": {
-      const files = array(item["files"]).length;
-      return files > 0 ? `${info.title} through ${files} files.` : `${info.title}.`;
-    }
-    default:
-      return symbol === null ? `${info.title}.` : `${info.title}: ${code(symbol)}.`;
-  }
+  const formatter = MESSAGE_FORMATTERS.get(info.rule) ?? defaultMessage;
+  return formatter({ info, item, symbol, parent });
 };
 
 const verifyFor = (
