@@ -305,8 +305,9 @@ jobs:
           version: 3.32.0
           root: codex-app
           threshold: "0.1"
-          fail-on-stale-baseline: true
-          args: "--health-baseline codex-app/health-baseline.json"
+          # The action input fail-on-stale-baseline needs the baseline input, which the bare run
+          # does not forward as a health baseline. Pass both as CLI flags.
+          args: "--health-baseline codex-app/health-baseline.json --fail-on-stale-baseline"
 
   publish-release:
     if: startsWith(github.ref, 'refs/tags/v')
