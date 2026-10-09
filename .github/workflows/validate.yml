@@ -244,6 +244,14 @@ jobs:
         working-directory: codex-app
         run: npm test
 
+      # The app is a fallow example, so it holds itself to fallow too.
+      # Dead code fails on any finding. Duplication fails above 0.1%; 0 means no limit.
+      - name: Run fallow on the Fallow app
+        working-directory: codex-app
+        run: |
+          fallow dead-code --fail-on-issues
+          fallow dupes --threshold 0.1
+
       - name: Read pinned Fallow source revision
         id: source-lock
         run: |
