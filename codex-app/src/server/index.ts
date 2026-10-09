@@ -5,15 +5,34 @@ import { SERVER_ICON } from "./icons.ts";
 import { registerFallowApp } from "./register.ts";
 import { createStateStore } from "./state.ts";
 
-declare const __FALLOW_APP_VERSION__: string;
+const DEV_VERSION = "0.0.0-dev";
 
-const html = await readFile(new URL("./app.html", import.meta.url), "utf8");
+/**
+ * Reads the plugin version from the manifest next to the built server.
+ * The build does not embed the version, so a version bump does not change the built files.
+ */
+const pluginVersion = async (): Promise<string> => {
+  try {
+    const manifest: unknown = JSON.parse(
+      await readFile(new URL("../.codex-plugin/plugin.json", import.meta.url), "utf8"),
+    );
+    if (typeof manifest !== "object" || manifest === null || !("version" in manifest)) return DEV_VERSION;
+    return typeof manifest.version === "string" ? manifest.version : DEV_VERSION;
+  } catch {
+    return DEV_VERSION;
+  }
+};
+
+const [html, version] = await Promise.all([
+  readFile(new URL("./app.html", import.meta.url), "utf8"),
+  pluginVersion(),
+]);
 
 const server = new McpServer(
   {
     name: "fallow-app",
     title: "Fallow",
-    version: typeof __FALLOW_APP_VERSION__ === "string" ? __FALLOW_APP_VERSION__ : "0.0.0-dev",
+    version,
     icons: [SERVER_ICON],
     websiteUrl: "https://fallow.tools",
   },

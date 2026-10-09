@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -73,6 +81,13 @@ describe(
 
     after(async () => {
       await client.close();
+    });
+
+    it("reports the version of the plugin manifest", async () => {
+      const manifest = JSON.parse(
+        readFileSync(new URL(".codex-plugin/plugin.json", plugin), "utf8"),
+      ) as { version: string };
+      assert.equal(client.getServerVersion()?.version, manifest.version);
     });
 
     it("advertises the sandbox capability and the settings extension", () => {
