@@ -20,10 +20,11 @@ Call `fallow_check_install` with `{}`.
 
 - If it reports a version, continue.
 - If fallow is missing, explain that the app runs the fallow CLI locally and
-  that no code leaves the machine. Offer to add it to the project as a dev
-  dependency with the package manager of the project, for example
-  `npm install --save-dev fallow`. Run the install only after the user agrees.
-  Then call `fallow_check_install` again.
+  that no code leaves the machine. Offer to install it globally with
+  `npm install --global fallow`. The sidebar dashboard needs a fallow on PATH,
+  because the app runs a copy inside the project only within the Codex sandbox
+  of a thread. Run the install only after the user agrees. Then call
+  `fallow_check_install` again.
 
 ## 2. Choose the defaults
 

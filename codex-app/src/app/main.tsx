@@ -46,7 +46,7 @@ const PENDING_LABELS: Record<string, string> = {
 const Boot = (): JSX.Element => {
   const label = PENDING_LABELS[host.context()?.toolInfo?.tool.name ?? ""];
   return (
-    <div class="f-loading f-boot" aria-busy="true">
+    <div class="f-loading f-boot" role="status" aria-busy="true">
       <FallowMark size={24} />
       {label === undefined ? null : (
         <>
@@ -112,7 +112,7 @@ const Root = (): JSX.Element => {
             project={view.project}
             finding={view.finding}
             attached={host.attachedIds()?.has(view.finding.id) ?? false}
-            onAttach={() => void host.attach(view.project, [view.finding])}
+            onAttach={() => void host.attach(view.project, [view.finding]).catch(() => undefined)}
           />
         </div>
       );
@@ -131,4 +131,15 @@ const Root = (): JSX.Element => {
 
 const mount = document.getElementById("app");
 if (mount !== null) render(<Root />, mount);
-void host.connect();
+host.connect().catch((error: unknown) => {
+  show({
+    view: "problem",
+    problem: {
+      code: "connect_failed",
+      title: "The app could not connect to Codex",
+      detail: error instanceof Error ? error.message : String(error),
+      fix: null,
+    },
+    project: null,
+  });
+});

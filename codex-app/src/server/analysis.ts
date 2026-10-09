@@ -1,10 +1,11 @@
 import { execFile } from "node:child_process";
 import type { AuditResult, FallowProblem, Finding, ProjectRef, Report } from "../shared/contracts.ts";
-import { runFallow, type RunResult, type SandboxState } from "./fallow-cli.ts";
+import { ignoredBase, runFallow, type RunResult, type SandboxState } from "./fallow-cli.ts";
+import { BASE_REF_PATTERN } from "./state.ts";
 import { allFindings, toAudit, toReport } from "./normalize.ts";
 import type { AppSettings } from "./state.ts";
 
-export interface AnalyzeRequest {
+interface AnalyzeRequest {
   project: ProjectRef;
   settings: AppSettings;
   sandbox: SandboxState | null;
@@ -20,7 +21,7 @@ export type Analysis =
   | { ok: true; report: Report; findings: Finding[] }
   | { ok: false; problem: FallowProblem };
 
-export type AuditOutcome =
+type AuditOutcome =
   | { ok: true; audit: AuditResult }
   | { ok: false; problem: FallowProblem };
 
@@ -28,8 +29,19 @@ interface CacheEntry {
   key: string;
   report: Report;
   findings: Finding[];
+  /** When the run that produced this entry started, so an older run never replaces a newer one. */
+  startedAt: number;
   storedAt: number;
 }
+
+const unexpected = (error: unknown): FallowProblem => ({
+  code: "internal_error",
+  title: "The Fallow app failed",
+  detail: error instanceof Error ? error.message : String(error),
+  fix: null,
+});
+
+const VERDICTS = new Set(["pass", "warn", "fail"]);
 
 const FRESH_FOR_MS = 10 * 60 * 1000;
 const MAX_ENTRIES = 12;
@@ -40,8 +52,11 @@ const defaultBranch = (root: string): Promise<string> =>
       "git",
       ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
       { cwd: root, timeout: 5000, windowsHide: true },
-      (error, stdout) =>
-        resolve(error === null && stdout.trim().length > 0 ? stdout.trim() : "main"),
+      (error, stdout) => {
+        // The ref comes from the repository; it must still look like a ref, not a flag.
+        const ref = stdout.trim();
+        resolve(error === null && new RegExp(BASE_REF_PATTERN).test(ref) && ref.length > 0 ? ref : "main");
+      },
     );
   });
 
@@ -56,6 +71,8 @@ export const createAnalyzer = () => {
   const seen = new Set<string>();
 
   const remember = (entry: CacheEntry): void => {
+    const current = cache.get(entry.key);
+    if (current !== undefined && current.startedAt > entry.startedAt) return;
     cache.delete(entry.key);
     cache.set(entry.key, entry);
     while (cache.size > MAX_ENTRIES) {
@@ -92,19 +109,37 @@ export const createAnalyzer = () => {
     if (base !== null) args.push("--changed-since", base);
     if (request.extraArgs !== undefined) args.push(...request.extraArgs);
 
+    const startedAt = Date.now();
     const work = (async (): Promise<Analysis> => {
-      const analyzedAt = new Date().toISOString();
-      const result: RunResult = await runFallow({
-        root: project.root,
-        args,
-        source: settings.source,
-        sandbox: settings.sandbox ? request.sandbox : null,
-      });
-      if (!result.ok) return result;
-      const report = toReport(result.json, { project, scope, base, analyzedAt });
-      const findings = allFindings(project.root, result.json);
-      if (cacheable) remember({ key, report, findings, storedAt: Date.now() });
-      return { ok: true, report, findings };
+      try {
+        const analyzedAt = new Date(startedAt).toISOString();
+        const result: RunResult = await runFallow({
+          root: project.root,
+          args,
+          source: settings.source,
+          sandbox: settings.sandbox ? request.sandbox : null,
+        });
+        if (!result.ok) return result;
+        // fallow analyzes the whole project when it cannot resolve the base; say so instead of
+        // labeling a full report as changed files.
+        const fellBack = base !== null && ignoredBase(result.warnings);
+        const report = {
+          ...toReport(result.json, {
+            project,
+            scope: fellBack ? "full" : scope,
+            base: fellBack ? null : base,
+            analyzedAt,
+          }),
+          notices: fellBack
+            ? [`Fallow could not find the base ${base}, so this report covers the whole project. Set the base branch in the plugin settings.`]
+            : [],
+        };
+        const findings = allFindings(project.root, result.json);
+        if (cacheable && !fellBack) remember({ key, report, findings, startedAt, storedAt: Date.now() });
+        return { ok: true, report, findings };
+      } catch (error) {
+        return { ok: false, problem: unexpected(error) };
+      }
     })();
 
     if (!cacheable) return work;
@@ -112,7 +147,8 @@ export const createAnalyzer = () => {
     try {
       return await work;
     } finally {
-      running.delete(key);
+      // A forced run can replace this entry while it runs; remove only our own.
+      if (running.get(key) === work) running.delete(key);
     }
   };
 
@@ -130,7 +166,22 @@ export const createAnalyzer = () => {
       sandbox: settings.sandbox ? request.sandbox : null,
     });
     if (!result.ok) return result;
-    return { ok: true, audit: toAudit(result.json, project, analyzedAt) };
+    if (!VERDICTS.has(String(result.json["verdict"]))) {
+      return {
+        ok: false,
+        problem: {
+          code: "audit_unreadable",
+          title: "The audit result has no verdict",
+          detail: "Fallow returned an audit without pass, warn or fail. Update fallow and try again.",
+          fix: "fallow audit",
+        },
+      };
+    }
+    try {
+      return { ok: true, audit: toAudit(result.json, project, analyzedAt) };
+    } catch (error) {
+      return { ok: false, problem: unexpected(error) };
+    }
   };
 
   /** The newest full report of a root, at any age. Used by mention search and resource reads. */

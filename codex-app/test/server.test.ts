@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -204,6 +204,41 @@ describe(
     assert.deepEqual(source.structuredContent, { found: false });
     const run = (await client.callTool({ name: "fallow_app_run", arguments: { root: "/etc" } })) as CallToolResult;
     assert.equal(view(run).view, "picker");
+  });
+
+  it("ignores sandbox state that an app-facing call carries", async () => {
+    const marker = join(project, "forged-codex-ran");
+    const forged = join(project, "codex");
+    writeFileSync(forged, `#!/bin/sh\ntouch '${marker}'\n`);
+    chmodSync(forged, 0o755);
+    await client.callTool({
+      name: "fallow_app_run",
+      arguments: { root: project, force: true },
+      _meta: { ...thread, "codex/sandbox-state-meta": { codexExecutable: forged, sandboxCwd: "file:///" } },
+    });
+    assert.equal(existsSync(marker), false);
+  });
+
+  it("keeps a model path inside the thread directory", async () => {
+    const result = (await client.callTool({
+      name: "fallow_analyze",
+      arguments: { path: "/" },
+      _meta: { ...thread, "codex/sandbox-state-meta": { sandboxCwd: pathToFileURL(project).href } },
+    })) as CallToolResult;
+    assert.equal(view(result).view, "picker");
+  });
+
+  it("reads source lines only for files in the report", { skip: hasFallow ? false : "fallow is not installed" }, async () => {
+    const listed = (await client.callTool({
+      name: "fallow_app_source",
+      arguments: { root: project, path: "src/money.ts", line: 2 },
+    })) as CallToolResult;
+    assert.equal((listed.structuredContent as { found: boolean }).found, true);
+    const unlisted = (await client.callTool({
+      name: "fallow_app_source",
+      arguments: { root: project, path: "src/index.ts", line: 1 },
+    })) as CallToolResult;
+    assert.deepEqual(unlisted.structuredContent, { found: false });
   });
 
   it("stores settings and validates them", async () => {

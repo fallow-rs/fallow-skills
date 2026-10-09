@@ -1,7 +1,17 @@
 import type { JSX } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { Button, EmptyState, FallowMark, Icon, PathLabel, Spinner } from "../components/ui.tsx";
+import {
+  Button,
+  EmptyState,
+  FallowMark,
+  Icon,
+  LevelDot,
+  LoadingStatus,
+  PathLabel,
+} from "../components/ui.tsx";
 import type { Host, TextBlock } from "../host.ts";
+import { toggleId } from "../selection.ts";
+import { readOpenedFile, watchOpenedFile } from "../opened-file.ts";
 import { parseSarif, type SarifLevel, type SarifReport, type SarifResult } from "../sarif.ts";
 
 type FileRef = { name: string; resourceUri: string };
@@ -33,41 +43,19 @@ export const SarifViewer = ({ host, file }: { host: Host; file: FileRef }): JSX.
   const [rule, setRule] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const resources = host.openai.resources;
 
   const load = async (): Promise<void> => {
-    if (resources === undefined) {
-      setError("This Codex surface cannot open files in apps. Use Codex on the desktop.");
-      return;
-    }
-    try {
-      const read = await resources.read({ uri: file.resourceUri, representation: "text" });
-      const content = read.contents[0];
-      const text =
-        content !== undefined && "text" in content && typeof content.text === "string"
-          ? content.text
-          : "";
-      const outcome = parseSarif(text);
-      if (outcome.ok) {
-        setReport(outcome.report);
-        setError(null);
-      } else setError(outcome.error);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The file could not be read.");
-    }
+    const read = await readOpenedFile(host, file.resourceUri);
+    const outcome = read.ok ? parseSarif(read.file.text) : read;
+    if (outcome.ok) {
+      setReport(outcome.report);
+      setError(null);
+    } else setError(outcome.error);
   };
 
   useEffect(() => {
     void load();
-    if (resources === undefined) return;
-    const dispose = resources.addUpdateHandler(async ({ params }) => {
-      if (params.uri === file.resourceUri) await load();
-    });
-    void resources.subscribe({ uri: file.resourceUri }).catch(() => undefined);
-    return () => {
-      dispose();
-      void resources.unsubscribe({ uri: file.resourceUri }).catch(() => undefined);
-    };
+    return watchOpenedFile(host, file.resourceUri, load);
   }, [file.resourceUri]);
 
   const results = useMemo(() => {
@@ -131,7 +119,7 @@ export const SarifViewer = ({ host, file }: { host: Host; file: FileRef }): JSX.
   if (report === null) {
     return (
       <div class="f-loading">
-        <Spinner size={20} />
+        <LoadingStatus label="Opening the SARIF report" />
       </div>
     );
   }
@@ -192,6 +180,7 @@ export const SarifViewer = ({ host, file }: { host: Host; file: FileRef }): JSX.
             class="form-control"
             type="search"
             placeholder="Search results"
+            aria-label="Search results"
             value={query}
             onInput={(event) => setQuery(event.currentTarget.value)}
           />
@@ -264,12 +253,7 @@ export const SarifViewer = ({ host, file }: { host: Host; file: FileRef }): JSX.
                   checked={selected.has(result.key)}
                   aria-label={`Select ${result.ruleId} at ${location(result)}`}
                   onChange={() =>
-                    setSelected((current) => {
-                      const next = new Set(current);
-                      if (next.has(result.key)) next.delete(result.key);
-                      else next.add(result.key);
-                      return next;
-                    })
+                    setSelected((current) => toggleId(current, result.key))
                   }
                 />
                 <button
@@ -279,7 +263,7 @@ export const SarifViewer = ({ host, file }: { host: Host; file: FileRef }): JSX.
                   onClick={() => void open(result)}
                 >
                   <span class="f-row-title">
-                    <span class={`f-level f-level-${LEVEL_TO_DOT[result.level]}`} />
+                    <LevelDot level={LEVEL_TO_DOT[result.level]} />
                     <span class="f-row-rule">{result.message || ruleName(result.ruleId)}</span>
                     {result.baselineState === "new" ? (
                       <span class="f-badge f-badge-new">New</span>

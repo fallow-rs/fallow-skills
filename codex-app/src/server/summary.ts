@@ -66,12 +66,13 @@ export const reportSummary = (report: Report, findings: Finding[], limit: number
       recommendation: target.recommendation,
       effort: target.effort,
     })),
+    ...(report.notices.length === 0 ? {} : { notices: report.notices }),
     guidance: GUIDANCE,
   };
 };
 
 export const reportText = (report: Report, findings: Finding[], limit: number): string => {
-  const lines = [`Fallow analyzed ${projectLine(report.project)}.`];
+  const lines = [`Fallow analyzed ${projectLine(report.project)}.`, ...report.notices];
   if (report.score !== null)
     lines.push(`Health score ${report.score.value} (grade ${report.score.grade}).`);
   const categories = CATEGORY_ORDER.filter((category) => report.counts.byCategory[category] > 0)

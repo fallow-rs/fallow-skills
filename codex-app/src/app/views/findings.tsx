@@ -9,8 +9,8 @@ import {
   EmptyState,
   Icon,
   LevelDot,
+  LoadingStatus,
   PathLabel,
-  Spinner,
 } from "../components/ui.tsx";
 import type { Host } from "../host.ts";
 
@@ -32,7 +32,7 @@ export const Message = ({ text }: { text: string }): JSX.Element => (
   </>
 );
 
-export const openFinding = async (
+const openFinding = async (
   host: Host,
   project: ProjectRef,
   path: string,
@@ -106,6 +106,10 @@ export const FindingList = ({
                 type="checkbox"
                 class="form-check-input"
                 checked={allSelected}
+                ref={(element) => {
+                  // A partial selection shows as a dash, so the next click reads as "select the rest".
+                  if (element !== null) element.indeterminate = !allSelected && items.some((finding) => selected.has(finding.id));
+                }}
                 aria-label={`Select all findings in ${key}`}
                 onChange={() => onToggleMany(items, !allSelected)}
               />
@@ -207,6 +211,9 @@ export const FindingList = ({
           </Button>
         </div>
       ) : null}
+      <p class="sr-only" role="status">
+        {limit > PAGE ? `Showing ${Math.min(limit, findings.length)} of ${findings.length} findings.` : ""}
+      </p>
     </div>
   );
 };
@@ -364,7 +371,7 @@ export const FindingDetail = ({
         <p class="f-path f-path-block">{location(finding)}</p>
         {finding.line === null ? null : snippet === null ? (
           <div class="f-code f-code-loading">
-            <Spinner />
+            <LoadingStatus label="Loading the source" />
           </div>
         ) : (
           <CodeSnippet snippet={snippet} focus={finding.line} />
@@ -431,7 +438,7 @@ export const FindingDetail = ({
       <section class="f-detail-section">
         <h3>Why this matters</h3>
         {explanation === null ? (
-          <Spinner />
+          <LoadingStatus label="Loading the explanation" />
         ) : explanation.found ? (
           <div class="f-explain">
             {explanation.rationale === null || explanation.rationale === undefined ? null : (

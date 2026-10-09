@@ -16,6 +16,7 @@ import {
   ScoreRing,
 } from "../components/ui.tsx";
 import { viewOf, type Host } from "../host.ts";
+import { setIds, toggleId } from "../selection.ts";
 import { FindingDetail, FindingList, Message } from "./findings.tsx";
 import { parseRoute, type Tab } from "../route.ts";
 
@@ -32,38 +33,68 @@ const matches = (finding: Finding, terms: string[]): boolean => {
   return terms.every((term) => text.includes(term));
 };
 
-/** Keeps the composer attachments equal to the selection, in both directions. */
+const keyOf = (ids: Iterable<string>): string => [...ids].sort().join("|");
+
+/**
+ * Keeps the composer attachments equal to the selection, in both directions. The host echoes every
+ * update back as host context; the hook skips its own echoes by update id, ignores host state while
+ * an update is in flight, and pushes again after a failed update.
+ */
 export const useAttachmentSync = (host: Host, project: ProjectRef, findings: Finding[]) => {
-  const [selected, setSelected] = useState<Set<string>>(() => host.attachedIds() ?? new Set());
   const byId = useMemo(() => new Map(findings.map((finding) => [finding.id, finding])), [findings]);
-  const pushed = useRef<string>("");
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set([...(host.attachedIds() ?? [])].filter((id) => byId.has(id))),
+  );
+  const pushed = useRef<string>(keyOf(selected));
+  const ownUpdates = useRef(new Set<string>());
+  const inFlight = useRef(0);
 
   useEffect(
     () =>
       host.subscribe(() => {
-        const attached = host.attachedIds();
-        if (attached === null) return;
-        const key = [...attached].sort().join("|");
+        if (inFlight.current > 0) return;
+        const state = host.attachedState();
+        if (state === null) return;
+        if (state.updateId !== null && ownUpdates.current.has(state.updateId)) return;
+        const ids = [...state.ids].filter((id) => byId.has(id));
+        const key = keyOf(ids);
         if (key === pushed.current) return;
         pushed.current = key;
-        setSelected(new Set([...attached].filter((id) => byId.has(id))));
+        setSelected(new Set(ids));
       }),
     [host, byId],
   );
 
+  // A refresh can remove findings; drop their ids from the selection.
+  useEffect(() => {
+    setSelected((current) => {
+      const kept = new Set([...current].filter((id) => byId.has(id)));
+      return kept.size === current.size ? current : kept;
+    });
+  }, [byId]);
+
   useEffect(() => {
     if (!host.canAttach) return;
-    const key = [...selected].sort().join("|");
+    const key = keyOf(selected);
     if (key === pushed.current) return;
     const timer = setTimeout(() => {
-      pushed.current = key;
-      void host.attach(
-        project,
-        [...selected].flatMap((id) => {
-          const finding = byId.get(id);
-          return finding === undefined ? [] : [finding];
-        }),
-      );
+      inFlight.current += 1;
+      const chosen = [...selected].flatMap((id) => {
+        const finding = byId.get(id);
+        return finding === undefined ? [] : [finding];
+      });
+      host
+        .attach(project, chosen)
+        .then((updateId) => {
+          if (updateId !== null) ownUpdates.current.add(updateId);
+          pushed.current = key;
+        })
+        .catch(() => {
+          // Leave `pushed` as it was, so the next change pushes the full selection again.
+        })
+        .finally(() => {
+          inFlight.current -= 1;
+        });
     }, 250);
     return () => clearTimeout(timer);
   }, [selected, host, project, byId]);
@@ -117,31 +148,21 @@ export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.
   const selectedFindings = report.findings.filter((finding) => selected.has(finding.id));
 
   const toggle = (finding: Finding): void =>
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(finding.id)) next.delete(finding.id);
-      else next.add(finding.id);
-      return next;
-    });
+    setSelected((current) => toggleId(current, finding.id));
 
   const toggleMany = (findings: Finding[], select: boolean): void =>
-    setSelected((current) => {
-      const next = new Set(current);
-      for (const finding of findings) {
-        if (select) next.add(finding.id);
-        else next.delete(finding.id);
-      }
-      return next;
-    });
+    setSelected((current) =>
+      setIds(
+        current,
+        findings.map((finding) => finding.id),
+        select,
+      ),
+    );
 
   const rerun = async (kind: "refresh" | "scope", scope: Report["scope"]): Promise<void> => {
     setBusy(kind);
     try {
-      onView(
-        viewOf(
-          await host.call("fallow_app_run", { root: report.project.root, scope, force: true }),
-        ),
-      );
+      onView(await host.callView("fallow_app_run", { root: report.project.root, scope, force: true }));
     } finally {
       setBusy(null);
     }
@@ -150,7 +171,7 @@ export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.
   const planCleanup = async (): Promise<void> => {
     setBusy("cleanup");
     try {
-      const result = await host.call("fallow_plan_cleanup", {
+      const result = await host.call("fallow_app_plan_cleanup", {
         path: report.project.root,
         ...(category === null ? {} : { category }),
       });
@@ -168,6 +189,17 @@ export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.
         report.findings.filter((finding) => ids.has(finding.id)),
         report.project,
       );
+    } catch (error) {
+      onView({
+        view: "problem",
+        problem: {
+          code: "cleanup_failed",
+          title: "The cleanup form could not open",
+          detail: error instanceof Error ? error.message : String(error),
+          fix: null,
+        },
+        project: report.project,
+      });
     } finally {
       setBusy(null);
     }
@@ -246,14 +278,24 @@ export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.
         </div>
       </header>
 
+      {report.notices.map((notice) => (
+        <div key={notice} class="f-banner f-banner-warn" role="status">
+          <Icon name="alert" size={14} />
+          <span>{notice}</span>
+        </div>
+      ))}
+
       {inline ? null : (
-        <nav class="f-tabs" aria-label="Sections">
+        <div class="f-tabs" role="tablist" aria-label="Sections">
           {(["overview", "findings", "insights"] as const).map((name) => (
             <button
               type="button"
               key={name}
+              role="tab"
+              id={`f-tab-${name}`}
+              aria-selected={tab === name}
+              aria-controls="f-panel"
               class="cursor-interaction"
-              aria-current={tab === name ? "page" : undefined}
               onClick={() => {
                 setTab(name);
                 setDetailId(null);
@@ -266,10 +308,13 @@ export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.
                   : "Insights"}
             </button>
           ))}
-        </nav>
+        </div>
       )}
 
-      <main class="f-main">
+      <div
+        class="f-main"
+        {...(inline ? {} : { role: "tabpanel", id: "f-panel", "aria-labelledby": `f-tab-${tab}` })}
+      >
         {tab === "overview" || inline ? (
           <Overview
             report={report}
@@ -304,6 +349,7 @@ export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.
                   class="form-control"
                   type="search"
                   placeholder="Search findings, files, symbols"
+                  aria-label="Search findings"
                   value={query}
                   onInput={(event) => setQuery(event.currentTarget.value)}
                 />
@@ -384,7 +430,7 @@ export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.
             />
           </div>
         )}
-      </main>
+      </div>
 
       {selected.size > 0 && !inline ? (
         <SelectionBar

@@ -17,7 +17,7 @@ import { array, boolean, isRecord, number, record, string, type Json } from "./j
 import { complexityRule, DUPLICATION_RULE, ruleForKey, type RuleInfo } from "./rules.ts";
 
 /** The app renders at most this many findings; counts still cover every finding. */
-export const REPORT_FINDINGS_LIMIT = 1500;
+const REPORT_FINDINGS_LIMIT = 1500;
 
 const SHELL_SAFE = /^[\w@%+=:,./-]+$/;
 
@@ -33,10 +33,22 @@ const toLevel = (value: unknown): Level => {
 
 const LEVEL_RANK: Record<Level, number> = { error: 0, warn: 1, info: 2 };
 
+/**
+ * Names and paths come from the analyzed repository and reach the model. Remove control
+ * characters and line breaks, keep backticks out of code spans, and cap the length.
+ */
+const clean = (text: string, max: number): string => {
+  const flat = text.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").replace(/`/g, "'").trim();
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
+};
+
+const cleanOrNull = (text: string | null, max: number): string | null =>
+  text === null ? null : clean(text, max);
+
 /** Makes a fallow path repo-relative with forward slashes, whatever form fallow printed. */
 export const repoPath = (root: string, path: string): string => {
   const local = isAbsolute(path) ? relative(root, path) : path;
-  return local.split(sep).join("/");
+  return clean(local.split(sep).join("/"), 400);
 };
 
 const toActions = (value: unknown): FindingAction[] =>
@@ -52,14 +64,17 @@ const toActions = (value: unknown): FindingAction[] =>
 
 const firstImporter = (item: Json): Json => record(array(item["imported_from"])[0]);
 
-const symbolOf = (item: Json): string | null =>
-  string(item["export_name"]) ??
-  string(item["type_name"]) ??
-  string(item["member_name"]) ??
-  string(item["package_name"]) ??
-  string(item["specifier"]) ??
-  string(item["component_name"]) ??
-  string(item["name"]);
+const symbolOf = (item: Json): string | null => {
+  const symbol =
+    string(item["export_name"]) ??
+    string(item["type_name"]) ??
+    string(item["member_name"]) ??
+    string(item["package_name"]) ??
+    string(item["specifier"]) ??
+    string(item["component_name"]) ??
+    string(item["name"]);
+  return cleanOrNull(symbol, 160);
+};
 
 const pathOf = (item: Json): string | null =>
   string(item["path"]) ??
@@ -71,7 +86,7 @@ const pathOf = (item: Json): string | null =>
 const code = (value: string): string => `\`${value}\``;
 
 const messageFor = (info: RuleInfo, item: Json, symbol: string | null): string => {
-  const parent = string(item["parent_name"]);
+  const parent = cleanOrNull(string(item["parent_name"]), 160);
   switch (info.rule) {
     case "unused-file":
       return "No entry point reaches this file.";
@@ -88,7 +103,7 @@ const messageFor = (info: RuleInfo, item: Json, symbol: string | null): string =
     case "unused-dependency":
     case "unused-dev-dependency":
     case "unused-optional-dependency":
-      return `${code(symbol ?? "?")} is listed in ${string(item["location"]) ?? "package.json"} but never imported.`;
+      return `${code(symbol ?? "?")} is listed in ${cleanOrNull(string(item["location"]), 40) ?? "package.json"} but never imported.`;
     case "unlisted-dependency":
       return `${code(symbol ?? "?")} is imported but not listed in package.json.`;
     case "unresolved-import":
@@ -164,7 +179,7 @@ const complexityFindings = (root: string, section: Json): Finding[] =>
       const rawPath = string(item["path"]);
       if (rawPath === null) return [];
       const path = repoPath(root, rawPath);
-      const name = string(item["name"]) ?? "<anonymous>";
+      const name = clean(string(item["name"]) ?? "<anonymous>", 160);
       const line = number(item["line"]);
       const info = complexityRule(string(item["exceeded"]) ?? "");
       const parts = [
@@ -224,7 +239,7 @@ const cloneFindings = (root: string, section: Json): Finding[] =>
           message: `${lines} lines are duplicated in ${instances.length} places.`,
           path: first.path,
           line: first.startLine,
-          symbol: string(group["suggested_name"]),
+          symbol: cleanOrNull(string(group["suggested_name"]), 160),
           introduced: boolean(group["introduced"]),
           verify: verifyFor(DUPLICATION_RULE.rule, first.path, null, id),
           actions: toActions(group["actions"]),
@@ -234,7 +249,7 @@ const cloneFindings = (root: string, section: Json): Finding[] =>
     });
 
 /** Sorts errors first, then by category, file and line, so every surface shows the same order. */
-export const sortFindings = (findings: Finding[]): Finding[] =>
+const sortFindings = (findings: Finding[]): Finding[] =>
   [...findings].sort(
     (left, right) =>
       LEVEL_RANK[left.level] - LEVEL_RANK[right.level] ||
@@ -366,6 +381,7 @@ export const toReport = (raw: Json, context: ReportContext): Report => {
     hotspots: toHotspots(root, health),
     targets: toTargets(root, health),
     nextSteps: toNextSteps(raw),
+    notices: [],
   };
 };
 

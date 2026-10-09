@@ -3,9 +3,17 @@ import type { JSX } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { CATEGORY_ORDER, CATEGORY_TITLES } from "../../shared/categories.ts";
 import type { ConfigPreview } from "../../shared/contracts.ts";
-import { Button, CategoryGlyph, EmptyState, FallowMark, Icon, Spinner } from "../components/ui.tsx";
+import {
+  Button,
+  CategoryGlyph,
+  EmptyState,
+  FallowMark,
+  Icon,
+  LoadingStatus,
+} from "../components/ui.tsx";
 import type { Host } from "../host.ts";
 import { ruleCategory } from "../config-rules.ts";
+import { readOpenedFile, watchOpenedFile, type OpenedFile } from "../opened-file.ts";
 
 type Severity = "off" | "warn" | "error";
 const SEVERITIES: readonly Severity[] = ["off", "warn", "error"];
@@ -70,10 +78,9 @@ const edit = (text: string, path: Array<string | number>, value: unknown): strin
   applyEdits(text, modify(text, path, value, FORMATTING));
 
 type FileRef = { name: string; resourceUri: string };
-type Loaded = { text: string; etag: string | undefined; writable: boolean };
 
 export const ConfigEditor = ({ host, file }: { host: Host; file: FileRef }): JSX.Element => {
-  const [saved, setSaved] = useState<Loaded | null>(null);
+  const [saved, setSaved] = useState<OpenedFile | null>(null);
   const [draft, setDraft] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [schema, setSchema] = useState<ConfigSchema | null>(null);
@@ -92,29 +99,15 @@ export const ConfigEditor = ({ host, file }: { host: Host; file: FileRef }): JSX
   dirtyRef.current = dirty;
 
   const load = async (): Promise<void> => {
-    if (resources === undefined) {
-      setLoadError("This Codex surface cannot open files in apps. Use Codex on the desktop.");
+    const outcome = await readOpenedFile(host, file.resourceUri);
+    if (!outcome.ok) {
+      setLoadError(outcome.error);
       return;
     }
-    try {
-      const result = await resources.read({ uri: file.resourceUri, representation: "text" });
-      const content = result.contents[0];
-      const text =
-        content !== undefined && "text" in content && typeof content.text === "string"
-          ? content.text
-          : "";
-      const loaded = {
-        text,
-        etag: content?.openaiMetadata?.etag,
-        writable: content?.openaiMetadata?.writable === true,
-      };
-      setSaved(loaded);
-      setDraft(text);
-      setExternal(false);
-      setLoadError(null);
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "The file could not be read.");
-    }
+    setSaved(outcome.file);
+    setDraft(outcome.file.text);
+    setExternal(false);
+    setLoadError(null);
   };
 
   useEffect(() => {
@@ -123,17 +116,10 @@ export const ConfigEditor = ({ host, file }: { host: Host; file: FileRef }): JSX
       .callData<ConfigSchema>("fallow_app_config_schema")
       .then(setSchema)
       .catch(() => setSchema({ rules: [] }));
-    if (resources === undefined) return;
-    const dispose = resources.addUpdateHandler(async ({ params }) => {
-      if (params.uri !== file.resourceUri) return;
+    return watchOpenedFile(host, file.resourceUri, async () => {
       if (dirtyRef.current) setExternal(true);
       else await load();
     });
-    void resources.subscribe({ uri: file.resourceUri }).catch(() => undefined);
-    return () => {
-      dispose();
-      void resources.unsubscribe({ uri: file.resourceUri }).catch(() => undefined);
-    };
   }, [file.resourceUri]);
 
   const parsed = useMemo(() => parseConfig(draft), [draft]);
@@ -211,7 +197,7 @@ export const ConfigEditor = ({ host, file }: { host: Host; file: FileRef }): JSX
   if (saved === null) {
     return (
       <div class="f-loading">
-        <Spinner size={20} />
+        <LoadingStatus label="Opening the config file" />
       </div>
     );
   }
@@ -314,21 +300,24 @@ export const ConfigEditor = ({ host, file }: { host: Host; file: FileRef }): JSX
         <PreviewPanel preview={preview} onClose={() => setPreview(null)} />
       )}
 
-      <nav class="f-tabs" aria-label="Config sections">
+      <div class="f-tabs" role="tablist" aria-label="Config sections">
         {(["rules", "files", "source"] as const).map((name) => (
           <button
             key={name}
             type="button"
+            role="tab"
+            id={`f-tab-${name}`}
+            aria-selected={tab === name}
+            aria-controls="f-panel"
             class="cursor-interaction"
-            aria-current={tab === name ? "page" : undefined}
             onClick={() => setTab(name)}
           >
             {name === "rules" ? "Rules" : name === "files" ? "Files and dependencies" : "Source"}
           </button>
         ))}
-      </nav>
+      </div>
 
-      <main class="f-main">
+      <div class="f-main" role="tabpanel" id="f-panel" aria-labelledby={`f-tab-${tab}`}>
         {tab === "rules" ? (
           <div class="f-rules">
             <label class="f-search">
@@ -337,12 +326,13 @@ export const ConfigEditor = ({ host, file }: { host: Host; file: FileRef }): JSX
                 class="form-control"
                 type="search"
                 placeholder="Search rules"
+                aria-label="Search rules"
                 value={filter}
                 onInput={(event) => setFilter(event.currentTarget.value)}
               />
             </label>
             {schema === null ? (
-              <Spinner />
+              <LoadingStatus label="Loading the rules" />
             ) : schema.rules.length === 0 ? (
               <EmptyState icon="info" title="Rule list unavailable">
                 {schema.error ?? "Update fallow to edit rules here."}
@@ -375,15 +365,14 @@ export const ConfigEditor = ({ host, file }: { host: Host; file: FileRef }): JSX
                           </div>
                           <div
                             class="f-segmented f-severity"
-                            role="radiogroup"
-                            aria-label={`Severity of ${rule.key}`}
+                            role="group"
+                            aria-label={`Severity of ${humanize(rule.key).toLowerCase()}`}
                           >
                             {SEVERITIES.map((severity) => (
                               <button
                                 key={severity}
                                 type="button"
-                                role="radio"
-                                aria-checked={value === severity}
+                                aria-pressed={value === severity}
                                 class={`cursor-interaction f-sev-${severity}`}
                                 disabled={!saved.writable || parsed.error !== null}
                                 onClick={() =>
@@ -459,7 +448,7 @@ export const ConfigEditor = ({ host, file }: { host: Host; file: FileRef }): JSX
             />
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 };
@@ -520,6 +509,7 @@ const ListEditor = ({
           class="form-control"
           value={input}
           placeholder={placeholder}
+          aria-label={`Add to ${title.toLowerCase()}`}
           disabled={disabled}
           onInput={(event) => setInput(event.currentTarget.value)}
         />

@@ -18,7 +18,7 @@ export const SettingsSchema = z.object({
 
 export type AppSettings = z.infer<typeof SettingsSchema>;
 
-export const DEFAULT_SETTINGS: AppSettings = {
+const DEFAULT_SETTINGS: AppSettings = {
   scope: "full",
   baseRef: "",
   production: false,
@@ -48,7 +48,7 @@ const MAX_RECENTS = 8;
 const MAX_THREADS = 200;
 
 /** Picks the per-user state file of the host platform. `FALLOW_CODEX_APP_STATE` overrides it. */
-export const stateFilePath = (): string => {
+const stateFilePath = (): string => {
   const override = process.env["FALLOW_CODEX_APP_STATE"];
   if (override !== undefined && override.length > 0) return override;
   const home = homedir();
@@ -79,26 +79,24 @@ export interface StateStore {
 
 /** A small JSON store. Writes go through a temp file and a rename, so a crash never leaves half a file. */
 export const createStateStore = (path: string = stateFilePath()): StateStore => {
-  let cache: State | null = null;
   let queue: Promise<unknown> = Promise.resolve();
 
+  // Each Codex session starts its own server, so another process can write the file at any time.
+  // Every read and every write starts from the file on disk, never from a copy in memory.
   const load = async (): Promise<State> => {
-    if (cache !== null) return cache;
     try {
       const parsed = StateSchema.safeParse(JSON.parse(await readFile(path, "utf8")));
-      cache = parsed.success ? parsed.data : StateSchema.parse({ version: 1 });
+      return parsed.success ? parsed.data : StateSchema.parse({ version: 1 });
     } catch {
-      cache = StateSchema.parse({ version: 1 });
+      return StateSchema.parse({ version: 1 });
     }
-    return cache;
   };
 
   const save = (mutate: (state: State) => State): Promise<State> => {
     const next = queue.then(async () => {
       const state = mutate(await load());
-      cache = state;
       await mkdir(dirname(path), { recursive: true });
-      const temporary = `${path}.${process.pid}.tmp`;
+      const temporary = `${path}.${process.pid}.${Date.now()}.tmp`;
       await writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`, "utf8");
       await rename(temporary, path);
       return state;
@@ -136,8 +134,9 @@ export const createStateStore = (path: string = stateFilePath()): StateStore => 
     rememberThread: async (threadId, root) => {
       if ((await load()).threads[threadId] === root) return;
       await save((state) => {
-        const entries = Object.entries({ ...state.threads, [threadId]: root });
-        return { ...state, threads: Object.fromEntries(entries.slice(-MAX_THREADS)) };
+        // Re-insert at the end, so eviction drops the thread that was used longest ago.
+        const others = Object.entries(state.threads).filter(([id]) => id !== threadId);
+        return { ...state, threads: Object.fromEntries([...others, [threadId, root]].slice(-MAX_THREADS)) };
       });
     },
   };

@@ -25,7 +25,7 @@ const location = (finding: Finding): string =>
   finding.line === null ? finding.path : `${finding.path}:${finding.line}`;
 
 /** One removable composer chip per finding, labeled with its symbol or file. */
-export const findingBlock = (finding: Finding): TextBlock => ({
+const findingBlock = (finding: Finding): TextBlock => ({
   type: "text",
   text: `Fallow finding ${finding.id} (${finding.rule}, ${finding.level}) at ${location(finding)}: ${finding.message.replace(/`/g, "")}${finding.verify === null ? "" : ` Verify with: ${finding.verify}`}`,
   _meta: {
@@ -136,6 +136,31 @@ export class Host {
     return (await this.app.callServerTool({ name, arguments: args })) as CallToolResult;
   }
 
+  /**
+   * Calls a tool that returns a view. A failed call becomes a problem view, so a host or server
+   * error never leaves the app on a dead button.
+   */
+  async callView(name: string, args: Record<string, unknown> = {}): Promise<ViewPayload> {
+    try {
+      const result = await this.call(name, args);
+      const view = viewOf(result);
+      if (view !== null) return view;
+      const text = result.content.find((item) => item.type === "text");
+      throw new Error(text?.type === "text" ? text.text : `${name} returned no view.`);
+    } catch (error) {
+      return {
+        view: "problem",
+        problem: {
+          code: "call_failed",
+          title: "Codex could not reach Fallow",
+          detail: error instanceof Error ? error.message : String(error),
+          fix: null,
+        },
+        project: null,
+      };
+    }
+  }
+
   async callData<T>(name: string, args: Record<string, unknown> = {}): Promise<T> {
     const result = await this.call(name, args);
     if (result.isError === true) {
@@ -161,28 +186,40 @@ export class Host {
     return this.canMessage && this.context()?.platform === "desktop";
   }
 
-  /** Replaces the composer attachments of this app with the given findings. */
-  async attach(project: ProjectRef, findings: Finding[]): Promise<void> {
+  /**
+   * Replaces the composer attachments of this app with the given findings. Returns the host's
+   * update id, so the caller can recognize the echo of its own update.
+   */
+  async attach(project: ProjectRef, findings: Finding[]): Promise<string | null> {
     const modelContext = this.openai.modelContext;
-    if (modelContext === undefined) return;
+    if (modelContext === undefined) return null;
     const shown = findings.slice(0, MAX_CONTEXT_FINDINGS);
-    await modelContext.update({
+    const result = await modelContext.update({
       content: shown.length === 0 ? [] : [...shown.map(findingBlock), backgroundBlock(project)],
       structuredContent: { project: project.root, findingIds: shown.map((finding) => finding.id) },
     });
+    return result?.updateId ?? null;
+  }
+
+  /** Finding ids that are still attached, with the update that produced them. */
+  attachedState(): { updateId: string | null; ids: Set<string> } | null {
+    const current = this.openai.modelContext?.getCurrent();
+    if (current === undefined) return null;
+    if (current === null) return { updateId: null, ids: new Set() };
+    return {
+      updateId: current.updateId,
+      ids: new Set(
+        (current.content ?? []).flatMap((block) => {
+          const id = block._meta?.[FINDING_META_KEY];
+          return typeof id === "string" ? [id] : [];
+        }),
+      ),
+    };
   }
 
   /** Finding ids that are still attached. The user can remove a chip in the composer. */
   attachedIds(): Set<string> | null {
-    const current = this.openai.modelContext?.getCurrent();
-    if (current === undefined) return null;
-    if (current === null) return new Set();
-    return new Set(
-      (current.content ?? []).flatMap((block) => {
-        const id = block._meta?.[FINDING_META_KEY];
-        return typeof id === "string" ? [id] : [];
-      }),
-    );
+    return this.attachedState()?.ids ?? null;
   }
 
   async send(
@@ -211,7 +248,15 @@ export class Host {
     return true;
   }
 
+  /** Opens only web links. A SARIF file can carry any URL, and other schemes reach the host. */
   async openLink(url: string): Promise<void> {
-    await this.app.openLink({ url });
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return;
+    }
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return;
+    await this.app.openLink({ url: parsed.href });
   }
 }

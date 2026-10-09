@@ -114,6 +114,8 @@ export interface Report {
   hotspots: Hotspot[];
   targets: Target[];
   nextSteps: Array<{ command: string; reason: string }>;
+  /** Plain-language notes about the run, for example a base branch that fallow could not find. */
+  notices: string[];
 }
 
 export interface AuditResult {

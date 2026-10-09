@@ -54,12 +54,11 @@ listing text for that ZIP.
   `fallow telemetry disable` turns it off again.
 - Cloud commands make network requests only after the user explicitly requests
   them and configures the required credentials.
-- The Fallow app runs the fallow CLI on the machine. It makes no network
-  requests itself; only the `npx` fallback downloads the CLI. For a model tool
-  call, and for the sidebar or thread tab after a model call in the same thread,
-  it runs fallow inside the Codex sandbox of the thread. Outside the sandbox it
-  never runs a fallow binary that the opened repository ships. It reads source
-  lines only inside the project it analyzes. To open the right project in a
+- The Fallow app runs the fallow CLI on the machine and makes no network
+  requests itself. Code that an opened repository controls, such as its own
+  fallow binary or an `npx` download, runs only inside the Codex sandbox of the
+  thread; outside it, the app runs only a fallow on your PATH. It reads source
+  lines only from files that a report names. To open the right project in a
   thread tab, it reads the first line of that thread's Codex session log, which
   holds the working directory. It stores settings, recent projects and a
   thread-to-project map in the user state folder (`~/Library/Application

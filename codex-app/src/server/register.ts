@@ -39,7 +39,7 @@ const registerSettings = (context: ServerContext): void => {
         schema: shape.source,
         title: "Fallow binary",
         description:
-          "auto uses the project copy, then fallow on PATH, then npx. npx needs network access.",
+          "auto uses fallow on PATH. In a Codex sandbox it prefers the project copy and falls back to npx, which needs network access.",
       },
       sandbox: {
         schema: shape.sandbox,

@@ -7,7 +7,7 @@ import type {
   Report,
   ViewPayload,
 } from "../../shared/contracts.ts";
-import { Button, CommandLine, FallowMark, Icon, relativeTime } from "../components/ui.tsx";
+import { Button, CommandLine, FallowMark, Icon, relativeTime, Spinner } from "../components/ui.tsx";
 import { viewOf, type Host } from "../host.ts";
 
 type OnView = (view: ViewPayload | null) => void;
@@ -28,7 +28,7 @@ export const Picker = ({
   const open = async (root: string): Promise<void> => {
     setBusy(root);
     try {
-      onView(viewOf(await host.call("fallow_app_run", { root })));
+      onView(await host.callView("fallow_app_run", { root }));
     } finally {
       setBusy(null);
     }
@@ -37,7 +37,7 @@ export const Picker = ({
   const choose = async (): Promise<void> => {
     setBusy("choose");
     try {
-      onView(viewOf(await host.call("fallow_app_choose_project")));
+      onView(await host.callView("fallow_app_choose_project"));
     } finally {
       setBusy(null);
     }
@@ -72,6 +72,7 @@ export const Picker = ({
                   type="button"
                   class="f-recent cursor-interaction"
                   disabled={busy !== null}
+                  aria-busy={busy === recent.root}
                   onClick={() => void open(recent.root)}
                 >
                   <span class={`f-grade f-grade-${(recent.grade ?? "none").toLowerCase()}`}>
@@ -83,7 +84,7 @@ export const Picker = ({
                   </span>
                   <span class="f-subtle">{relativeTime(recent.lastOpenedAt)}</span>
                   {busy === recent.root ? (
-                    <Icon name="refresh" size={14} />
+                    <Spinner />
                   ) : (
                     <Icon name="chevronRight" size={14} />
                   )}
@@ -157,10 +158,10 @@ export const Loading = ({
   }, [project.root]);
 
   return (
-    <div class="f-loading" aria-live="polite" aria-busy="true">
+    <div class="f-loading" aria-busy="true">
       <FallowMark size={28} />
       <h1>{project.name}</h1>
-      <p class="f-subtle">{STAGES[stage]}…</p>
+      <p class="f-subtle" role="status">{STAGES[stage]}…</p>
       <div class="f-progress" />
       <div class="f-skeleton">
         <span />
@@ -187,7 +188,7 @@ export const ProblemView = ({
     if (project === null) return;
     setBusy(true);
     try {
-      onView(viewOf(await host.call("fallow_app_run", { root: project.root, force: true })));
+      onView(await host.callView("fallow_app_run", { root: project.root, force: true }));
     } finally {
       setBusy(false);
     }

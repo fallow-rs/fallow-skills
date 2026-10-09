@@ -19,7 +19,6 @@ export const findingUri = (root: string, id: string): string =>
 export const ruleUri = (root: string, rule: string): string =>
   `fallow://project/${projectKey(root)}/rule/${encodeURIComponent(rule)}`;
 
-export const reportUri = (root: string): string => `fallow://project/${projectKey(root)}/report`;
 
 export const FINDING_TEMPLATE = "fallow://project/{key}/finding/{id}";
 export const RULE_TEMPLATE = "fallow://project/{key}/rule/{rule}";

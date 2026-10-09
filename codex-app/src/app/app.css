@@ -230,8 +230,7 @@ ol {
   color: var(--f-fg);
 }
 
-.f-segmented button[aria-pressed="true"],
-.f-segmented button[aria-checked="true"] {
+.f-segmented button[aria-pressed="true"] {
   background: var(--f-bg);
   color: var(--f-fg);
   box-shadow: var(--shadow-hairline, 0 0 0 1px var(--f-border)), 0 1px 2px rgb(0 0 0 / 6%);
@@ -239,6 +238,7 @@ ol {
 
 .f-segmented button:focus-visible {
   outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .f-segmented button:disabled {
@@ -400,7 +400,7 @@ ol {
   color: var(--f-fg);
 }
 
-.f-tabs button[aria-current="page"] {
+.f-tabs button[aria-selected="true"] {
   color: var(--f-fg);
   border-bottom-color: var(--f-fg);
   font-weight: var(--font-weight-medium, 500);
@@ -638,6 +638,7 @@ ol {
 
 .f-legend-item:focus-visible {
   outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .f-legend-count {
@@ -674,6 +675,7 @@ ol {
 
 .f-tile:focus-visible {
   outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .f-tile-count {
@@ -710,6 +712,7 @@ ol {
 
 .f-top-item:focus-visible {
   outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .f-top-item > .f-icon {
@@ -821,6 +824,7 @@ ol {
 
 .f-filter-chip:focus-visible {
   outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .f-filter-chip .f-glyph {
@@ -937,6 +941,7 @@ ol {
 
 .f-row-main:focus-visible {
   outline: 2px solid var(--ring);
+  outline-offset: 2px;
   border-radius: 4px;
 }
 
@@ -984,8 +989,16 @@ ol {
   opacity: 0;
 }
 
-.f-row:hover .f-row-chevron {
+.f-row:hover .f-row-chevron,
+.f-row:focus-within .f-row-chevron {
   opacity: 1;
+}
+
+/* A larger hit area for row checkboxes, so a click near one never opens the detail. */
+.f-row > .form-check-input,
+.f-group-header > .form-check-input {
+  outline-offset: 2px;
+  box-shadow: 0 0 0 8px transparent;
 }
 
 .f-more {
@@ -1464,6 +1477,7 @@ ol {
 
 .f-recent:focus-visible {
   outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
 .f-recent-text {
@@ -1629,20 +1643,21 @@ ol {
 .f-rule-description {
   font-size: var(--f-text-xs);
   color: var(--f-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .f-severity {
   flex: none;
 }
 
-.f-severity .f-sev-error[aria-checked="true"] {
+.f-severity .f-sev-error[aria-pressed="true"] {
   color: var(--f-error);
 }
 
-.f-severity .f-sev-warn[aria-checked="true"] {
+.f-severity .f-sev-warn[aria-pressed="true"] {
   color: var(--f-warn);
 }
 
@@ -1814,6 +1829,10 @@ ol {
     max-width: none;
   }
 
+  .f-row-rule {
+    white-space: normal;
+  }
+
   .f-rule {
     flex-direction: column;
     align-items: stretch;
@@ -1839,4 +1858,9 @@ ol {
     animation: none !important;
     transition: none !important;
   }
+}
+
+.f-loading-inline {
+  display: inline-flex;
+  color: var(--f-muted);
 }

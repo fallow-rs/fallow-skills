@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { open, readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ProjectRef } from "../shared/contracts.ts";
 import type { SandboxState } from "./fallow-cli.ts";
@@ -13,6 +13,11 @@ const THREAD_META_KEY = "threadId";
 const RESOURCE_META_KEY = "openai/resource";
 const CONFIG_FILES = [".fallowrc.json", ".fallowrc.jsonc", "fallow.toml", ".fallow.toml"];
 const THREAD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const isWithinDirectory = (base: string, candidate: string): boolean => {
+  const path = relative(base, candidate);
+  return path === "" || (!path.startsWith("..") && !isAbsolute(path));
+};
 
 const isDirectory = async (path: string): Promise<boolean> => {
   try {
@@ -90,7 +95,19 @@ export const sandboxFromMeta = (meta: unknown): SandboxState | null => {
   const raw = record(meta)[SANDBOX_META_KEY];
   if (!isRecord(raw)) return null;
   const codexExecutable = string(raw["codexExecutable"]);
-  return codexExecutable === null ? null : { codexExecutable, raw };
+  if (codexExecutable === null || !isAbsolute(codexExecutable)) return null;
+  return /^codex(\.exe)?$/i.test(basename(codexExecutable)) ? { codexExecutable, raw } : null;
+};
+
+/**
+ * Removes the Codex sandbox state from a call that the app iframe could have made. Only tools that
+ * only the model can call (`visibility: ["model"]`) trust the state they receive; every other tool
+ * uses the state that an earlier model call in the same thread stored.
+ */
+export const withoutSandboxMeta = <T extends { _meta?: Record<string, unknown> | undefined }>(extra: T): T => {
+  if (extra._meta === undefined || !(SANDBOX_META_KEY in extra._meta)) return extra;
+  const { [SANDBOX_META_KEY]: _ignored, ...rest } = extra._meta;
+  return { ...extra, _meta: rest };
 };
 
 /** The sandbox state of the last model call per thread, in memory only. */
@@ -197,6 +214,8 @@ export const resolveProject = async (
   store: StateStore,
   meta: unknown,
   explicitRoot: string | undefined,
+  /** Decides on a folder argument outside a Codex thread. App-facing tools allow only known projects. */
+  allowRoot: (root: string) => Promise<boolean> = async () => true,
 ): Promise<ResolvedProject | null> => {
   const threadId = threadFromMeta(meta);
   const remember = async (root: string, source: ProjectSource): Promise<ResolvedProject> => {
@@ -209,7 +228,11 @@ export const resolveProject = async (
     const absolute = toLocalPath(explicitRoot);
     const base = cwd ?? (await store.threadRoot(threadId ?? "")) ?? (await store.recents())[0]?.root ?? null;
     const local = absolute ?? (base === null ? null : resolve(base, explicitRoot));
-    if (local !== null && (await isDirectory(local))) return remember(local, "argument");
+    // In a Codex thread, a path from the model stays inside the working directory of the thread.
+    const allowed =
+      local !== null && (cwd === null ? await allowRoot(local) : isWithinDirectory(cwd, local));
+    if (allowed && (await isDirectory(local))) return remember(local, "argument");
+    if (cwd !== null) return null;
   }
   if (cwd !== null && (await isDirectory(cwd)))
     return remember(await detectProjectRoot(cwd), "thread");

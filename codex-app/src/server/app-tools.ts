@@ -5,7 +5,7 @@ import { parse, printParseErrorCode, type ParseError } from "jsonc-parser";
 import { z } from "zod";
 import { CATEGORY_ORDER } from "../shared/categories.ts";
 import type { ConfigPreview, LocatedFile } from "../shared/contracts.ts";
-import { dataResult, READ_ONLY, type Extra, type ServerContext } from "./context.ts";
+import { appFacing, dataResult, isKnownRoot, READ_ONLY, type Extra, type ServerContext } from "./context.ts";
 import { runFallow } from "./fallow-cli.ts";
 import { record, string } from "./json.ts";
 import {
@@ -39,21 +39,17 @@ export const locate = async (bases: string[], target: string): Promise<LocatedFi
   const absolute = toLocalPath(target);
   for (const base of bases) {
     const candidate = absolute ?? resolve(base, target.replace(/^\.\//, ""));
-    if (!isWithin(base, candidate)) continue;
-    if (await fileExists(candidate)) return { path: candidate, exists: true };
+    if (!isWithin(base, candidate) || !(await fileExists(candidate))) continue;
+    // A symbolic link inside the folder can point outside it; compare the real paths too.
+    const [realCandidate, realBase] = await Promise.all([
+      realpath(candidate).catch(() => null),
+      realpath(base).catch(() => null),
+    ]);
+    if (realCandidate !== null && realBase !== null && isWithin(realBase, realCandidate)) {
+      return { path: candidate, exists: true };
+    }
   }
   return null;
-};
-
-/**
- * A root that the app may name: one that a server-side call resolved before (from the thread, the
- * picker or the recent list). The app cannot point the server at an arbitrary folder.
- */
-export const isKnownRoot = async (context: ServerContext, root: string | undefined): Promise<boolean> => {
-  if (root === undefined || !isAbsolute(root)) return false;
-  const normalized = resolve(root);
-  if (context.analyzer.hasSeen(normalized)) return true;
-  return (await context.store.recents()).some((recent) => recent.root === normalized);
 };
 
 /** Base folders for an app call: a known project root it names, and the folder of the file entrypoint. */
@@ -93,8 +89,9 @@ let schemaCache: Record<string, unknown> | null = null;
 
 export const registerAppTools = (context: ServerContext): void => {
   const { server } = context;
+  const app = appFacing(server);
 
-  server.registerTool(
+  app.registerTool(
     "fallow_app_run",
     {
       title: "Refresh analysis",
@@ -113,21 +110,25 @@ export const registerAppTools = (context: ServerContext): void => {
         : pickerResult(context, "Choose the project again to analyze it."),
   );
 
-  server.registerTool(
+  app.registerTool(
     "fallow_app_audit",
     {
       title: "Audit branch",
-      inputSchema: z.object({ root: z.string(), base: z.string().regex(new RegExp(BASE_REF_PATTERN)).optional() }),
+      // Without a root (the sidebar quick action), the project of the thread or the last project is used.
+      inputSchema: z.object({
+        root: z.string().optional(),
+        base: z.string().regex(new RegExp(BASE_REF_PATTERN)).optional(),
+      }),
       annotations: READ_ONLY,
       _meta: uiMeta(context, { visibility: ["app"] }),
     },
     async ({ root, base }, extra) =>
-      (await isKnownRoot(context, root))
+      root === undefined || (await isKnownRoot(context, root))
         ? openAudit(context, extra, { root, base })
         : pickerResult(context, "Choose the project again to audit it."),
   );
 
-  server.registerTool(
+  app.registerTool(
     "fallow_app_locate",
     {
       title: "Locate a file",
@@ -141,7 +142,7 @@ export const registerAppTools = (context: ServerContext): void => {
     },
   );
 
-  server.registerTool(
+  app.registerTool(
     "fallow_app_source",
     {
       title: "Read source lines",
@@ -156,6 +157,12 @@ export const registerAppTools = (context: ServerContext): void => {
     },
     async ({ root, path, line, context: around }) => {
       if (!(await isKnownRoot(context, root))) return dataResult({ found: false });
+      // Only files that the newest report names, so the app cannot read other files in the project.
+      const reported = context.analyzer.latest(resolve(root))?.findings ?? [];
+      const listed = reported.some(
+        (finding) => finding.path === path || finding.related.some((related) => related.path === path),
+      );
+      if (!listed) return dataResult({ found: false });
       const located = await locate([resolve(root)], path);
       if (located === null) return dataResult({ found: false });
       const real = await realpath(located.path).catch(() => null);
@@ -170,7 +177,7 @@ export const registerAppTools = (context: ServerContext): void => {
     },
   );
 
-  server.registerTool(
+  app.registerTool(
     "fallow_app_explain",
     {
       title: "Explain a rule",
@@ -206,7 +213,7 @@ export const registerAppTools = (context: ServerContext): void => {
     },
   );
 
-  server.registerTool(
+  app.registerTool(
     "fallow_app_config_schema",
     {
       title: "Read the config schema",
@@ -248,7 +255,7 @@ export const registerAppTools = (context: ServerContext): void => {
     },
   );
 
-  server.registerTool(
+  app.registerTool(
     "fallow_app_preview_config",
     {
       title: "Preview a config change",

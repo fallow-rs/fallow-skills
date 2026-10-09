@@ -12,7 +12,7 @@ const mark = (fill: string): string =>
 const dataUri = (svg: string): string => `data:image/svg+xml,${encodeURIComponent(svg)}`;
 
 /** Monochrome 20 x 20 sidebar icon. `currentColor` follows the host theme. */
-export const SIDEBAR_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">${mark("currentColor")}</svg>`;
+const SIDEBAR_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">${mark("currentColor")}</svg>`;
 
 /** Server icon: the mark on an ink tile, as in the brand logo. */
 const SERVER_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 20 20"><rect width="20" height="20" rx="4" fill="#1c1b1c"/>${mark("#f4f1ea")}</svg>`;

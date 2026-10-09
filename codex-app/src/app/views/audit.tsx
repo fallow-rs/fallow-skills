@@ -2,7 +2,8 @@ import type { JSX } from "preact";
 import { useState } from "preact/hooks";
 import type { AuditResult, Finding, ViewPayload } from "../../shared/contracts.ts";
 import { Button, EmptyState, Icon, relativeTime } from "../components/ui.tsx";
-import { viewOf, type Host } from "../host.ts";
+import type { Host } from "../host.ts";
+import { setIds, toggleId } from "../selection.ts";
 import { useAttachmentSync } from "./dashboard.tsx";
 import { FindingDetail, FindingList } from "./findings.tsx";
 
@@ -34,21 +35,14 @@ export const AuditView = ({
   const rerun = async (): Promise<void> => {
     setBusy(true);
     try {
-      onView(
-        viewOf(await host.call("fallow_app_audit", { root: audit.project.root, base: audit.base })),
-      );
+      onView(await host.callView("fallow_app_audit", { root: audit.project.root, base: audit.base }));
     } finally {
       setBusy(false);
     }
   };
 
   const toggle = (finding: Finding): void =>
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(finding.id)) next.delete(finding.id);
-      else next.add(finding.id);
-      return next;
-    });
+    setSelected((current) => toggleId(current, finding.id));
 
   if (detail !== null) {
     return (
@@ -156,14 +150,13 @@ export const AuditView = ({
             selected={selected}
             onToggle={toggle}
             onToggleMany={(items, select) =>
-              setSelected((current) => {
-                const next = new Set(current);
-                for (const item of items) {
-                  if (select) next.add(item.id);
-                  else next.delete(item.id);
-                }
-                return next;
-              })
+              setSelected((current) =>
+                setIds(
+                  current,
+                  items.map((item) => item.id),
+                  select,
+                ),
+              )
             }
             onOpen={setDetail}
             groupBy="file"

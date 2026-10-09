@@ -8,11 +8,11 @@ import {
 import { z } from "zod";
 import { CATEGORY_ORDER, CATEGORY_TITLES } from "../shared/categories.ts";
 import type { CategoryId, Finding, ProjectRef } from "../shared/contracts.ts";
-import { problemResult, READ_ONLY, type Extra, type ServerContext } from "./context.ts";
+import { appFacing, problemResult, READ_ONLY, type Extra, type ServerContext } from "./context.ts";
 import { categoryThumbnail } from "./icons.ts";
 import { resolveProject, sandboxFor, toLocalPath } from "./project.ts";
 import { findingUri } from "./uris.ts";
-import { openDashboard, pickerResult, uiMeta } from "./tools.ts";
+import { openDashboard, pickerResult, rootPolicy, uiMeta } from "./tools.ts";
 
 const FORM_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_FINDING_OPTIONS = 40;
@@ -167,147 +167,166 @@ const APPROACH_INSTRUCTIONS: Record<string, string> = {
 
 export const registerForms = (context: ServerContext): void => {
   const { server } = context;
+  const app = appFacing(server);
 
-  server.registerTool(
-    "fallow_plan_cleanup",
-    {
-      title: "Plan a cleanup",
-      description:
-        "Let the user pick which Fallow findings to clean up in a form: a category, then the findings, the approach and constraints. Returns the selection with a verify command per finding. Use it when the user asks to clean up, remove dead code or reduce findings.",
-      inputSchema: z.object({
-        path: z
-          .string()
-          .max(4096)
-          .optional()
-          .describe("Folder to analyze. Omit it to use the project of this thread."),
-        category: z
-          .enum([
-            "dead-code",
-            "dependencies",
-            "duplication",
-            "complexity",
-            "architecture",
-            "frameworks",
-            "hygiene",
-          ])
-          .optional()
-          .describe("Skip the category step and go to the findings of this category."),
-      }),
-      annotations: READ_ONLY,
-    },
-    async ({ path, category }, extra: Extra) => {
-      const resolved = await resolveProject(context.store, extra._meta, path);
-      if (resolved === null)
-        return pickerResult(context, "Fallow does not know which project to clean up yet.");
-      const { project } = resolved;
-      const settings = await context.store.settings();
-      const analysis = await context.analyzer.analyze({
-        project,
-        settings,
-        sandbox: sandboxFor(extra._meta),
-      });
-      if (!analysis.ok) return problemResult(analysis.problem, project);
+  /**
+   * The planner exists twice: `fallow_plan_cleanup` for the model, which trusts the sandbox state of
+   * the call, and `fallow_app_plan_cleanup` for the app's Plan cleanup button, which does not.
+   */
+  const registerPlanner = (
+    register: Pick<typeof server, "registerTool">,
+    name: string,
+    visibility: Array<"model" | "app">,
+  ): void => {
+    register.registerTool(
+      name,
+      {
+        title: "Plan a cleanup",
+        description:
+          "Let the user pick which Fallow findings to clean up in a form: a category, then the findings, the approach and constraints. Returns the selection with a verify command per finding. Use it when the user asks to clean up, remove dead code or reduce findings.",
+        inputSchema: z.object({
+          path: z
+            .string()
+            .max(4096)
+            .optional()
+            .describe("Folder to analyze. Omit it to use the project of this thread."),
+          category: z
+            .enum([
+              "dead-code",
+              "dependencies",
+              "duplication",
+              "complexity",
+              "architecture",
+              "frameworks",
+              "hygiene",
+            ])
+            .optional()
+            .describe("Skip the category step and go to the findings of this category."),
+        }),
+        annotations: READ_ONLY,
+        _meta: { ui: { visibility } },
+      },
+      async ({ path, category }, extra: Extra) => {
+        const resolved = await resolveProject(
+          context.store,
+          extra._meta,
+          path,
+          rootPolicy(context, visibility.includes("model")),
+        );
+        if (resolved === null)
+          return pickerResult(context, "Fallow does not know which project to clean up yet.");
+        const { project } = resolved;
+        const settings = await context.store.settings();
+        const analysis = await context.analyzer.analyze({
+          project,
+          settings,
+          sandbox: sandboxFor(extra._meta),
+        });
+        if (!analysis.ok) return problemResult(analysis.problem, project);
 
-      const byCategory = new Map<CategoryId, Finding[]>();
-      for (const finding of analysis.findings) {
-        byCategory.set(finding.category, [...(byCategory.get(finding.category) ?? []), finding]);
-      }
-      if (byCategory.size === 0) {
-        return {
-          content: [
-            { type: "text", text: `${project.name} has no Fallow findings. Nothing to clean up.` },
-          ],
-          structuredContent: { project, findings: [] },
-        };
-      }
-      if (!supportsForms(context)) {
+        const byCategory = new Map<CategoryId, Finding[]>();
+        for (const finding of analysis.findings) {
+          byCategory.set(finding.category, [...(byCategory.get(finding.category) ?? []), finding]);
+        }
+        if (byCategory.size === 0) {
+          return {
+            content: [
+              { type: "text", text: `${project.name} has no Fallow findings. Nothing to clean up.` },
+            ],
+            structuredContent: { project, findings: [] },
+          };
+        }
+        if (!supportsForms(context)) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "This client cannot show forms. Ask the user which findings to clean up.",
+              },
+            ],
+            structuredContent: {
+              project,
+              formsSupported: false,
+              categories: Object.fromEntries(
+                [...byCategory].map(([id, findings]) => [id, findings.length]),
+              ),
+            },
+          };
+        }
+
+        let focus: CategoryId | undefined = category;
+        if (focus === undefined) {
+          const first = await elicit(
+            context,
+            `What should Codex clean up first in ${project.name}?`,
+            categoryForm(byCategory),
+          );
+          if (first.action !== "accept") return declined(first.action);
+          focus = String(first.content["focus"]) as CategoryId;
+        }
+        const candidates = byCategory.get(focus) ?? [];
+        if (candidates.length === 0) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `${project.name} has no ${CATEGORY_TITLES[focus].toLowerCase()} findings.`,
+              },
+            ],
+            structuredContent: { project, category: focus, findings: [] },
+          };
+        }
+
+        const second = await elicit(
+          context,
+          `Choose the ${CATEGORY_TITLES[focus].toLowerCase()} findings to clean up. Open a finding to see its code.`,
+          findingsForm(project, candidates),
+        );
+        if (second.action !== "accept") return declined(second.action);
+
+        const chosen = new Set(
+          (Array.isArray(second.content["findings"])
+            ? second.content["findings"]
+            : [second.content["findings"]]
+          ).map(String),
+        );
+        const selected = candidates.filter((finding) =>
+          chosen.has(findingUri(project.root, finding.id)),
+        );
+        const approach = String(second.content["approach"] ?? "fix");
+        const constraints = Array.isArray(second.content["constraints"])
+          ? second.content["constraints"].map(String)
+          : [];
         return {
           content: [
             {
               type: "text",
-              text: "This client cannot show forms. Ask the user which findings to clean up.",
+              text: `${APPROACH_INSTRUCTIONS[approach] ?? APPROACH_INSTRUCTIONS["fix"]}`,
             },
           ],
           structuredContent: {
             project,
-            formsSupported: false,
-            categories: Object.fromEntries(
-              [...byCategory].map(([id, findings]) => [id, findings.length]),
-            ),
+            category: focus,
+            approach,
+            instructions: APPROACH_INSTRUCTIONS[approach] ?? APPROACH_INSTRUCTIONS["fix"],
+            constraints,
+            findings: selected.map((finding) => ({
+              id: finding.id,
+              rule: finding.rule,
+              location: location(finding),
+              message: finding.message,
+              verify: finding.verify,
+              actions: finding.actions.map((action) => action.description),
+            })),
           },
         };
-      }
+      },
+    );
+  };
+  registerPlanner(server, "fallow_plan_cleanup", ["model"]);
+  registerPlanner(app, "fallow_app_plan_cleanup", ["app"]);
 
-      let focus: CategoryId | undefined = category;
-      if (focus === undefined) {
-        const first = await elicit(
-          context,
-          `What should Codex clean up first in ${project.name}?`,
-          categoryForm(byCategory),
-        );
-        if (first.action !== "accept") return declined(first.action);
-        focus = String(first.content["focus"]) as CategoryId;
-      }
-      const candidates = byCategory.get(focus) ?? [];
-      if (candidates.length === 0) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `${project.name} has no ${CATEGORY_TITLES[focus].toLowerCase()} findings.`,
-            },
-          ],
-          structuredContent: { project, category: focus, findings: [] },
-        };
-      }
-
-      const second = await elicit(
-        context,
-        `Choose the ${CATEGORY_TITLES[focus].toLowerCase()} findings to clean up. Open a finding to see its code.`,
-        findingsForm(project, candidates),
-      );
-      if (second.action !== "accept") return declined(second.action);
-
-      const chosen = new Set(
-        (Array.isArray(second.content["findings"])
-          ? second.content["findings"]
-          : [second.content["findings"]]
-        ).map(String),
-      );
-      const selected = candidates.filter((finding) =>
-        chosen.has(findingUri(project.root, finding.id)),
-      );
-      const approach = String(second.content["approach"] ?? "fix");
-      const constraints = Array.isArray(second.content["constraints"])
-        ? second.content["constraints"].map(String)
-        : [];
-      return {
-        content: [
-          {
-            type: "text",
-            text: `${APPROACH_INSTRUCTIONS[approach] ?? APPROACH_INSTRUCTIONS["fix"]}`,
-          },
-        ],
-        structuredContent: {
-          project,
-          category: focus,
-          approach,
-          instructions: APPROACH_INSTRUCTIONS[approach] ?? APPROACH_INSTRUCTIONS["fix"],
-          constraints,
-          findings: selected.map((finding) => ({
-            id: finding.id,
-            rule: finding.rule,
-            location: location(finding),
-            message: finding.message,
-            verify: finding.verify,
-            actions: finding.actions.map((action) => action.description),
-          })),
-        },
-      };
-    },
-  );
-
-  server.registerTool(
+  app.registerTool(
     "fallow_app_choose_project",
     {
       title: "Choose a project",
@@ -346,7 +365,8 @@ export const registerForms = (context: ServerContext): void => {
           context,
           "Codex returned a folder that Fallow cannot read. Open the folder in a Codex thread instead.",
         );
-      return openDashboard(context, extra, { root, waitMs: 1500 });
+      // The folder comes from the user's answer in a host form, not from the app iframe.
+      return openDashboard(context, extra, { root, waitMs: 1500, trusted: true });
     },
   );
 };

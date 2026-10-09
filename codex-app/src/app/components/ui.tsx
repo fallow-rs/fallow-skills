@@ -130,6 +130,7 @@ const LEVEL_LABEL: Record<Level, string> = { error: "Error", warn: "Warning", in
 export const LevelDot = ({ level }: { level: Level }): JSX.Element => (
   <span
     class={`f-level f-level-${level}`}
+    role="img"
     title={LEVEL_LABEL[level]}
     aria-label={LEVEL_LABEL[level]}
   />
@@ -288,24 +289,37 @@ const copyText = async (text: string): Promise<boolean> => {
   }
 };
 
-export const CopyButton = ({ text, label }: { text: string; label?: string }): JSX.Element => {
-  const [copied, setCopied] = useState(false);
+const CopyButton = ({ text, label }: { text: string; label?: string }): JSX.Element => {
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  const what = label ?? "command";
   return (
-    <Button
-      size="sm"
-      variant="ghost"
-      icon={copied ? "check" : "copy"}
-      title={copied ? "Copied" : `Copy ${label ?? "command"}`}
-      onClick={() => {
-        void copyText(text).then((ok) => {
-          if (!ok) return;
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1400);
-        });
-      }}
-    />
+    <>
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={state === "copied" ? "check" : state === "failed" ? "alert" : "copy"}
+        title={state === "copied" ? "Copied" : state === "failed" ? "Copy failed. Select the text instead." : `Copy ${what}`}
+        onClick={() => {
+          void copyText(text).then((ok) => {
+            setState(ok ? "copied" : "failed");
+            setTimeout(() => setState("idle"), 1800);
+          });
+        }}
+      />
+      <span class="sr-only" role="status">
+        {state === "copied" ? `Copied the ${what}.` : state === "failed" ? "Copy failed." : ""}
+      </span>
+    </>
   );
 };
+
+/** A spinner with a status message for screen readers. */
+export const LoadingStatus = ({ label }: { label: string }): JSX.Element => (
+  <span class="f-loading-inline" role="status">
+    <Spinner />
+    <span class="sr-only">{label}</span>
+  </span>
+);
 
 export const CommandLine = ({ command }: { command: string }): JSX.Element => (
   <div class="f-command">

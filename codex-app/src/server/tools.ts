@@ -7,7 +7,7 @@ import {
 import { z } from "zod";
 import type { Finding, ProjectRef, Report } from "../shared/contracts.ts";
 import type { Analysis } from "./analysis.ts";
-import { problemResult, READ_ONLY, viewResult, type Extra, type ServerContext } from "./context.ts";
+import { appFacing, isKnownRoot, problemResult, READ_ONLY, viewResult, type Extra, type ServerContext } from "./context.ts";
 import { fallowVersion } from "./fallow-cli.ts";
 import { AUDIT_ICON } from "./icons.ts";
 import { resolveProject, sandboxFor } from "./project.ts";
@@ -47,6 +47,12 @@ const timeout = (ms: number): Promise<"timeout"> =>
     setTimeout(() => resolve("timeout"), ms).unref();
   });
 
+/** The folder policy for a tool call; see `resolveProject`. */
+export const rootPolicy =
+  (context: ServerContext, trusted: boolean | undefined) =>
+  async (root: string): Promise<boolean> =>
+    trusted === true || (await isKnownRoot(context, root));
+
 export const pickerResult = async (
   context: ServerContext,
   reason: string,
@@ -76,6 +82,8 @@ interface DashboardOptions {
   base?: string | undefined;
   production?: boolean | undefined;
   force?: boolean | undefined;
+  /** Model-only tools may name any folder outside a thread; app-facing tools only known projects. */
+  trusted?: boolean | undefined;
   /** Entrypoints return a loading view after this time, and the app finishes the run. */
   waitMs?: number | undefined;
 }
@@ -86,7 +94,7 @@ export const openDashboard = async (
   extra: Extra,
   options: DashboardOptions,
 ): Promise<CallToolResult> => {
-  const resolved = await resolveProject(context.store, extra._meta, options.root);
+  const resolved = await resolveProject(context.store, extra._meta, options.root, rootPolicy(context, options.trusted));
   if (resolved === null)
     return pickerResult(context, "Fallow does not know which project to analyze yet.");
   const { project } = resolved;
@@ -126,9 +134,9 @@ export const openDashboard = async (
 export const openAudit = async (
   context: ServerContext,
   extra: Extra,
-  options: { root?: string | undefined; base?: string | undefined },
+  options: { root?: string | undefined; base?: string | undefined; trusted?: boolean },
 ): Promise<CallToolResult> => {
-  const resolved = await resolveProject(context.store, extra._meta, options.root);
+  const resolved = await resolveProject(context.store, extra._meta, options.root, rootPolicy(context, options.trusted));
   if (resolved === null)
     return pickerResult(context, "Fallow does not know which project to audit yet.");
   const settings = await context.store.settings();
@@ -148,13 +156,13 @@ export const openAudit = async (
 };
 
 /** Finds one finding in the newest report of a project, and runs fallow when no report exists yet. */
-export const findFinding = async (
+const findFinding = async (
   context: ServerContext,
   extra: Extra,
   id: string,
   root: string | undefined,
 ): Promise<{ project: ProjectRef; finding: Finding } | null> => {
-  const resolved = await resolveProject(context.store, extra._meta, root);
+  const resolved = await resolveProject(context.store, extra._meta, root, rootPolicy(context, false));
   if (resolved === null) return null;
   const cached = context.analyzer.latest(resolved.project.root);
   const findings =
@@ -173,8 +181,9 @@ export const findFinding = async (
 
 export const registerTools = (context: ServerContext): void => {
   const { server } = context;
+  const app = appFacing(server);
 
-  server.registerTool(
+  app.registerTool(
     "fallow_dashboard",
     {
       title: "Fallow",
@@ -189,7 +198,7 @@ export const registerTools = (context: ServerContext): void => {
             quickAction: {
               title: "Audit this branch",
               icons: [AUDIT_ICON],
-              target: { type: "tool", name: "fallow_audit", arguments: {} },
+              target: { type: "tool", name: "fallow_app_audit", arguments: {} },
             },
           },
         ],
@@ -199,7 +208,7 @@ export const registerTools = (context: ServerContext): void => {
       openDashboard(context, extra, { root, route, waitMs: ENTRYPOINT_WAIT_MS }),
   );
 
-  server.registerTool(
+  app.registerTool(
     "fallow_code_health",
     {
       title: "Code Health",
@@ -211,7 +220,7 @@ export const registerTools = (context: ServerContext): void => {
     async ({ root }, extra) => openDashboard(context, extra, { root, waitMs: ENTRYPOINT_WAIT_MS }),
   );
 
-  server.registerTool(
+  app.registerTool(
     "fallow_open_config",
     {
       title: "Fallow Config",
@@ -231,7 +240,7 @@ export const registerTools = (context: ServerContext): void => {
       ),
   );
 
-  server.registerTool(
+  app.registerTool(
     "fallow_open_sarif",
     {
       title: "SARIF Findings",
@@ -280,10 +289,10 @@ export const registerTools = (context: ServerContext): void => {
           .describe("Ignore a report from the last 10 minutes and run again."),
       }),
       annotations: READ_ONLY,
-      _meta: uiMeta(context),
+      _meta: uiMeta(context, { visibility: ["model"] }),
     },
     async ({ path, scope, base, production, refresh }, extra) =>
-      openDashboard(context, extra, { root: path, scope, base, production, force: refresh }),
+      openDashboard(context, extra, { root: path, scope, base, production, force: refresh, trusted: true }),
   );
 
   server.registerTool(
@@ -301,12 +310,12 @@ export const registerTools = (context: ServerContext): void => {
           .describe("Git ref to compare against. Omit it to let fallow detect the base branch."),
       }),
       annotations: READ_ONLY,
-      _meta: uiMeta(context),
+      _meta: uiMeta(context, { visibility: ["model"] }),
     },
-    async ({ path, base }, extra) => openAudit(context, extra, { root: path, base }),
+    async ({ path, base }, extra) => openAudit(context, extra, { root: path, base, trusted: true }),
   );
 
-  server.registerTool(
+  app.registerTool(
     "fallow_show_finding",
     {
       title: "Show a finding",
@@ -338,7 +347,7 @@ export const registerTools = (context: ServerContext): void => {
     },
   );
 
-  server.registerTool(
+  app.registerTool(
     "fallow_check_install",
     {
       title: "Check Fallow installation",

@@ -111,20 +111,32 @@ the committed files differ.
 
 ## Security notes
 
-- Every app-only tool has `visibility: ["app"]`, so the model cannot call it.
-- `fallow_app_source` reads source lines only inside the analyzed project, and
-  checks that again after it resolves symbolic links. `fallow_app_locate` only
-  returns paths inside the project or the folder of the opened file.
-- App-only tools accept only a project root that a server call already
-  resolved (from the thread, the picker or the recent projects), so the app
-  cannot point the server at another folder.
-- `fallow://` resources only serve projects that the user opened before.
-- Calls from the sidebar or the thread tab reuse the sandbox state of the last
-  model call in the same thread. Without a sandbox, the `auto` binary setting
-  never runs a `node_modules/.bin/fallow` that the opened repository ships; it
-  uses the fallow on PATH, then `npx`.
-- Settings are validated per field. The base branch must not start with `-`, so
-  a setting can never become a fallow flag. The fallow binary is chosen from a
-  fixed list (`auto`, `project`, `path`, `npx`), never from a free-form command.
-- The config preview writes the draft next to the config file, so relative
-  `extends` paths resolve the same way, and deletes it after the run.
+The threat model: you open a repository you do not trust, its content can steer the model, and
+the app iframe runs inside the Codex host.
+
+- **Which fallow runs.** Code that the repository controls runs only inside the Codex sandbox of
+  the thread: its own `node_modules/.bin/fallow`, or `npx` (pinned to `fallow@3`, run from a temp
+  folder with `--root`, so a repository `.npmrc` cannot redirect the install). Outside the sandbox
+  the app runs only a fallow on your PATH, and skips PATH entries inside the project.
+- **Whose sandbox state counts.** Only the model-only tools (`fallow_analyze`, `fallow_audit`,
+  `fallow_plan_cleanup`) read `codex/sandbox-state-meta` from the call, and only when
+  `codexExecutable` is an absolute path to `codex`. Every tool that the app iframe can call goes
+  through `appFacing`, which removes that state; those tools use the state that a model call in
+  the same thread stored in memory.
+- **Which folders.** In a thread, a folder argument from the model stays inside the working
+  directory of the thread. App-facing tools accept only a project that a server call already
+  resolved, or that you picked in the project form.
+- **Which files.** `fallow_app_source` reads lines only from files that the newest report names,
+  and checks the real path after it resolves symbolic links. `fallow_app_locate` only returns
+  paths inside the project or the folder of the opened file.
+- **What fallow gets.** The child process gets an allowlist of environment variables (`PATH`,
+  `HOME`, locale, temp, proxy and certificate variables, `GIT_*`, `FALLOW_*`), so tokens in the
+  Codex environment stay out of it. On Windows, a `.cmd` shim never receives an argument with a
+  cmd.exe metacharacter.
+- **What the model reads.** Names and paths from the repository are cleaned of control
+  characters and backticks and capped in length before they reach the model.
+- **Settings.** The base branch must not start with `-`, so it can never become a flag. The binary
+  setting is a fixed choice (`auto`, `project`, `path`, `npx`), never a free-form command.
+- **Links.** The app opens only `https:` and `http:` links, whatever a SARIF file contains.
+- The config preview writes the draft next to the config file, so relative `extends` paths
+  resolve the same way, and deletes it after the run.

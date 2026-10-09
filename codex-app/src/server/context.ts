@@ -1,4 +1,6 @@
+import { isAbsolute, resolve } from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { withoutSandboxMeta } from "./project.ts";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import type {
   CallToolResult,
@@ -57,3 +59,32 @@ export const READ_ONLY = {
   destructiveHint: false,
   openWorldHint: false,
 } as const;
+
+type AnyCallback = (args: unknown, extra: Extra) => unknown;
+
+/**
+ * Registers tools that the app iframe can call. Their callbacks never see Codex sandbox state from
+ * the call itself, because the iframe could forge it. Only model-only tools read that state.
+ */
+export const appFacing = (server: McpServer): Pick<McpServer, "registerTool"> => ({
+  registerTool: ((name: string, config: unknown, callback: AnyCallback) =>
+    (server.registerTool as unknown as (name: string, config: unknown, callback: AnyCallback) => unknown)(
+      name,
+      config,
+      (args, extra) => callback(args, withoutSandboxMeta(extra)),
+    )) as unknown as McpServer["registerTool"],
+});
+
+/**
+ * A root that the app may name: one that a server-side call resolved before (from the thread, the
+ * picker or the recent list). The app cannot point the server at an arbitrary folder.
+ */
+export const isKnownRoot = async (
+  context: ServerContext,
+  root: string | undefined): Promise<boolean> => {
+  if (root === undefined || !isAbsolute(root)) return false;
+  const normalized = resolve(root);
+  if (context.analyzer.hasSeen(normalized)) return true;
+  return (await context.store.recents()).some((recent) => recent.root === normalized);
+};
+
