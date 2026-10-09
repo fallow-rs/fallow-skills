@@ -128,6 +128,7 @@ export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.
   const [query, setQuery] = useState(initial.query);
   const [groupBy, setGroupBy] = useState<"file" | "rule">("file");
   const [detailId, setDetailId] = useState<string | null>(initial.findingId);
+  const [formNotice, setFormNotice] = useState(false);
   const [busy, setBusy] = useState<"refresh" | "scope" | "cleanup" | null>(null);
   const [selected, setSelected] = useAttachmentSync(host, report.project, report.findings);
   const inline = host.displayMode === "inline";
@@ -187,8 +188,17 @@ export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.
         ...(category === null ? {} : { category }),
       });
       const plan = result.structuredContent as
-        | { instructions?: string; constraints?: string[]; findings?: Array<{ id: string }> }
+        | {
+            status?: string;
+            instructions?: string;
+            constraints?: string[];
+            findings?: Array<{ id: string }>;
+          }
         | undefined;
+      if (plan?.status === "form_not_shown") {
+        setFormNotice(true);
+        return;
+      }
       const ids = new Set((plan?.findings ?? []).map((finding) => finding.id));
       if (plan?.instructions === undefined || ids.size === 0) return;
       const constraints = plan.constraints ?? [];
@@ -288,6 +298,18 @@ export const Dashboard = ({ host, report, route, onView }: DashboardProps): JSX.
           ) : null}
         </div>
       </header>
+
+      {formNotice ? (
+        <div class="f-banner f-banner-warn" role="status">
+          <Icon name="info" size={14} />
+          <span>
+            Codex did not show the cleanup form. It declines forms when the thread runs in Full
+            access mode. Switch the thread to Default permissions, or select findings and use Fix
+            with Codex.
+          </span>
+          <Button size="sm" variant="ghost" icon="close" title="Dismiss" onClick={() => setFormNotice(false)} />
+        </div>
+      ) : null}
 
       {report.notices.map((notice) => (
         <div key={notice} class="f-banner f-banner-warn" role="status">

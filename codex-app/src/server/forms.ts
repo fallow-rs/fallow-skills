@@ -27,15 +27,29 @@ const supportsForms = (context: ServerContext): boolean => {
   return capabilities?.extensions?.["openai/elicitation"] !== undefined;
 };
 
-const elicit = (
+/**
+ * An answer faster than this means the host declined the form without showing it. Codex does that
+ * in Full access mode (approval policy `never`), unless the host enables form input there.
+ */
+const FORM_NOT_SHOWN_MS = 1000;
+
+type FormOutcome = { result: OpenAIFormResult; notShown: boolean };
+
+const elicit = async (
   context: ServerContext,
   message: string,
   requestedSchema: Requested,
-): Promise<OpenAIFormResult> =>
-  createElicitInput(context.server)(
+): Promise<FormOutcome> => {
+  const started = Date.now();
+  const result = await createElicitInput(context.server)(
     { mode: "form", message, requestedSchema },
     { timeout: FORM_TIMEOUT_MS, resetTimeoutOnProgress: true },
   );
+  return { result, notShown: result.action !== "accept" && Date.now() - started < FORM_NOT_SHOWN_MS };
+};
+
+const FORM_NOT_SHOWN_TEXT =
+  "Codex did not show the form: it declined it at once. Codex declines forms when the thread runs in Full access mode.";
 
 const plain = (text: string): string => text.replace(/`/g, "");
 
@@ -151,12 +165,34 @@ const findingsForm = (project: ProjectRef, findings: Finding[]): Requested => {
   } as Requested;
 };
 
-const declined = (action: string): CallToolResult => ({
-  content: [
-    { type: "text", text: `The user closed the form (${action}). Do not start a cleanup.` },
-  ],
-  structuredContent: { status: action },
-});
+const declined = (
+  outcome: FormOutcome,
+  project: ProjectRef,
+  byCategory: Map<CategoryId, Finding[]>,
+): CallToolResult =>
+  outcome.notShown
+    ? {
+        content: [
+          {
+            type: "text",
+            text: `${FORM_NOT_SHOWN_TEXT} Ask the user in chat which category to clean up first, using the counts below. Then work from the findings of fallow_analyze.`,
+          },
+        ],
+        structuredContent: {
+          status: "form_not_shown",
+          project,
+          categories: Object.fromEntries([...byCategory].map(([id, findings]) => [id, findings.length])),
+        },
+      }
+    : {
+        content: [
+          {
+            type: "text",
+            text: `The user closed the form (${outcome.result.action}). Do not start a cleanup.`,
+          },
+        ],
+        structuredContent: { status: outcome.result.action },
+      };
 
 const APPROACH_INSTRUCTIONS: Record<string, string> = {
   fix: "Fix the selected findings. Run each `verify` command first and skip a finding that the evidence does not confirm. Keep each change small.",
@@ -257,12 +293,13 @@ export const registerForms = (context: ServerContext): void => {
 
         let focus: CategoryId | undefined = category;
         if (focus === undefined) {
-          const first = await elicit(
+          const firstForm = await elicit(
             context,
             `What should Codex clean up first in ${project.name}?`,
             categoryForm(byCategory),
           );
-          if (first.action !== "accept") return declined(first.action);
+          const first = firstForm.result;
+          if (first.action !== "accept") return declined(firstForm, project, byCategory);
           focus = String(first.content["focus"]) as CategoryId;
         }
         const candidates = byCategory.get(focus) ?? [];
@@ -278,12 +315,13 @@ export const registerForms = (context: ServerContext): void => {
           };
         }
 
-        const second = await elicit(
+        const secondForm = await elicit(
           context,
           `Choose the ${CATEGORY_TITLES[focus].toLowerCase()} findings to clean up. Open a finding to see its code.`,
           findingsForm(project, candidates),
         );
-        if (second.action !== "accept") return declined(second.action);
+        const second = secondForm.result;
+        if (second.action !== "accept") return declined(secondForm, project, byCategory);
 
         const chosen = new Set(
           (Array.isArray(second.content["findings"])
@@ -346,7 +384,7 @@ export const registerForms = (context: ServerContext): void => {
         title: recent.grade === null ? recent.name : `${recent.name} (grade ${recent.grade})`,
         description: recent.root,
       }));
-      const form = await elicit(context, "Choose a JavaScript or TypeScript project for Fallow.", {
+      const outcome = await elicit(context, "Choose a JavaScript or TypeScript project for Fallow.", {
         type: "object",
         required: ["project"],
         properties: {
@@ -359,7 +397,15 @@ export const registerForms = (context: ServerContext): void => {
           },
         },
       } as Requested);
-      if (form.action !== "accept") return pickerResult(context, "No project was chosen.");
+      const form = outcome.result;
+      if (form.action !== "accept") {
+        return pickerResult(
+          context,
+          outcome.notShown
+            ? `${FORM_NOT_SHOWN_TEXT} Pick a recent project, or open the project folder in a Codex thread.`
+            : "No project was chosen.",
+        );
+      }
       const root = toLocalPath(String(form.content["project"]));
       if (root === null)
         return pickerResult(
