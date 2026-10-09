@@ -12,7 +12,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -67,12 +67,25 @@ await client.connect(
   }),
 );
 
+// Seed the project the way Codex does: a model call in a thread carries the working directory.
+await client.callTool(
+  {
+    name: "fallow_analyze",
+    arguments: {},
+    _meta: {
+      threadId: "00000000-0000-4000-8000-000000000001",
+      "codex/sandbox-state-meta": { sandboxCwd: pathToFileURL(project).href },
+    },
+  },
+  undefined,
+  { timeout: 600_000 },
+);
+
 const scenarios = [
-  { id: "sidebar", label: "Sidebar (fullscreen)", tool: "fallow_dashboard", args: { root: project }, mode: "fullscreen", width: 1180 },
-  { id: "tab", label: "Thread tab (narrow)", tool: "fallow_code_health", args: { root: project }, mode: "fullscreen", width: 420 },
+  { id: "sidebar", label: "Sidebar (fullscreen)", tool: "fallow_dashboard", args: {}, mode: "fullscreen", width: 1180 },
+  { id: "tab", label: "Thread tab (narrow)", tool: "fallow_code_health", args: {}, mode: "fullscreen", width: 420 },
   { id: "inline", label: "Model result (inline)", tool: "fallow_analyze", args: {}, mode: "inline", width: 720, model: true },
   { id: "audit", label: "Audit (inline)", tool: "fallow_audit", args: {}, mode: "inline", width: 720, model: true },
-  { id: "picker", label: "No project", tool: "fallow_dashboard", args: {}, mode: "fullscreen", width: 900 },
   { id: "config", label: "Config file", tool: "fallow_open_config", args: {}, mode: "fullscreen", width: 980, file: configFile },
   ...(sarifFile === null ? [] : [{ id: "sarif", label: "SARIF file", tool: "fallow_open_sarif", args: {}, mode: "fullscreen", width: 980, file: sarifFile }]),
 ];

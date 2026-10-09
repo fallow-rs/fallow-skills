@@ -125,14 +125,20 @@ export const resolveFallow = async (
 
 /**
  * Only these variables reach fallow, so tokens in the Codex environment stay out of a project binary.
- * Case-insensitive, because Windows keeps names such as `Path` and `SystemRoot`. `npm_config_*` keeps a
- * private registry or proxy working for npx; `NODE_OPTIONS` stays out, since it can load code.
+ * Case-insensitive, because Windows keeps names such as `Path` and `SystemRoot`. The npm registry and
+ * proxy settings keep npx working behind a proxy; npm and git credentials, `NODE_OPTIONS` (which can
+ * load code) and git configuration overrides stay out.
  */
 const ENV_ALLOWLIST =
-  /^(PATH|PATHEXT|HOME|USERPROFILE|HOMEDRIVE|HOMEPATH|TMPDIR|TEMP|TMP|LANG|LANGUAGE|LC_[A-Z]+|TZ|SYSTEMROOT|SYSTEMDRIVE|COMSPEC|WINDIR|APPDATA|LOCALAPPDATA|PROGRAMDATA|XDG_[A-Z_]+|SHELL|USER|LOGNAME|TERM|SSL_CERT_FILE|SSL_CERT_DIR|NODE_EXTRA_CA_CERTS|HTTPS?_PROXY|NO_PROXY|ALL_PROXY|NPM_CONFIG_[A-Z0-9_]+|FALLOW_[A-Z0-9_]+|GIT_[A-Z_]+)$/i;
+  /^(PATH|PATHEXT|HOME|USERPROFILE|HOMEDRIVE|HOMEPATH|TMPDIR|TEMP|TMP|LANG|LANGUAGE|LC_[A-Z]+|TZ|SYSTEMROOT|SYSTEMDRIVE|COMSPEC|WINDIR|APPDATA|LOCALAPPDATA|PROGRAMDATA|XDG_[A-Z_]+|SHELL|USER|LOGNAME|TERM|SSL_CERT_FILE|SSL_CERT_DIR|NODE_EXTRA_CA_CERTS|HTTPS?_PROXY|NO_PROXY|ALL_PROXY|NPM_CONFIG_(REGISTRY|PROXY|HTTPS_PROXY|NOPROXY|STRICT_SSL|CAFILE)|FALLOW_[A-Z0-9_]+|GIT_(DIR|WORK_TREE|CEILING_DIRECTORIES))$/i;
+
+/** A name that can hold a credential never passes, even when a prefix above would allow it. */
+const ENV_SECRET = /TOKEN|SECRET|PASSWORD|PASSWD|AUTH|CREDENTIAL|_KEY$|APIKEY/i;
 
 const childEnvironment = (): NodeJS.ProcessEnv => ({
-  ...Object.fromEntries(Object.entries(process.env).filter(([name]) => ENV_ALLOWLIST.test(name))),
+  ...Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => ENV_ALLOWLIST.test(name) && !ENV_SECRET.test(name)),
+  ),
   NO_COLOR: "1",
   FORCE_COLOR: "0",
 });

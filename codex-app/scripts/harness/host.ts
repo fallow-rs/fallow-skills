@@ -154,13 +154,12 @@ const mount = async (scenario: Scenario): Promise<void> => {
     return (await rpc("resources/read", params)) as never;
   };
   host.onupdatemodelcontext = async (params) => {
-    modelContext = { ...params, updateId: `update-${Date.now()}` };
+    const updateId = `update-${Date.now()}`;
+    modelContext = { ...params, updateId };
     log("composer attachments", params);
-    return {
-      _meta: {
-        "openai/modelContext": { updateId: (modelContext as { updateId: string }).updateId },
-      },
-    } as never;
+    // Codex echoes the new attachments back as host context; do the same.
+    setTimeout(() => void host.sendHostContextChange({ "openai/modelContext": modelContext } as never), 50);
+    return { _meta: { "openai/modelContext": { updateId } } } as never;
   };
   host.onmessage = async (params) => {
     log("message to Codex", params);

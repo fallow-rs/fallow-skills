@@ -49,12 +49,18 @@ export const useAttachmentSync = (host: Host, project: ProjectRef, findings: Fin
   const ownUpdates = useRef(new Set<string>());
   const inFlight = useRef(0);
   const sequence = useRef(0);
+  const lastHostUpdate = useRef<string | null>(host.attachedState()?.updateId ?? null);
 
-  /** Takes the host's attachments as the selection, unless they are the echo of our own update. */
+  /**
+   * Takes the host's attachments as the selection when the host reports a new update that is not
+   * ours, for example after the user removed a chip. Other host context changes (theme, size) keep
+   * the same update id and change nothing.
+   */
   const syncFromHost = (): void => {
     if (inFlight.current > 0) return;
     const state = host.attachedState();
-    if (state === null) return;
+    if (state === null || state.updateId === lastHostUpdate.current) return;
+    lastHostUpdate.current = state.updateId;
     if (state.updateId !== null && ownUpdates.current.has(state.updateId)) return;
     const ids = [...state.ids].filter((id) => byId.has(id));
     const key = keyOf(ids);

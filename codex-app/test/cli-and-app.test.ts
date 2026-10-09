@@ -86,17 +86,20 @@ describe("runFallow", { skip: IS_WINDOWS ? "uses POSIX shell scripts as fake bin
 
   it("passes only allowlisted environment variables to fallow", async () => {
     process.env["SECRET_API_TOKEN"] = "do-not-leak";
+    process.env["npm_config_//registry.npmjs.org/:_authToken"] = "do-not-leak";
     process.env["FALLOW_TEST_FLAG"] = "kept";
     try {
       const root = projectWithFallow(
-        `printf '{"kind":"combined","secret":"%s","flag":"%s"}' "$SECRET_API_TOKEN" "$FALLOW_TEST_FLAG"`,
+        `printf '{"kind":"combined","secret":"%s","npm":"%s","flag":"%s"}' "$SECRET_API_TOKEN" "$(env | grep -ci authtoken)" "$FALLOW_TEST_FLAG"`,
       );
       const result = await run(root)();
       assert.ok(result.ok);
       assert.equal(result.json["secret"], "");
+      assert.equal(result.json["npm"], "0");
       assert.equal(result.json["flag"], "kept");
     } finally {
       delete process.env["SECRET_API_TOKEN"];
+      delete process.env["npm_config_//registry.npmjs.org/:_authToken"];
       delete process.env["FALLOW_TEST_FLAG"];
     }
   });

@@ -10,7 +10,7 @@ import { CATEGORY_ORDER, CATEGORY_TITLES } from "../shared/categories.ts";
 import type { CategoryId, Finding, ProjectRef } from "../shared/contracts.ts";
 import { appFacing, problemResult, READ_ONLY, type Extra, type ServerContext } from "./context.ts";
 import { categoryThumbnail } from "./icons.ts";
-import { resolveProject, sandboxFor, toLocalPath } from "./project.ts";
+import { resolveProject, sandboxFor, sandboxFromMeta, toLocalPath } from "./project.ts";
 import { findingUri } from "./uris.ts";
 import { openDashboard, pickerResult, rootPolicy, uiMeta } from "./tools.ts";
 
@@ -211,7 +211,8 @@ export const registerForms = (context: ServerContext): void => {
           context.store,
           extra._meta,
           path,
-          rootPolicy(context, visibility.includes("model")),
+          // A folder argument counts only from the model, and only with a Codex sandbox.
+          rootPolicy(context, visibility.includes("model") && sandboxFromMeta(extra._meta) !== null),
         );
         if (resolved === null)
           return pickerResult(context, "Fallow does not know which project to clean up yet.");
