@@ -135,7 +135,7 @@ describe("file access for the app", () => {
 
 describe("resource keys", () => {
   it("round-trips a root and rejects anything that is not an absolute path", () => {
-    assert.equal(rootFromKey(projectKey("/Users/me/shop")), "/Users/me/shop");
+    assert.equal(rootFromKey(projectKey("/home/me/shop")), "/home/me/shop");
     assert.equal(rootFromKey(projectKey("relative")), null);
     assert.equal(rootFromKey("not base64!"), null);
   });
