@@ -296,27 +296,17 @@ jobs:
         working-directory: codex-app
         run: npm ci --ignore-scripts --no-audit --no-fund
 
-      # The action reports the findings as annotations and in the job summary.
-      # It does not gate yet: with a health baseline, its issue count still includes the
-      # suppressed findings. The fix is on the roadmap. The next step gates the job until then.
-      - uses: fallow-rs/fallow@aaaec796f5449810b9ecf82ed7e62b775d4d1ef3 # v3.32.0
-        with:
-          version: 3.32.0
-          root: codex-app
-          threshold: "0.1"
-          fail-on-issues: false
-          args: "--health-baseline codex-app/health-baseline.json"
-
       # The health baseline holds the complexity that existed before this gate.
       # A new finding fails the job, and so does a fixed finding that is still in the baseline.
-      # Update it with: npx fallow@3.32.0 health --root codex-app --save-baseline codex-app/health-baseline.json
+      # Update it with: npx fallow@3.33.1 health --root codex-app --save-baseline codex-app/health-baseline.json
       # Duplication fails above 0.1%, because 0 means no limit.
-      - name: Gate on dead code, duplication and complexity
-        run: >-
-          npx --yes fallow@3.32.0 --root codex-app --quiet
-          --dupes-threshold 0.1
-          --health-baseline codex-app/health-baseline.json
-          --fail-on-stale-baseline
+      - uses: fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1
+        with:
+          version: 3.33.1
+          root: codex-app
+          threshold: "0.1"
+          health-baseline: codex-app/health-baseline.json
+          fail-on-stale-baseline: true
 
   publish-release:
     if: startsWith(github.ref, 'refs/tags/v')
