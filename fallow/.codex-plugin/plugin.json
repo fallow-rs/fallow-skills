@@ -1,6 +1,6 @@
 {
   "name": "fallow",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "description": "Local-first codebase intelligence for TypeScript and JavaScript using fallow",
   "author": {
     "name": "Bart Waardenburg",
@@ -41,6 +41,7 @@
       "Impact summaries"
     ],
     "websiteURL": "https://fallow.tools/plugins?utm_source=openai&utm_medium=plugin-directory",
+    "supportURL": "https://github.com/fallow-rs/fallow/issues",
     "privacyPolicyURL": "https://fallow.tools/privacy",
     "termsOfServiceURL": "https://fallow.tools/terms",
     "defaultPrompt": [
