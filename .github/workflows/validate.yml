@@ -215,9 +215,8 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
+          package-manager-cache: false
           node-version: 24
-          cache: npm
-          cache-dependency-path: codex-app/package-lock.json
 
       - name: Install the Fallow app toolchain
         working-directory: codex-app
@@ -287,9 +286,8 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
+          package-manager-cache: false
           node-version: 24
-          cache: npm
-          cache-dependency-path: codex-app/package-lock.json
 
       # fallow resolves the imports through node_modules.
       - name: Install the Fallow app dependencies
@@ -309,6 +307,7 @@ jobs:
           fail-on-stale-baseline: true
 
   publish-release:
+    environment: release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [validate, fallow]
     runs-on: ubuntu-26.04
