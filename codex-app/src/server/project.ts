@@ -28,7 +28,7 @@ const isWithinRealDirectory = async (base: string, candidate: string): Promise<b
   return realBase !== null && realCandidate !== null && isWithinDirectory(realBase, realCandidate);
 };
 
-const isDirectory = async (path: string): Promise<boolean> => {
+export const isDirectory = async (path: string): Promise<boolean> => {
   try {
     return (await stat(path)).isDirectory();
   } catch {
@@ -208,7 +208,7 @@ const readSessionCwd = async (file: string): Promise<string | null> => {
   }
 };
 
-export type ProjectSource = "argument" | "thread" | "file" | "recent";
+export type ProjectSource = "argument" | "thread" | "file" | "client" | "recent";
 
 export interface ResolvedProject {
   project: ProjectRef;
@@ -220,7 +220,9 @@ type AllowRoot = (root: string) => Promise<boolean>;
 
 const projectRecorder = (store: StateStore, threadId: string | null): RememberProject =>
   async (root: string, source: ProjectSource): Promise<ResolvedProject> => {
-    if (threadId !== null && source !== "recent") await store.rememberThread(threadId, root);
+    // A fallback project never becomes the project of a thread.
+    if (threadId !== null && source !== "recent" && source !== "client")
+      await store.rememberThread(threadId, root);
     return { project: await describeProject(root), source };
   };
 
@@ -308,15 +310,31 @@ const recentProject = async (
   return null;
 };
 
+type ClientRoot = () => Promise<string | null>;
+
+/** Asks the client at most once per tool call. */
+const once = (ask: ClientRoot): ClientRoot => {
+  let answer: Promise<string | null> | undefined;
+  return () => (answer ??= ask());
+};
+
+const clientRootProject = async (
+  root: string | null,
+  remember: RememberProject,
+): Promise<ResolvedProject | null> =>
+  root === null ? null : remember(await detectProjectRoot(root), "client");
+
 const contextProject = async (
   store: StateStore,
   meta: unknown,
   cwd: string | null,
   threadId: string | null,
+  clientRoot: ClientRoot,
   remember: RememberProject,
 ): Promise<ResolvedProject | null> =>
   (await hostProject(meta, cwd, remember)) ??
   (await threadProject(store, threadId, remember)) ??
+  (await clientRootProject(await clientRoot(), remember)) ??
   (await recentProject(store, remember));
 
 const hasExplicitRoot = (root: string | undefined): root is string =>
@@ -324,7 +342,8 @@ const hasExplicitRoot = (root: string | undefined): root is string =>
 
 /**
  * Resolves an explicit `root` argument. Returns `undefined` when the call names no root.
- * Returns `null` when a thread rejects the root, because a rejected root must not fall back to another project.
+ * Returns `null` when a thread or a client root rejects the root, because a rejected root must not
+ * fall back to another project.
  */
 const requestedProject = async (
   store: StateStore,
@@ -332,18 +351,20 @@ const requestedProject = async (
   cwd: string | null,
   threadId: string | null,
   allowRoot: AllowRoot,
+  clientRoot: ClientRoot,
   remember: RememberProject,
 ): Promise<ResolvedProject | null | undefined> => {
   if (!hasExplicitRoot(explicitRoot)) return undefined;
   const local = await explicitPath(store, explicitRoot, cwd, threadId);
   const project = await explicitProject(local, cwd, allowRoot, remember);
   if (project !== null) return project;
-  return cwd !== null ? null : undefined;
+  return cwd !== null || (await clientRoot()) !== null ? null : undefined;
 };
 
 /**
- * Finds the project for a tool call, most specific first:
- * an explicit `root` argument, the thread working directory, the file the app opened, then the last project.
+ * Finds the project for a tool call, most specific first: an explicit `root` argument, the thread
+ * working directory, the file the app opened, the project of the thread, the first root of the MCP
+ * client, then the last project. A client root never widens which folder arguments are allowed.
  */
 export const resolveProject = async (
   store: StateStore,
@@ -351,11 +372,22 @@ export const resolveProject = async (
   explicitRoot: string | undefined,
   /** Decides on a folder argument outside a Codex thread. App-facing tools allow only known projects. */
   allowRoot: AllowRoot = async (): Promise<boolean> => true,
+  /** The first root of the MCP client, for hosts that send no Codex thread state. */
+  askClientRoot: ClientRoot = async (): Promise<string | null> => null,
 ): Promise<ResolvedProject | null> => {
   const threadId = threadFromMeta(meta);
   const remember = projectRecorder(store, threadId);
   const cwd = sandboxCwd(meta);
-  const requested = await requestedProject(store, explicitRoot, cwd, threadId, allowRoot, remember);
+  const clientRoot = once(askClientRoot);
+  const requested = await requestedProject(
+    store,
+    explicitRoot,
+    cwd,
+    threadId,
+    allowRoot,
+    clientRoot,
+    remember,
+  );
   if (requested !== undefined) return requested;
-  return contextProject(store, meta, cwd, threadId, remember);
+  return contextProject(store, meta, cwd, threadId, clientRoot, remember);
 };

@@ -7,7 +7,7 @@ import {
 import { z } from "zod";
 import type { Finding, ProjectRef, Report } from "../shared/contracts.ts";
 import type { Analysis } from "./analysis.ts";
-import { appFacing, isKnownRoot, problemResult, READ_ONLY, viewResult, type Extra, type ServerContext } from "./context.ts";
+import { appFacing, clientRoot, isKnownRoot, problemResult, READ_ONLY, viewResult, type Extra, type ServerContext } from "./context.ts";
 import { fallowVersion } from "./fallow-cli.ts";
 import { AUDIT_ICON } from "./icons.ts";
 import { resolveProject, sandboxFor, sandboxFromMeta } from "./project.ts";
@@ -94,7 +94,13 @@ export const openDashboard = async (
   extra: Extra,
   options: DashboardOptions,
 ): Promise<CallToolResult> => {
-  const resolved = await resolveProject(context.store, extra._meta, options.root, rootPolicy(context, options.trusted));
+  const resolved = await resolveProject(
+    context.store,
+    extra._meta,
+    options.root,
+    rootPolicy(context, options.trusted),
+    () => clientRoot(context),
+  );
   if (resolved === null)
     return pickerResult(context, "Fallow does not know which project to analyze yet.");
   const { project } = resolved;
@@ -136,7 +142,13 @@ export const openAudit = async (
   extra: Extra,
   options: { root?: string | undefined; base?: string | undefined; trusted?: boolean },
 ): Promise<CallToolResult> => {
-  const resolved = await resolveProject(context.store, extra._meta, options.root, rootPolicy(context, options.trusted));
+  const resolved = await resolveProject(
+    context.store,
+    extra._meta,
+    options.root,
+    rootPolicy(context, options.trusted),
+    () => clientRoot(context),
+  );
   if (resolved === null)
     return pickerResult(context, "Fallow does not know which project to audit yet.");
   const settings = await context.store.settings();
@@ -162,7 +174,13 @@ const findFinding = async (
   id: string,
   root: string | undefined,
 ): Promise<{ project: ProjectRef; finding: Finding } | null> => {
-  const resolved = await resolveProject(context.store, extra._meta, root, rootPolicy(context, false));
+  const resolved = await resolveProject(
+    context.store,
+    extra._meta,
+    root,
+    rootPolicy(context, false),
+    () => clientRoot(context),
+  );
   if (resolved === null) return null;
   const cached = context.analyzer.latest(resolved.project.root);
   const findings =
@@ -364,7 +382,13 @@ export const registerTools = (context: ServerContext): void => {
       annotations: READ_ONLY,
     },
     async (_args, extra) => {
-      const resolved = await resolveProject(context.store, extra._meta, undefined);
+      const resolved = await resolveProject(
+        context.store,
+        extra._meta,
+        undefined,
+        undefined,
+        () => clientRoot(context),
+      );
       const settings = await context.store.settings();
       const root = resolved?.project.root ?? process.cwd();
       const version = await fallowVersion(root, settings.source);

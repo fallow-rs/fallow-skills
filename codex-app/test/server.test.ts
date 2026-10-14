@@ -15,7 +15,7 @@ import { pathToFileURL } from "node:url";
 import { after, before, describe, it } from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { ListRootsRequestSchema, type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { ViewPayload } from "../src/shared/contracts.ts";
 
 const plugin = new URL("../../fallow/", import.meta.url);
@@ -270,6 +270,33 @@ describe(
         arguments: { set: { baseRef: "--evil" } },
       })) as CallToolResult;
       assert.equal(rejected.isError, true);
+    });
+
+    it("analyzes the client root when a host other than Codex sends roots", { skip: hasFallow ? false : "fallow is not installed" }, async () => {
+      const host = new Client({ name: "roots-host", version: "1.0.0" }, { capabilities: { roots: {} } });
+      host.setRequestHandler(ListRootsRequestSchema, async () => ({
+        roots: [{ uri: pathToFileURL(project).href, name: "e2e-shop" }],
+      }));
+      await host.connect(
+        new StdioClientTransport({
+          command: process.execPath,
+          args: [server.pathname],
+          cwd: plugin.pathname,
+          env: { ...process.env, FALLOW_CODEX_APP_STATE: join(project, ".state-roots.json") } as Record<string, string>,
+          stderr: "inherit",
+        }),
+      );
+      try {
+        const result = (await host.callTool({ name: "fallow_analyze", arguments: {} })) as CallToolResult;
+        assert.equal(view(result).view, "dashboard");
+        const outside = (await host.callTool({
+          name: "fallow_analyze",
+          arguments: { path: tmpdir() },
+        })) as CallToolResult;
+        assert.equal(view(outside).view, "picker");
+      } finally {
+        await host.close();
+      }
     });
 
     it("tells the model when Codex declines a form without showing it", { skip: hasFallow ? false : "fallow is not installed" }, async () => {

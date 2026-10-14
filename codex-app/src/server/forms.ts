@@ -8,7 +8,7 @@ import {
 import { z } from "zod";
 import { CATEGORY_ORDER, CATEGORY_TITLES } from "../shared/categories.ts";
 import type { CategoryId, Finding, ProjectRef } from "../shared/contracts.ts";
-import { appFacing, problemResult, READ_ONLY, type Extra, type ServerContext } from "./context.ts";
+import { appFacing, clientRoot, problemResult, READ_ONLY, type Extra, type ServerContext } from "./context.ts";
 import { categoryThumbnail } from "./icons.ts";
 import { resolveProject, sandboxFor, sandboxFromMeta, toLocalPath } from "./project.ts";
 import { findingUri } from "./uris.ts";
@@ -263,6 +263,7 @@ const prepareCleanup = async (
     path,
     // A folder argument counts only from the model, and only with a Codex sandbox.
     rootPolicy(context, visibility.includes("model") && sandboxFromMeta(extra._meta) !== null),
+    () => clientRoot(context),
   );
   if (resolved === null) {
     return {

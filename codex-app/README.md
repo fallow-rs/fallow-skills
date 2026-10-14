@@ -63,6 +63,11 @@ Two Codex host features matter as much as the extensions:
   maps it to a project from an earlier model call in that thread, or from the
   first line of the Codex session log of the thread.
 
+Other MCP hosts send no sandbox state. When the client declares the `roots`
+capability and no thread names a project, the server uses the first local
+folder root as the project. A client root is only a fallback: it does not
+change which folder arguments the server accepts.
+
 Codex gives the model the `structuredContent` of a tool result and drops
 `content` when both exist. So `structuredContent` holds a compact summary for
 the model (score, totals, the top findings with verify commands), and the full
