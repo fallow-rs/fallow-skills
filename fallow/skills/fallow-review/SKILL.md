@@ -147,9 +147,16 @@ Validation is not the review. Once the judgments are accepted, render them for a
 4. **Deprioritized** as one line with the count and `--show-deprioritized` as the escape hatch, so nothing is hidden and nothing is padded.
 5. A review with zero decisions and an abstained trade-off envelope is a complete review: "nothing consequential; deterministic findings: N". It is not a failure and never a reason to invent items.
 
-Two graph facts feed the composition without adding items:
+Three graph facts feed the composition without adding items:
 
 - Each direction unit carries `test_adjacency`: `none` (no test file imports this unit), `untouched` (a test importer exists but is not in the diff), or `changed` (a test importer is in the diff). It is absent for test files and when the graph was not retained. For a `review-here` unit with `none`, ask the author for the verification story in the framing. Never claim coverage; the value says whether a test imports the unit, not whether it exercises the change.
+- `digest.test_reach` gives the reach of each changed value export. `status` is `measured` or `no-tests`. `counts` holds every class. `exports` lists rows only for the classes that are not `direct` or `framework`, each with `file`, `export_name`, `line` and `reach`:
+  - `transitive`: a test reaches the export, but no test names it.
+  - `mocked-only`: the tests replace the file with a mock (`mocked_targets`), so the real code does not run.
+  - `none`: a test reaches the file, but no test reaches the export.
+  - `none-file`: no test reaches the file.
+
+  For a `review-here` unit whose file has a `mocked-only`, `none` or `none-file` row, cite the row (file, export, class) in the framing and ask the author for the verification story. A row has no `signal_id`: anchor the note on the `change_anchor` whose range covers the row `line`. The `reach` set is open: an unknown value needs attention. When `test_reach` and `test_adjacency` disagree, use `test_reach`, because it is per export and it sees mocks. Never write "tested" or "covered" from these facts: `direct` means that a test names the export, not that a test runs the changed lines. For `status: "no-tests"`, write one orientation line, not one line per export. For `masking: "capped"`, the graph cannot see mocks, so the absence of `mocked-only` rows proves nothing. When present, `test_reach.e2e_runner: true` tells you that the project has an end-to-end runner: its tests do not import files, so a `none-file` row can still have end-to-end tests. Ask, do not assume.
 - `digest.partition.independent_slices` lists the connected components of the inter-unit dependency graph, each a sorted list of module directories. It is present only when there are two or more slices; absent means the change is one connected piece. When `digest.triage.risk_class` is `high` and the field is present, name them as an orientation fact: "this change splits into K independent slices along a graph-proven seam". It is never a demand to split; the author owns that call.
 
 Two rules govern the prose. Leverage first: one structural decision plus ten small notes means the decision IS the review; the notes ride below it or not at all. Numbers, not adjectives: every `framing` cites at least one number or path from the guide (a consumer count, an out-of-diff path, a `scoring_budget`). "Could be slow" is not a finding; "imported by 14 modules, 9 outside this diff" is.
@@ -238,6 +245,7 @@ Merge `hooks/settings.snippet.json` into `.claude/settings.json` (it registers t
 | "The question is open, I'll just mention the fix" | A named fix is a prescription. Reframe to the open decision, or list two or more options with real costs. |
 | "The tree moved a little, the guide is probably still fine" | It is `stale-snapshot`. Re-fetch the guide and redo the judgments. |
 | "Tests are green, so the change is good" | Green is a verification fact, not a verdict on the decision surface. The decisions still need the human's call. |
+| "A test imports this file, so it is tested" | `test_adjacency` sees only the import. A `mocked-only` or `none-file` row in `test_reach` says that the real code does not run in a test. |
 | "Production never called it, so delete it" | Check `period_tracking_state` and `evidence_window.observed_hours`. A short window or a rare path means "not visited", not "dead". |
 
 ## Notes
