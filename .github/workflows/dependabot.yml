@@ -1,0 +1,43 @@
+name: Dependabot
+
+# Calls the org-wide Dependabot workflow in fallow-rs/.github. After a failed
+# run on a Dependabot pull request it reruns, repairs or hands off; after a
+# successful run, and on the schedule, it merges a minor or patch update when
+# every check on the head commit passed. See
+# https://github.com/fallow-rs/.github/blob/main/dependabot/README.md
+
+on:
+  workflow_run:
+    workflows: [DCO, Validate]
+    types: [completed]
+    branches: ['dependabot/**']
+  schedule:
+    - cron: '17 */3 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+# Failed runs share one group per branch, so two repairs never race. A
+# successful run gets its own group, so it cannot replace a pending repair.
+concurrency:
+  group: dependabot-${{ github.event.workflow_run.head_branch || github.event_name }}-${{ github.event.workflow_run.conclusion == 'failure' && 'repair' || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  dependabot:
+    # Pass no secret to a run that a fork or another event started.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.event == 'pull_request')
+    uses: fallow-rs/.github/.github/workflows/dependabot.yml@c2aa294638fe85770df6c71343d32114c79ec8fb # main
+    permissions:
+      actions: write
+      checks: read
+      contents: read
+      issues: write
+      pull-requests: write
+      statuses: read
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      DEPENDABOT_APP_PRIVATE_KEY: ${{ secrets.DEPENDABOT_APP_PRIVATE_KEY }}
