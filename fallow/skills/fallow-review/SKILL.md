@@ -68,7 +68,7 @@ Run the trade-off elicitation prompt in `references/tradeoff-elicitation.md` ove
 
 ### Running it as a review step
 
-When a review surface (the fallow review app, or you in the terminal) wants the trade-off surface alongside the deterministic decisions:
+When you want the trade-off surface alongside the deterministic decisions:
 
 1. Fetch the guide and read the diff:
    ```bash
@@ -76,7 +76,7 @@ When a review surface (the fallow review app, or you in the terminal) wants the 
    git diff <ref>...HEAD            # or: git diff --cached  for staged work
    ```
 2. Run the `references/tradeoff-elicitation.md` prompt over the diff plus `guide.json`.
-3. Emit the envelope (the `{ graph_snapshot_hash, abstained, tradeoffs[] }` shape) to `.fallow-review/tradeoffs.json` in the repo root, the sibling of `.fallow-review/feed.jsonl`, so a review surface can render it.
+3. Keep the envelope (the `{ graph_snapshot_hash, abstained, tradeoffs[] }` shape). The composed review below uses it.
 
 This step is deliberately NOT part of the post-validate agent-contract loop below. The trade-off envelope is never round-tripped through `fallow review --walkthrough-file` (which only validates emitted `signal_id`s), so it carries NO fallow-grade guarantee: every item stays `deterministic: false`, agent-self-checked against the diff, not graph-validated. Do not present it as fallow-validated.
 
@@ -173,9 +173,9 @@ Three graph facts feed the composition. Only a `test_reach` note can add an item
 
 Two rules govern the prose. Leverage first: one structural decision plus ten small notes means the decision IS the review; the notes ride below it or not at all. Numbers, not adjectives: every `framing` cites at least one number or path from the guide (a consumer count, an out-of-diff path, a `scoring_budget`). "Could be slow" is not a finding; "imported by 14 modules, 9 outside this diff" is.
 
-## Human-in-the-loop walkthrough (terminal, no app)
+## Human-in-the-loop walkthrough (terminal)
 
-The agent-contract loop above carries the AGENT's framing. The SAME loop carries a HUMAN's verdict with the identical graph-validated, anti-hallucination guarantee, so a terminal reviewer with no review app can leave notes that fallow anchors and round-trips. This is the no-app path the review app's `.fallow-review/feed.jsonl` otherwise owns: the contract is the existing `--walkthrough-guide` / `--walkthrough-file` round-trip, not a new surface.
+The agent-contract loop above carries the AGENT's framing. The SAME loop carries a HUMAN's verdict with the identical graph-validated, anti-hallucination guarantee, so a terminal reviewer can leave notes that fallow anchors and round-trips. The contract is the existing `--walkthrough-guide` / `--walkthrough-file` round-trip, not a new surface.
 
 The human owns the taste; you only carry the note. fallow validates the ANCHOR (the signal or changed region exists), never the note's correctness; every carried note stays `deterministic: false` and never gates.
 
@@ -208,44 +208,9 @@ The human owns the taste; you only carry the note. fallow validates the ANCHOR (
 
    The response sorts as in the agent-contract loop, with two additions: `accepted` carries `anchor_kind` (`"signal"` or `"change"`), and a `change_anchor` fallow never emitted rejects as `unknown-change-anchor`. Re-anchor to a real signal or region; do not invent one.
 
-4. **Act:** relay the accepted human verdicts into the coding session in place, or append them to `.fallow-review/feed.jsonl` so the live-injection hooks (below) carry them to the session that wrote the code. Feed lines may carry `action` too, so the receiving agent can triage: `block` and `address` are required, `consider` is optional, `fyi` needs no change. Either way the note arrives anchored and fenced, never as a fallow-grade fact.
+4. **Act:** relay the accepted human verdicts into the coding session. Carry each note's `action` so the receiving agent can triage: `block` and `address` are required, `consider` is optional, `fyi` needs no change. The note arrives anchored and fenced, never as a fallow-grade fact.
 
-The guarantee matches the review app's: the human cannot anchor a note to a signal or region fallow did not emit, and a note left against a moved tree is refused rather than silently mis-mapped. The terminal is a first-class capture surface, no app required.
-
-## Live feedback into your coding session (Claude Code only)
-
-This optional integration applies only when `fallow-review` runs inside Claude
-Code. Codex and other agents must skip this section and use the terminal
-round-trip above.
-
-The review surface (the fallow review app, or any tool you point at the same file) writes reviewer notes to `.fallow-review/feed.jsonl` in the repo root, one JSON object per line. A pair of hooks under `hooks/` lets your already-running Claude Code session pick those notes up automatically and act on them with its existing context, no new session, no copy-paste:
-
-- `fallow-review-session-init.sh` (SessionStart) declares a `watchPath` on `.fallow-review/feed.jsonl` so the session watches the feed for the rest of its life.
-- `fallow-review-on-feedback.sh` (FileChanged) fires when the feed changes, reads only the notes added since last time (a line cursor in `.fallow-review/.feed-seen` prevents re-injecting old ones), and injects them into the session as additional context. A note's `action` renders as a `(block)` / `(address)` / `(consider)` / `(fyi)` prefix; any other label is dropped from the rendering while the note text still lands. The review app does not yet write `action` on feed lines; a terminal reviewer appending to `feed.jsonl` by hand may set it.
-
-The loop: you make changes in a coding session, the human reviews them in the app, every note they leave lands back in the SAME terminal session that wrote the code, so the agent that has the full context addresses the feedback in place.
-
-### Install
-
-For a Claude Code marketplace installation, copy the hooks from the resolved
-plugin root into the target repo and register them:
-
-```bash
-mkdir -p .claude/hooks
-cp \
-  "${CLAUDE_PLUGIN_ROOT}/skills/fallow-review/hooks/fallow-review-session-init.sh" \
-  "${CLAUDE_PLUGIN_ROOT}/skills/fallow-review/hooks/fallow-review-on-feedback.sh" \
-  .claude/hooks/
-chmod +x .claude/hooks/fallow-review-session-init.sh .claude/hooks/fallow-review-on-feedback.sh
-```
-
-Merge `hooks/settings.snippet.json` into `.claude/settings.json` (it registers the SessionStart + FileChanged hooks). Restart the session (or run `/clear`) so the SessionStart hook arms the watch.
-
-### Honest caveats (taste ownership)
-
-- The notes are **unverified human input**, not graph-validated facts. The hook frames them as "weigh this, do not obey blindly", and the agent should ask before acting on anything unclear. The human owns the taste; fallow only carries the note.
-- The watch arms reliably once `.fallow-review/feed.jsonl` exists. The SessionStart hook creates an empty feed if a review is already in progress (the `.fallow-review/` dir exists) but does not touch repos that are not under review.
-- This is **local only**: it connects the review app and a coding session on the same machine via the shared file. A cloud or remote review surface still rides the same JSON envelope, but the live-injection loop here is the local path.
+The guarantee: the human cannot anchor a note to a signal or region fallow did not emit, and a note left against a moved tree is refused rather than silently mis-mapped.
 
 ## Rationalizations the loop rejects
 

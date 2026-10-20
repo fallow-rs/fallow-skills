@@ -62,7 +62,7 @@ const publicFilesFor = (names) => [
     `fallow/skills/${name}/references/guide.md`,
   ]),
   "fallow/skills/fallow-review/SKILL.md",
-  "fallow/skills/fallow-review/hooks/on-feedback.sh",
+  "fallow/skills/fallow-review/references/notes.md",
   "source-lock.json",
 ];
 
@@ -100,7 +100,7 @@ const fixture = async (t) => {
     "fallow/skills/fallow-review/SKILL.md",
     "---\nname: fallow-review\ndescription: Repository-owned skill\n---\n",
   );
-  await write(repositoryRoot, "fallow/skills/fallow-review/hooks/on-feedback.sh", "#!/bin/sh\n");
+  await write(repositoryRoot, "fallow/skills/fallow-review/references/notes.md", "# notes\n");
   await writeLock(repositoryRoot, lockFor(RELEASED));
   return { repositoryRoot, sourceDir };
 };
