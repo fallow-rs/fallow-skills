@@ -57,7 +57,7 @@ export const locate = async (bases: string[], target: string): Promise<LocatedFi
 const basesFor = async (context: ServerContext, extra: Extra, root: string | undefined): Promise<string[]> => {
   const bases: string[] = [];
   if (root !== undefined && (await isKnownRoot(context, root))) bases.push(resolve(root));
-  const opened = resourcePathFromMeta(extra._meta);
+  const opened = resourcePathFromMeta(extra.mcpReq._meta);
   if (opened !== null) {
     bases.push(dirname(opened));
     bases.push(await detectProjectRoot(dirname(opened)));
@@ -229,7 +229,7 @@ export const registerAppTools = (context: ServerContext): void => {
     },
     async (_args, extra) => {
       if (schemaCache !== null) return dataResult(schemaCache);
-      const opened = resourcePathFromMeta(extra._meta);
+      const opened = resourcePathFromMeta(extra.mcpReq._meta);
       const root = opened === null ? process.cwd() : dirname(opened);
       const settings = await context.store.settings();
       const result = await runFallow({
@@ -271,7 +271,7 @@ export const registerAppTools = (context: ServerContext): void => {
       _meta: APP_ONLY,
     },
     async ({ text }, extra) => {
-      const opened = resourcePathFromMeta(extra._meta);
+      const opened = resourcePathFromMeta(extra.mcpReq._meta);
       const fail = (error: string): ReturnType<typeof dataResult> =>
         dataResult({
           ok: false,

@@ -3,7 +3,7 @@
  * forwards tool calls and resource reads to the real server, and logs what the app sends to Codex.
  */
 import { AppBridge, PostMessageTransport } from "@modelcontextprotocol/ext-apps/app-bridge";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 
 type Scenario = {
   id: string;

@@ -5,7 +5,7 @@ import {
   applyHostStyleVariables,
   type McpUiHostContext,
 } from "@modelcontextprotocol/ext-apps";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import { OpenAIExtensions } from "@openai/mcp-extensions/app";
 import type { Finding, ProjectRef, ViewPayload } from "../shared/contracts.ts";
 import { VIEW_META_KEY } from "../shared/view-meta.ts";

@@ -1,18 +1,13 @@
 import { isAbsolute, resolve } from "node:path";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { withoutSandboxMeta } from "./project.ts";
-import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
-import type {
-  CallToolResult,
-  ServerNotification,
-  ServerRequest,
-} from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult, ServerContext as RequestContext } from "@modelcontextprotocol/server";
 import type { FallowProblem, ProjectRef, ViewPayload } from "../shared/contracts.ts";
 import { VIEW_META_KEY } from "../shared/view-meta.ts";
 import type { Analyzer } from "./analysis.ts";
 import type { StateStore } from "./state.ts";
 
-export type Extra = RequestHandlerExtra<ServerRequest, ServerNotification>;
+export type Extra = RequestContext;
 
 export interface ServerContext {
   server: McpServer;
@@ -66,7 +61,8 @@ type AnyCallback = (args: unknown, extra: Extra) => unknown;
  * Registers tools that the app iframe can call. Their callbacks never see Codex sandbox state from
  * the call itself, because the iframe could forge it. Only model-only tools read that state.
  */
-export const appFacing = (server: McpServer): Pick<McpServer, "registerTool"> => ({
+export const appFacing = (server: McpServer): Pick<McpServer, "registerTool" | "server"> => ({
+  server: server.server,
   registerTool: ((name: string, config: unknown, callback: AnyCallback) =>
     (server.registerTool as unknown as (name: string, config: unknown, callback: AnyCallback) => unknown)(
       name,

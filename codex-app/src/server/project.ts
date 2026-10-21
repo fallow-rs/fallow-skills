@@ -113,10 +113,13 @@ export const sandboxFromMeta = (meta: unknown): SandboxState | null => {
  * only the model can call (`visibility: ["model"]`) trust the state they receive; every other tool
  * uses the state that an earlier model call in the same thread stored.
  */
-export const withoutSandboxMeta = <T extends { _meta?: Record<string, unknown> | undefined }>(extra: T): T => {
-  if (extra._meta === undefined || !(SANDBOX_META_KEY in extra._meta)) return extra;
-  const { [SANDBOX_META_KEY]: _ignored, ...rest } = extra._meta;
-  return { ...extra, _meta: rest };
+export const withoutSandboxMeta = <T extends { mcpReq: { _meta?: Record<string, unknown> | undefined } }>(
+  extra: T,
+): T => {
+  const meta = extra.mcpReq._meta;
+  if (meta === undefined || !(SANDBOX_META_KEY in meta)) return extra;
+  const { [SANDBOX_META_KEY]: _ignored, ...rest } = meta;
+  return { ...extra, mcpReq: { ...extra.mcpReq, _meta: rest } };
 };
 
 /** The sandbox state of the last model call per thread, in memory only. */

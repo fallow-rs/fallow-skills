@@ -1,5 +1,5 @@
-import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { ReadResourceResult } from "@modelcontextprotocol/sdk/types.js";
+import { ResourceTemplate } from "@modelcontextprotocol/server";
+import type { ReadResourceResult } from "@modelcontextprotocol/server";
 import { createMentions, type OpenAIMentionItem } from "@openai/mcp-extensions/server";
 import { CATEGORY_TITLES } from "../shared/categories.ts";
 import type { Finding, ProjectRef } from "../shared/contracts.ts";
@@ -108,7 +108,7 @@ const projectFindings = async (
   const run: Promise<Analysis> = context.analyzer.analyze({
     project,
     settings: await context.store.settings(),
-    sandbox: extra === null ? null : sandboxFor(extra._meta),
+    sandbox: extra === null ? null : sandboxFor(extra.mcpReq._meta),
   });
   const analysis = waitMs === null ? await run : await withDeadline(run, waitMs);
   return analysis !== null && analysis.ok ? analysis.findings : null;
@@ -135,7 +135,7 @@ export const registerMentions = (context: ServerContext): void => {
   const { server } = context;
 
   createMentions(appFacing(server)).setHandler(async ({ query }, extra) => {
-    const resolved = await resolveProject(context.store, extra._meta, undefined);
+    const resolved = await resolveProject(context.store, extra.mcpReq._meta, undefined);
     if (resolved === null) return { items: [] };
     const findings = await projectFindings(context, resolved.project, extra, MENTION_WAIT_MS);
     if (findings === null) return { items: [] };
