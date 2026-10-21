@@ -26,6 +26,9 @@
     "preact": "^11.0.1",
     "zod": "4.6.7"
   },
+  "overrides": {
+    "zod": "4.6.7"
+  },
   "devDependencies": {
     "@types/node": "^26.6.5",
     "esbuild": "^0.28.2",
