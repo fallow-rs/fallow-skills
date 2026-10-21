@@ -30,7 +30,7 @@ jobs:
       github.event_name != 'workflow_run' ||
       (github.event.workflow_run.head_repository.full_name == github.repository &&
       github.event.workflow_run.event == 'pull_request')
-    uses: fallow-rs/.github/.github/workflows/dependabot.yml@b07e7920c4342ef56423e951763cf207f31377fa # main
+    uses: fallow-rs/.github/.github/workflows/dependabot.yml@c42766c7bfeb1581a5fdf8216aaf36e3d8c3727a # main
     permissions:
       actions: write
       checks: read
@@ -38,6 +38,11 @@ jobs:
       issues: write
       pull-requests: write
       statuses: read
+    with:
+      # CI checks that this build matches codex-app/.
+      generated-paths: '^fallow/codex-app/'
+      # Each content change raises the version in these files.
+      manifest-paths: '^(?:\.claude-plugin/marketplace\.json|fallow/\.(?:claude|codex)-plugin/plugin\.json)$'
     secrets:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
