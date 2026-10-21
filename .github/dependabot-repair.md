@@ -7,7 +7,8 @@ file adds what is specific to fallow-skills.
 
 ## Rules
 
-1. Sign off the commit with `git commit -s`. CI checks the DCO sign-off.
+1. Add no sign-off or co-author lines. The App is the author of the commit,
+   and the DCO check does not run on Dependabot pull requests.
 2. Use a conventional commit subject of at most 100 characters.
 
 ## Codex app
