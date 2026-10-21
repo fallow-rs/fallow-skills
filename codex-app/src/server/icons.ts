@@ -1,4 +1,4 @@
-import type { Icon } from "@modelcontextprotocol/sdk/types.js";
+import type { Icon } from "@modelcontextprotocol/server";
 import { CATEGORY_COLORS, CATEGORY_GLYPHS } from "../shared/categories.ts";
 import type { CategoryId } from "../shared/contracts.ts";
 

@@ -1,5 +1,5 @@
 import { pathToFileURL } from "node:url";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import {
   createElicitInput,
   type OpenAIFormRequestParams,
@@ -37,11 +37,13 @@ type FormOutcome = { result: OpenAIFormResult; notShown: boolean };
 
 const elicit = async (
   context: ServerContext,
+  extra: Extra,
   message: string,
   requestedSchema: Requested,
 ): Promise<FormOutcome> => {
   const started = Date.now();
   const result = await createElicitInput(context.server)(
+    extra,
     { mode: "form", message, requestedSchema },
     { timeout: FORM_TIMEOUT_MS, resetTimeoutOnProgress: true },
   );
@@ -259,10 +261,10 @@ const prepareCleanup = async (
 ): Promise<CleanupPreparation> => {
   const resolved = await resolveProject(
     context.store,
-    extra._meta,
+    extra.mcpReq._meta,
     path,
     // A folder argument counts only from the model, and only with a Codex sandbox.
-    rootPolicy(context, visibility.includes("model") && sandboxFromMeta(extra._meta) !== null),
+    rootPolicy(context, visibility.includes("model") && sandboxFromMeta(extra.mcpReq._meta) !== null),
   );
   if (resolved === null) {
     return {
@@ -275,7 +277,7 @@ const prepareCleanup = async (
   const analysis = await context.analyzer.analyze({
     project,
     settings,
-    sandbox: sandboxFor(extra._meta),
+    sandbox: sandboxFor(extra.mcpReq._meta),
   });
   if (!analysis.ok) return { ok: false, result: problemResult(analysis.problem, project) };
   const byCategory = groupFindings(analysis.findings);
@@ -295,6 +297,7 @@ const cleanupPreparation = (
 
 const chooseCategory = async (
   context: ServerContext,
+  extra: Extra,
   project: ProjectRef,
   byCategory: Map<CategoryId, Finding[]>,
   category: CategoryId | undefined,
@@ -302,6 +305,7 @@ const chooseCategory = async (
   if (category !== undefined) return { ok: true, focus: category };
   const outcome = await elicit(
     context,
+    extra,
     `What should Codex clean up first in ${project.name}?`,
     categoryForm(byCategory),
   );
@@ -354,6 +358,7 @@ const selectionResult = (
 
 const chooseFindings = async (
   context: ServerContext,
+  extra: Extra,
   project: ProjectRef,
   byCategory: Map<CategoryId, Finding[]>,
   focus: CategoryId,
@@ -372,6 +377,7 @@ const chooseFindings = async (
   }
   const outcome = await elicit(
     context,
+    extra,
     `Choose the ${CATEGORY_TITLES[focus].toLowerCase()} findings to clean up. Open a finding to see its code.`,
     findingsForm(project, candidates),
   );
@@ -424,9 +430,9 @@ export const registerForms = (context: ServerContext): void => {
         const prepared = await prepareCleanup(context, visibility, path, extra);
         if (!prepared.ok) return prepared.result;
         const { project, byCategory } = prepared;
-        const focused = await chooseCategory(context, project, byCategory, category);
+        const focused = await chooseCategory(context, extra, project, byCategory, category);
         if (!focused.ok) return focused.result;
-        return chooseFindings(context, project, byCategory, focused.focus);
+        return chooseFindings(context, extra, project, byCategory, focused.focus);
       },
     );
   };
@@ -454,6 +460,7 @@ export const registerForms = (context: ServerContext): void => {
       }));
       const outcome = await elicit(
         context,
+        extra,
         "Choose a JavaScript or TypeScript project for Fallow.",
         {
           type: "object",

@@ -19,15 +19,20 @@
     "check": "npm run typecheck && npm run build && npm test"
   },
   "dependencies": {
+    "@modelcontextprotocol/client": "^2.3.1",
     "@modelcontextprotocol/ext-apps": "^2.0.3",
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "@openai/mcp-extensions": "^0.1.0",
+    "@modelcontextprotocol/server": "^2.3.1",
+    "@openai/mcp-extensions": "^0.2.0",
     "jsonc-parser": "^3.3.1",
     "preact": "^11.0.1",
     "zod": "4.6.7"
   },
   "overrides": {
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "@openai/mcp-extensions": {
+      "@modelcontextprotocol/ext-apps": "$@modelcontextprotocol/ext-apps"
+    }
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

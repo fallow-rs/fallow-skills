@@ -12,6 +12,7 @@ import {
   threadCwdFromCodexSessions,
   threadFromMeta,
   toLocalPath,
+  withoutSandboxMeta,
 } from "../src/server/project.ts";
 import { createStateStore } from "../src/server/state.ts";
 import { projectKey, rootFromKey } from "../src/server/uris.ts";
@@ -31,6 +32,24 @@ describe("meta parsing", () => {
       codexExecutable: "/bin/codex",
       raw,
     });
+  });
+
+  it("drops the sandbox state from an app-facing request and keeps the rest", () => {
+    const send = (): void => {};
+    const extra = {
+      mcpReq: {
+        id: 1,
+        send,
+        _meta: { threadId: THREAD, "codex/sandbox-state-meta": { codexExecutable: "/tmp/forged" } },
+      },
+    };
+    const stripped = withoutSandboxMeta(extra);
+    assert.deepEqual(stripped.mcpReq._meta, { threadId: THREAD });
+    assert.equal(stripped.mcpReq.send, send);
+    assert.equal(stripped.mcpReq.id, 1);
+    assert.ok("codex/sandbox-state-meta" in extra.mcpReq._meta);
+    const plain = { mcpReq: { _meta: { threadId: THREAD } } };
+    assert.equal(withoutSandboxMeta(plain), plain);
   });
 
   it("accepts only UUID thread ids", () => {

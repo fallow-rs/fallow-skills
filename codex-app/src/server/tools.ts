@@ -1,4 +1,4 @@
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import {
   OpenAIFileEntrypointInputSchema,
   type OpenAIUiEntrypoint,
@@ -9,7 +9,7 @@ import type { Finding, ProjectRef, Report } from "../shared/contracts.ts";
 import type { Analysis } from "./analysis.ts";
 import { appFacing, isKnownRoot, problemResult, READ_ONLY, viewResult, type Extra, type ServerContext } from "./context.ts";
 import { fallowVersion } from "./fallow-cli.ts";
-import { AUDIT_ICON } from "./icons.ts";
+import { AUDIT_ICON, SIDEBAR_ICON } from "./icons.ts";
 import { resolveProject, sandboxFor, sandboxFromMeta } from "./project.ts";
 import { BASE_REF_PATTERN } from "./state.ts";
 import { auditSummary, auditText, findingMarkdown, reportSummary, reportText } from "./summary.ts";
@@ -94,7 +94,7 @@ export const openDashboard = async (
   extra: Extra,
   options: DashboardOptions,
 ): Promise<CallToolResult> => {
-  const resolved = await resolveProject(context.store, extra._meta, options.root, rootPolicy(context, options.trusted));
+  const resolved = await resolveProject(context.store, extra.mcpReq._meta, options.root, rootPolicy(context, options.trusted));
   if (resolved === null)
     return pickerResult(context, "Fallow does not know which project to analyze yet.");
   const { project } = resolved;
@@ -103,7 +103,7 @@ export const openDashboard = async (
   const pending = context.analyzer.analyze({
     project,
     settings,
-    sandbox: sandboxFor(extra._meta),
+    sandbox: sandboxFor(extra.mcpReq._meta),
     scope,
     ...(options.base === undefined ? {} : { base: options.base }),
     ...(options.production === undefined ? {} : { production: options.production }),
@@ -136,14 +136,14 @@ export const openAudit = async (
   extra: Extra,
   options: { root?: string | undefined; base?: string | undefined; trusted?: boolean },
 ): Promise<CallToolResult> => {
-  const resolved = await resolveProject(context.store, extra._meta, options.root, rootPolicy(context, options.trusted));
+  const resolved = await resolveProject(context.store, extra.mcpReq._meta, options.root, rootPolicy(context, options.trusted));
   if (resolved === null)
     return pickerResult(context, "Fallow does not know which project to audit yet.");
   const settings = await context.store.settings();
   const outcome = await context.analyzer.audit({
     project: resolved.project,
     settings,
-    sandbox: sandboxFor(extra._meta),
+    sandbox: sandboxFor(extra.mcpReq._meta),
     ...(options.base === undefined ? {} : { base: options.base }),
   });
   if (!outcome.ok) return problemResult(outcome.problem, resolved.project);
@@ -162,7 +162,7 @@ const findFinding = async (
   id: string,
   root: string | undefined,
 ): Promise<{ project: ProjectRef; finding: Finding } | null> => {
-  const resolved = await resolveProject(context.store, extra._meta, root, rootPolicy(context, false));
+  const resolved = await resolveProject(context.store, extra.mcpReq._meta, root, rootPolicy(context, false));
   if (resolved === null) return null;
   const cached = context.analyzer.latest(resolved.project.root);
   const findings =
@@ -171,7 +171,7 @@ const findFinding = async (
       const analysis = await context.analyzer.analyze({
         project: resolved.project,
         settings: await context.store.settings(),
-        sandbox: sandboxFor(extra._meta),
+        sandbox: sandboxFor(extra.mcpReq._meta),
       });
       return analysis.ok ? analysis.findings : [];
     })());
@@ -187,6 +187,7 @@ export const registerTools = (context: ServerContext): void => {
     "fallow_dashboard",
     {
       title: "Fallow",
+      icons: [SIDEBAR_ICON],
       description: "Open the Fallow code health dashboard for a project.",
       inputSchema: z.object({ root: z.string().optional(), route: z.string().max(512).optional() }),
       annotations: READ_ONLY,
@@ -212,6 +213,7 @@ export const registerTools = (context: ServerContext): void => {
     "fallow_code_health",
     {
       title: "Code Health",
+      icons: [SIDEBAR_ICON],
       description: "Show the code health of this thread's project beside the conversation.",
       inputSchema: z.object({ root: z.string().optional() }),
       annotations: READ_ONLY,
@@ -224,6 +226,7 @@ export const registerTools = (context: ServerContext): void => {
     "fallow_open_config",
     {
       title: "Fallow Config",
+      icons: [SIDEBAR_ICON],
       description: "Edit a Fallow config file with rule controls and a live impact preview.",
       inputSchema: OpenAIFileEntrypointInputSchema,
       annotations: READ_ONLY,
@@ -244,6 +247,7 @@ export const registerTools = (context: ServerContext): void => {
     "fallow_open_sarif",
     {
       title: "SARIF Findings",
+      icons: [SIDEBAR_ICON],
       description: "Browse a SARIF report from Fallow or any other analyzer.",
       inputSchema: OpenAIFileEntrypointInputSchema,
       annotations: READ_ONLY,
@@ -299,7 +303,7 @@ export const registerTools = (context: ServerContext): void => {
         production,
         force: refresh,
         // Any folder only with a Codex sandbox; without one, a folder must be a known project.
-        trusted: sandboxFromMeta(extra._meta) !== null,
+        trusted: sandboxFromMeta(extra.mcpReq._meta) !== null,
       }),
   );
 
@@ -307,6 +311,7 @@ export const registerTools = (context: ServerContext): void => {
     "fallow_audit",
     {
       title: "Audit this branch",
+      icons: [AUDIT_ICON],
       description:
         "Gate the changes of the current branch before a commit or a pull request. Returns pass, warn or fail, and separates findings that the branch introduced from findings that existed before.",
       inputSchema: z.object({
@@ -320,7 +325,7 @@ export const registerTools = (context: ServerContext): void => {
       annotations: READ_ONLY,
       _meta: uiMeta(context, { visibility: ["model"] }),
     },
-    async ({ path, base }, extra) => openAudit(context, extra, { root: path, base, trusted: sandboxFromMeta(extra._meta) !== null }),
+    async ({ path, base }, extra) => openAudit(context, extra, { root: path, base, trusted: sandboxFromMeta(extra.mcpReq._meta) !== null }),
   );
 
   app.registerTool(
@@ -364,7 +369,7 @@ export const registerTools = (context: ServerContext): void => {
       annotations: READ_ONLY,
     },
     async (_args, extra) => {
-      const resolved = await resolveProject(context.store, extra._meta, undefined);
+      const resolved = await resolveProject(context.store, extra.mcpReq._meta, undefined);
       const settings = await context.store.settings();
       const root = resolved?.project.root ?? process.cwd();
       const version = await fallowVersion(root, settings.source);

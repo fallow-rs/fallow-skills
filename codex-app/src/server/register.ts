@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { createSettings, type OpenAIUiResourceMetadata } from "@openai/mcp-extensions/server";
 import { RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import { createAnalyzer } from "./analysis.ts";
@@ -8,9 +8,7 @@ import type { ServerContext } from "./context.ts";
 import { registerForms } from "./forms.ts";
 import { registerMentions } from "./mentions.ts";
 import { SettingsSchema, type StateStore } from "./state.ts";
-import { decorateToolIcons } from "./tool-icons.ts";
 import { registerTools } from "./tools.ts";
-import { AUDIT_ICON, SIDEBAR_ICON } from "./icons.ts";
 
 const registerSettings = (context: ServerContext): void => {
   const shape = SettingsSchema.shape;
@@ -133,12 +131,5 @@ export const registerFallowApp = (
   registerForms(context);
   registerMentions(context);
   registerSettings(context);
-  decorateToolIcons(server, {
-    fallow_dashboard: [SIDEBAR_ICON],
-    fallow_code_health: [SIDEBAR_ICON],
-    fallow_open_config: [SIDEBAR_ICON],
-    fallow_open_sarif: [SIDEBAR_ICON],
-    fallow_audit: [AUDIT_ICON],
-  });
   return context;
 };
