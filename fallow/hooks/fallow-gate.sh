@@ -19,7 +19,9 @@ set -euo pipefail
 #   plus each opted-in tree that a git commit or push targets. Only a command
 #   on a short allowlist (git -C <dir> commit, or cd <dir> && git push, with
 #   literal words and inert options) audits the target alone, and only when
-#   git reports that the target is another repository than the session's.
+#   git reports that the target is another repository than the session's. A
+#   push from a linked worktree of the session repository also audits the
+#   target alone when git shows that the push cannot send the session branch.
 # - Codex also loads this hook from the plugin. It defers to a gate that
 #   `fallow agent install` registered for Claude Code or for Codex.
 # - A missing fallow binary, a missing jq or a fallow binary below the version
@@ -244,7 +246,9 @@ scan_loose() {
 # `- _ . / = : , @ + %`. A `cd` directory starts with `/`, `./` or `../` (or
 # is `.` or `..`), so CDPATH cannot move it. <args> are plain words, and the
 # options in them are only -m, --message, -S, -q, -a, --amend, --no-edit and
-# -u. The word after -m or --message can be a quoted message ('...', or "..."
+# -u. A push also accepts --set-upstream, --force-with-lease and
+# --force-if-includes, as exact words. ALLOWED_ARGS holds the <args>.
+# The word after -m or --message can be a quoted message ('...', or "..."
 # without $, ` or \). Anything else does not match: another operator, a
 # newline outside the message, a substitution, a variable, a glob, a tilde,
 # git -c, an option such as -F, --template, --exec or --receive-pack, `--`,
@@ -254,6 +258,7 @@ ALLOWED_DIR=""
 ALLOWED_MODE=""
 ALLOWED_SUBCOMMAND=""
 ALLOWED_DIRS=()
+ALLOWED_ARGS=()
 SAFE_CHARS='A-Za-z0-9_./=:,@+%-'
 DIR_RE="^([${SAFE_CHARS%-}][${SAFE_CHARS}]*|'[ ${SAFE_CHARS}]+'|\"[ ${SAFE_CHARS}]+\")"
 WORD_RE="^[${SAFE_CHARS}]+"
@@ -305,6 +310,7 @@ match_allowlist() {
     case "$prev" in
       -m | --message)
         take "$MSG_RE" || take "$WORD_RE" || return 1
+        ALLOWED_ARGS+=("$word")
         # The message is a value, so the next word is an option again.
         word=""
         ;;
@@ -312,8 +318,12 @@ match_allowlist() {
         take "$WORD_RE" || return 1
         case "$word" in
           -m | --message | -S | -q | -a | --amend | --no-edit | -u) ;;
+          --set-upstream | --force-with-lease | --force-if-includes)
+            [ "$ALLOWED_SUBCOMMAND" = push ] || return 1
+            ;;
           -*) return 1 ;;
         esac
+        ALLOWED_ARGS+=("$word")
         ;;
     esac
     # The next word must start after a blank.
@@ -359,11 +369,12 @@ fi
 # Git decides where a write lands. The gate asks git for the work tree top and
 # the git directory of each target, and of the session directory. The session
 # audit is skipped only for an allowlisted command whose target differs from
-# the session in both top and git directory. A push also needs a different
-# common git directory, because linked worktrees share their refs: a push from
-# another worktree of the same repository can push the session branch. If git
-# cannot answer, or the session package lies inside the target work tree, the
-# session is audited.
+# the session in both top and git directory. Linked worktrees share their
+# refs: a push from another worktree of the same repository can push the
+# session branch. So a push with the same common git directory also audits
+# the session, unless push_spares_session proves that the push cannot send
+# the session branch. If git cannot answer, or the session package lies
+# inside the target work tree, the session is audited.
 # Each start is "<directory>|<work tree top>". An empty top means the walk
 # stops at the first .git entry, as for the session.
 STARTS=()
@@ -379,10 +390,85 @@ SESSION_ROOT="$(find_root "$START" || true)"
 SESSION_ROOT_PHYSICAL=""
 [ -z "$SESSION_ROOT" ] || SESSION_ROOT_PHYSICAL="$(physical "$SESSION_ROOT" || true)"
 
+# Returns 0 only when the allowlisted push in ALLOWED_ARGS, run in the linked
+# worktree $1, cannot send the branch of the session. All of these must hold:
+# - The options are only -u, -q, --set-upstream, --force-with-lease and
+#   --force-if-includes.
+# - The words after the options are [<repository>] [<refspec>...]. The source
+#   of each refspec (without a leading + and before the first :) is not empty.
+#   For each source, git rev-parse --symbolic-full-name in $1 gives the same
+#   ref as for HEAD in $1, and that ref is not the session branch. A commit
+#   name, `feat~0` or `@{-1}` gives no ref, so it fails.
+# - A push without a refspec needs push.default (read in $1) unset or one of
+#   simple, current, upstream and nothing, and no remote with a push or mirror
+#   setting.
+# Every other result and every git error return 1. The function runs in a
+# subshell, so an error under set -u also returns 1 and the session is
+# audited.
+push_spares_session() (
+  local target="$1" word src ref head session_ref push_default rc
+  local positionals=0 refspecs=0
+  if ! head="$(git -C "$target" rev-parse --symbolic-full-name HEAD 2>/dev/null)"; then
+    return 1
+  fi
+  [ -n "$head" ] || return 1
+  # Exit 1 means a detached HEAD: no session branch, so no ref can match it.
+  if session_ref="$(git -C "$START" symbolic-ref -q HEAD 2>/dev/null)"; then
+    :
+  else
+    rc=$?
+    [ "$rc" -eq 1 ] || return 1
+    session_ref=""
+  fi
+  [ "$head" != "$session_ref" ] || return 1
+  for word in ${ALLOWED_ARGS[@]+"${ALLOWED_ARGS[@]}"}; do
+    case "$word" in
+      -u | -q | --set-upstream | --force-with-lease | --force-if-includes) continue ;;
+      -*) return 1 ;;
+    esac
+    positionals=$((positionals + 1))
+    # The first word is the repository.
+    [ "$positionals" -gt 1 ] || continue
+    refspecs=$((refspecs + 1))
+    src="${word#+}"
+    src="${src%%:*}"
+    case "$src" in
+      '' | -*) return 1 ;;
+    esac
+    if ! ref="$(git -C "$target" rev-parse --symbolic-full-name "$src" 2>/dev/null)"; then
+      return 1
+    fi
+    [ -n "$ref" ] && [ "$ref" = "$head" ] && [ "$ref" != "$session_ref" ] || return 1
+  done
+  if [ "$refspecs" -eq 0 ]; then
+    # Exit 1 means that push.default is not set.
+    if push_default="$(git -C "$target" config --get push.default 2>/dev/null)"; then
+      :
+    else
+      rc=$?
+      [ "$rc" -eq 1 ] || return 1
+      push_default=""
+    fi
+    case "$push_default" in
+      '' | simple | current | upstream | nothing) ;;
+      *) return 1 ;;
+    esac
+    # Exit 1 means that no remote has a push or mirror setting.
+    if git -C "$target" config --get-regexp '^remote\..*\.(push|mirror)$' >/dev/null 2>&1; then
+      return 1
+    else
+      rc=$?
+      [ "$rc" -eq 1 ] || return 1
+    fi
+  fi
+  return 0
+)
+
 # Adds the location in $1 (from git_location) to STARTS. Returns 1 when the
-# location shares the top or the git directory with the session, when $2 is
-# push and the location shares the common git directory, or when the location
-# holds the session package.
+# location shares the top or the git directory with the session, or holds the
+# session package. It also returns 1 for a location that shares the common
+# git directory with the session, except for a commit ($2 commit) and for a
+# push ($2 push) that push_spares_session accepts.
 add_target() {
   local top gitdir dir common
   top="$(printf '%s\n' "$1" | sed -n 1p)"
@@ -392,29 +478,34 @@ add_target() {
   STARTS+=("$dir|$top")
   [ -n "$SESSION_TOP" ] || return 1
   [ "$top" != "$SESSION_TOP" ] && [ "$gitdir" != "$SESSION_GITDIR" ] || return 1
-  if [ "${2:-}" != commit ]; then
-    [ "$common" != "$SESSION_COMMON" ] || return 1
+  if [ "${2:-}" != commit ] && [ "$common" = "$SESSION_COMMON" ]; then
+    [ "${2:-}" = push ] || return 1
+    push_spares_session "$dir" || return 1
   fi
   case "$SESSION_ROOT_PHYSICAL/" in
     "$top"/*) return 1 ;;
   esac
 }
 
+# The session audit stays on until every check for the target passes.
 AUDIT_SESSION=1
 if [ -n "$ALLOWED_DIR" ]; then
-  AUDIT_SESSION=0
+  target_alone=1
   if [ "$ALLOWED_MODE" = cd ]; then
     for mode in cd-L cd-P; do
       if location="$(git_location "$mode" "${ALLOWED_DIRS[0]}")"; then
-        add_target "$location" "$ALLOWED_SUBCOMMAND" || AUDIT_SESSION=1
+        add_target "$location" "$ALLOWED_SUBCOMMAND" || target_alone=0
       else
-        AUDIT_SESSION=1
+        target_alone=0
       fi
     done
   elif location="$(git_location -C ${ALLOWED_DIRS[@]+"${ALLOWED_DIRS[@]}"})"; then
-    add_target "$location" "$ALLOWED_SUBCOMMAND" || AUDIT_SESSION=1
+    add_target "$location" "$ALLOWED_SUBCOMMAND" || target_alone=0
   else
-    AUDIT_SESSION=1
+    target_alone=0
+  fi
+  if [ "$target_alone" -eq 1 ]; then
+    AUDIT_SESSION=0
   fi
 fi
 if [ "$AUDIT_SESSION" -eq 1 ]; then

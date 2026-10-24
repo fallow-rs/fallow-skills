@@ -367,7 +367,8 @@ const SESSION_CASES = [
   ["push --exec", ({ o }) => `git -C ${o} push --exec=/tmp/x origin`, ["project"]],
   ["push --receive-pack", ({ o }) => `git -C ${o} push --receive-pack=/tmp/x origin`, ["project"]],
   ["a push option", ({ o }) => `git -C ${o} push -o ci.skip origin`, ["project"]],
-  ["push --force-with-lease", ({ o }) => `git -C ${o} push --force-with-lease origin HEAD`, ["project"]],
+  ["push --force-with-lease=<ref>", ({ o }) => `git -C ${o} push --force-with-lease=main origin HEAD`, ["project"]],
+  ["push --force-with-lease in a commit", ({ o }) => `git -C ${o} commit --force-with-lease -m x`, ["project"]],
   ["a -- separator", ({ o }) => `git -C ${o} commit -m x -- file`, ["project"]],
   ["a carriage return before another command", ({ o }) => `git -C ${o} commit -m x\r; git push`, ["project"]],
   ["a no-break space before another command", ({ o }) => `git -C ${o} commit -m x\u00a0; git push`, ["project"]],
@@ -444,20 +445,33 @@ const BLOCKER_CASES = [
 
 // Runs git on the host, outside the gate.
 const hostGit = (args) => {
-  const result = spawnSync("git", ["-c", "user.name=test", "-c", "user.email=test@example.com", ...args], { encoding: "utf8" });
+  const result = spawnSync(
+    "git",
+    ["-c", "user.name=test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", ...args],
+    { encoding: "utf8" },
+  );
   assert.equal(result.status, 0, result.stderr);
   return result.stdout.trim();
 };
 
-// Adds a linked worktree B of the session repository. Linked worktrees share
-// the refs of the session repository, which this check confirms with git.
+// Adds a linked worktree B of the session repository on branch feat-b. The
+// commit holds the fallow config, so B opts in to fallow too. Linked
+// worktrees share the refs of the session repository, which this check
+// confirms with git. `branch` is the session branch.
 const addLinkedWorktree = (fixture) => {
-  hostGit(["-C", fixture.project, "commit", "--allow-empty", "-q", "-m", "init"]);
+  hostGit(["-C", fixture.project, "add", ".fallowrc.json"]);
+  hostGit(["-C", fixture.project, "commit", "-q", "-m", "init"]);
   const linked = join(fixture.root, "B");
   hostGit(["-C", fixture.project, "worktree", "add", "-q", "-b", "feat-b", linked]);
   const common = (dir) => realpathSync(hostGit(["-C", dir, "rev-parse", "--path-format=absolute", "--git-common-dir"]));
   assert.equal(common(linked), common(fixture.project));
-  return { linked, branch: hostGit(["-C", fixture.project, "branch", "--show-current"]) };
+  assert.ok(existsSync(join(linked, ".fallowrc.json")));
+  return {
+    linked,
+    branch: hostGit(["-C", fixture.project, "branch", "--show-current"]),
+    linkedBranch: "feat-b",
+    sha: hostGit(["-C", fixture.project, "rev-parse", "HEAD"]),
+  };
 };
 
 BLOCKER_CASES.push(
@@ -468,7 +482,7 @@ BLOCKER_CASES.push(
       const { branch } = addLinkedWorktree(fixture);
       return { fixture, cwd: fixture.project, command: `git -C ../B push origin ${branch}`, gatePath };
     },
-    ["project"],
+    ["B", "project"],
   ],
   [
     "push --tags from a linked worktree of the session repository audits the session",
@@ -477,16 +491,90 @@ BLOCKER_CASES.push(
       addLinkedWorktree(fixture);
       return { fixture, cwd: fixture.project, command: "git -C ../B push --tags", gatePath };
     },
-    ["project"],
+    ["B", "project"],
   ],
 );
+
+// A git that fails for the calls that contain $1, and runs the host git for
+// every other call.
+const failingGit = (pattern) => ({ fixture }) => {
+  const wrapper = join(fixture.bin, "git");
+  rmSync(wrapper);
+  writeFileSync(wrapper, `#!/bin/sh\ncase " $* " in *"${pattern}"*) exit 128 ;; esac\nexec '${resolveTool("git")}' "$@"\n`);
+  chmodSync(wrapper, 0o755);
+};
+
+// Builds a push from the linked worktree B, with untracked build output in
+// the session tree. `setup` gets the fixture and the worktree facts.
+const linkedPush = (command, setup = () => {}) => (gatePath) => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  const facts = addLinkedWorktree(fixture);
+  writeFileSync(join(fixture.project, "build-output.js"), "export const x = 1;\n");
+  setup({ fixture, ...facts });
+  return { fixture, cwd: fixture.project, command: command(facts), gatePath };
+};
+const setConfig = (key, value) => ({ fixture }) => hostGit(["-C", fixture.project, "config", key, value]);
+
+// Reviewed cases where this gate audits less than the main gate. Each one has
+// its own exact expectation, and the comparison with main skips them.
+const NARROWED_CASES = [
+  [
+    "push --force-with-lease to another repository audits only that repository",
+    (gatePath) => {
+      const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+      const o = makeRepo(fixture, "optout", { optIn: false });
+      return { fixture, cwd: fixture.project, command: `git -C ${o} push --force-with-lease origin HEAD`, gatePath };
+    },
+    [],
+  ],
+  ["linked push of the worktree branch", linkedPush(({ linkedBranch }) => `git -C ../B push origin ${linkedBranch}`), ["B"]],
+  ["linked push -u of the worktree branch", linkedPush(({ linkedBranch }) => `git -C ../B push -u origin ${linkedBranch}`), ["B"]],
+  ["linked push --set-upstream -q", linkedPush(({ linkedBranch }) => `git -C ../B push --set-upstream -q origin ${linkedBranch}`), ["B"]],
+  ["linked push of HEAD", linkedPush(() => "git -C ../B push origin HEAD"), ["B"]],
+  ["linked push of HEAD to the worktree branch", linkedPush(({ linkedBranch }) => `git -C ../B push origin HEAD:refs/heads/${linkedBranch}`), ["B"]],
+  ["linked push --force-with-lease", linkedPush(({ linkedBranch }) => `git -C ../B push --force-with-lease origin ${linkedBranch}`), ["B"]],
+  ["linked push --force-with-lease --force-if-includes", linkedPush(({ linkedBranch }) => `git -C ../B push --force-with-lease --force-if-includes origin +${linkedBranch}`), ["B"]],
+  ["linked push without a refspec and push.default simple", linkedPush(() => "git -C ../B push", setConfig("push.default", "simple")), ["B"]],
+  ["linked push without a refspec and push.default unset", linkedPush(() => "git -C ../B push origin"), ["B"]],
+  ["linked push through cd", linkedPush(({ linkedBranch }) => `cd ../B && git push origin ${linkedBranch}`), ["B"]],
+  ["linked push through a git wrapper that passes every call", linkedPush(({ linkedBranch }) => `git -C ../B push origin ${linkedBranch}`, failingGit("no-such-word")), ["B"]],
+];
+
+// A push from the linked worktree B that can send the session branch, or
+// that the gate cannot prove safe, still audits the session.
+const LINKED_SESSION_CASES = [
+  ["the session branch by name", linkedPush(({ branch }) => `git -C ../B push origin ${branch}`)],
+  ["the session branch as a full ref", linkedPush(({ branch }) => `git -C ../B push origin refs/heads/${branch}`)],
+  ["the session branch with +", linkedPush(({ branch }) => `git -C ../B push origin +${branch}`)],
+  ["the session branch to another name", linkedPush(({ branch }) => `git -C ../B push origin ${branch}:x`)],
+  ["HEAD and the session branch", linkedPush(({ branch }) => `git -C ../B push origin HEAD ${branch}`)],
+  ["the session commit", linkedPush(({ sha }) => `git -C ../B push origin ${sha}:refs/heads/x`)],
+  ["an empty source", linkedPush(() => "git -C ../B push origin :x")],
+  ["a source that reads as an option", linkedPush(() => "git -C ../B push origin +--all")],
+  ["push.default matching without a refspec", linkedPush(() => "git -C ../B push", setConfig("push.default", "matching"))],
+  ["a remote push setting without a refspec", linkedPush(() => "git -C ../B push origin", setConfig("remote.origin.push", "refs/heads/*:refs/heads/*"))],
+  ["a remote mirror setting without a refspec", linkedPush(() => "git -C ../B push", setConfig("remote.origin.mirror", "true"))],
+  ["push --all", linkedPush(() => "git -C ../B push --all origin")],
+  ["push --mirror", linkedPush(() => "git -C ../B push --mirror origin")],
+  ["push --tags", linkedPush(() => "git -C ../B push --tags origin")],
+  ["push --force-with-lease=<ref>", linkedPush(({ linkedBranch }) => `git -C ../B push --force-with-lease=x origin ${linkedBranch}`)],
+  ["a commit option in a push", linkedPush(({ linkedBranch }) => `git -C ../B push -a origin ${linkedBranch}`)],
+  ["cd and the session branch", linkedPush(({ branch }) => `cd ../B && git push origin ${branch}`)],
+  ["a git that fails for symbolic-ref", linkedPush(({ linkedBranch }) => `git -C ../B push origin ${linkedBranch}`, failingGit(" symbolic-ref "))],
+  ["a git that fails for --symbolic-full-name", linkedPush(({ linkedBranch }) => `git -C ../B push origin ${linkedBranch}`, failingGit(" --symbolic-full-name "))],
+  ["a git that fails for config", linkedPush(() => "git -C ../B push", failingGit(" config "))],
+  ["a git that fails for config --get-regexp", linkedPush(() => "git -C ../B push", failingGit(" --get-regexp "))],
+];
+for (const [name, build] of LINKED_SESSION_CASES) {
+  BLOCKER_CASES.push([`a linked push audits the session: ${name}`, build, ["B", "project"]]);
+}
 
 test("a commit in a linked worktree audits only that worktree", { skip }, () => {
   const fixture = makeCase({ fallowJson: { verdict: "pass" } });
   addLinkedWorktree(fixture);
   const result = runGate(fixture, "git -C ../B commit -m x", {}, fixture.project, fixture.project);
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(auditedNames(fixture), []);
+  assert.deepEqual(auditedNames(fixture), ["B"]);
 });
 
 const runBlocker = (build, gatePath = gate) => {
@@ -502,6 +590,15 @@ for (const [name, build, expected] of BLOCKER_CASES) {
     assert.deepEqual(auditedNames(fixture), expected);
   });
 }
+
+for (const [name, build, expected] of NARROWED_CASES) {
+  test(`narrowed: ${name}`, { skip }, () => {
+    const { fixture, result } = runBlocker(build);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(auditedNames(fixture), expected);
+  });
+}
+
 
 // A very long command must stay well inside the hook timeout, also on the
 // bash 3.2 that macOS ships.
@@ -523,7 +620,7 @@ for (const bash of BASH_BINARIES) {
 }
 
 // The gate must never audit fewer trees than the gate on main, except for the
-// allowlist forms above. The main gate comes from origin/main (or main).
+// reviewed NARROWED_CASES. The main gate comes from origin/main (or main).
 const repoRoot = join(pluginRoot, "..");
 const mainGateSource = ["origin/main", "main"]
   .map((ref) => spawnSync("git", ["show", `${ref}:fallow/hooks/fallow-gate.sh`], { cwd: repoRoot, encoding: "utf8" }))
@@ -536,20 +633,32 @@ const differentialSkip = skip || (mainGateSource || process.env.CI ? false : "th
 
 test("the gate audits at least every tree that the main gate audits", { skip: differentialSkip }, () => {
   assert.ok(mainGateSource, "git show origin/main:fallow/hooks/fallow-gate.sh failed");
+  const narrowed = new Set(NARROWED_CASES.map(([name]) => name));
   const missing = [];
   for (const [name, command] of SESSION_CASES) {
+    if (narrowed.has(name)) continue;
     const before = auditedNames(runCase(command, "pass", () => {}, mainGate).fixture);
     const after = auditedNames(runCase(command, "pass", () => {}, gate).fixture);
     const lost = before.filter((dir) => !after.includes(dir));
     if (lost.length > 0) missing.push(`${name}: ${lost.join(", ")}`);
   }
   for (const [name, build] of BLOCKER_CASES) {
+    if (narrowed.has(name)) continue;
     const before = auditedNames(runBlocker(build, mainGate).fixture);
     const after = auditedNames(runBlocker(build, gate).fixture);
     const lost = before.filter((dir) => !after.includes(dir));
     if (lost.length > 0) missing.push(`${name}: ${lost.join(", ")}`);
   }
   assert.deepEqual(missing, []);
+  // Each narrowed case must still audit less than main, so the list stays
+  // exact.
+  const stale = [];
+  for (const [name, build] of NARROWED_CASES) {
+    const before = auditedNames(runBlocker(build, mainGate).fixture);
+    const after = auditedNames(runBlocker(build, gate).fixture);
+    if (!before.some((dir) => !after.includes(dir))) stale.push(name);
+  }
+  assert.deepEqual(stale, []);
 });
 
 // The loose scan runs in awk. When awk is missing, fails or returns no result
