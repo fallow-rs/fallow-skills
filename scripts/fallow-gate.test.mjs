@@ -515,8 +515,10 @@ const linkedPush = (command, setup = () => {}) => (gatePath) => {
 };
 const setConfig = (key, value) => ({ fixture }) => hostGit(["-C", fixture.project, "config", key, value]);
 
-// Reviewed cases where this gate audits less than the main gate. Each one has
-// its own exact expectation, and the comparison with main skips them.
+// Reviewed cases where this gate audits less than the main gate did before
+// the change. Each one has its own exact expectation, and the comparison with
+// main skips them. After the merge, main audits the same trees, so a case can
+// stay here as a regression test.
 const NARROWED_CASES = [
   [
     "push --force-with-lease to another repository audits only that repository",
@@ -650,15 +652,6 @@ test("the gate audits at least every tree that the main gate audits", { skip: di
     if (lost.length > 0) missing.push(`${name}: ${lost.join(", ")}`);
   }
   assert.deepEqual(missing, []);
-  // Each narrowed case must still audit less than main, so the list stays
-  // exact.
-  const stale = [];
-  for (const [name, build] of NARROWED_CASES) {
-    const before = auditedNames(runBlocker(build, mainGate).fixture);
-    const after = auditedNames(runBlocker(build, gate).fixture);
-    if (!before.some((dir) => !after.includes(dir))) stale.push(name);
-  }
-  assert.deepEqual(stale, []);
 });
 
 // The loose scan runs in awk. When awk is missing, fails or returns no result
