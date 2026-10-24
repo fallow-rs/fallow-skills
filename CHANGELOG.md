@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.46] - 2026-10-24
+
+### Fixed
+
+- A push from a linked worktree of the session repository audits only that worktree when git shows that the push cannot send the session branch. Before, the gate also audited the session tree, so untracked build output in the session blocked every push from a clean worktree.
+- The narrow rule needs all of these: the options are only `-u`, `-q`, `--set-upstream`, `--force-with-lease` and `--force-if-includes`. Each refspec source is the branch of the worktree, and that branch is not the session branch. A push without a refspec needs `push.default` unset or `simple`, `current`, `upstream` or `nothing`, and no remote `push` or `mirror` setting.
+- Any other push from a linked worktree, and any git error during the check, audits the session tree too.
+- The push allowlist accepts `--set-upstream`, `--force-with-lease` and `--force-if-includes` as exact words.
+
 ## [1.4.6] - 2026-10-09
 
 ### Fixed
