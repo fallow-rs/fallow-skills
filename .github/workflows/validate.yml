@@ -298,7 +298,7 @@ jobs:
       # A new finding fails the job, and so does a fixed finding that is still in the baseline.
       # Update it with: npx fallow@3.33.1 health --root codex-app --save-baseline codex-app/health-baseline.json
       # Duplication fails above 0.1%, because 0 means no limit.
-      - uses: fallow-rs/fallow@fccff887da0d83db1711379e0a3696dfc2460fdd # v3.33.1
+      - uses: fallow-rs/fallow@6605f96806787f85124bfc144124ff7e44733b06 # v3.34.1
         with:
           version: 3.33.1
           root: codex-app
