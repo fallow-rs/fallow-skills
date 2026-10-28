@@ -136,6 +136,7 @@ When the project sends production coverage to Fallow Cloud, check the changed fu
 - **Before a delete:** require `period_tracking_state: "never_called"` over the period, not only `tracking_state`, and read `evidence_window.observed_hours`. Low observed hours or a low-traffic surface mean "not visited", not "dead".
 - **After a deploy:** `fallow coverage deployment-changes --repo <owner/repo>` (MCP: `get_cloud_deployment_changes`). When `comparable` is `false`, report `reason` and claim no change.
 - Open files by `repo_path`, not `file_path`.
+- Without a local fallow install or checkout, use the hosted Fallow Cloud MCP server. It also has `get_file_context`, `verify_deployment`, `list_errors`, `get_branch_usage` and `get_runtime_dependencies`. In a checkout, prefer the local server.
 
 The data is context: cite it in a `framing`, never as a gate. Field meanings and the full recipe: **[references/production-runtime-data.md](references/production-runtime-data.md)**.
 
