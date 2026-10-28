@@ -137,14 +137,16 @@ Read these fields on each entry of `functions[]`:
   too low.
 - `tracking_state`: `called`, `never_called`, or `untracked` in the current
   deployment.
-- `covered_by_test`: `true` or `null`. `null` means "no test evidence". It does
-  not mean "no test".
+- `covered_by_test`: `true`, `false`, or `null`. `true` means a test or CI run
+  called the function. `false` means a test or CI run tracked the function and
+  never called it. `null` means "no test evidence". It does not mean "no test".
 - `blast_radius.caller_count` and `blast_radius.caller_sites`: the callers,
   when the data exists. `null` means unknown, not zero.
 
-A hot function with `covered_by_test: null` is a high-risk edit. Say so in the
-review, and ask for the verification plan. `prod_hot_untested[]` lists the hot
-functions with no test evidence over the whole window, not only in the diff.
+A hot function with `covered_by_test: false` or `null` is a high-risk edit. Say
+so in the review, and ask for the verification plan. `prod_hot_untested[]` lists
+the hot functions that no test called over the whole window, not only in the
+diff.
 
 An entry in `not_found` has no cloud data. Absence is not evidence that the
 code is cold.
