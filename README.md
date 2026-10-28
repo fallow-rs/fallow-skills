@@ -96,6 +96,7 @@ statusline behavior for the Claude Code and Codex surfaces.
 |---|---|---|
 | [fallow](fallow/skills/fallow/) | Codebase intelligence for JS and TS, code and styles: quality, changed-code risk, cleanup opportunities, circular deps, duplication, complexity, design-system drift, and runtime evidence | "check code health", "audit this PR", "find cleanup opportunities", "find duplicates", "what code actually runs" |
 | [fallow-review](fallow/skills/fallow-review/) | Graph-grounded review of changed-code risk, blast radius, and consequential structural decisions | "review this branch", "review this PR", "check changed code before merge" |
+| [fallow-cloud-setup](fallow/skills/fallow-cloud-setup/) | Connect an app to Fallow Cloud: beacon with the commit SHA, inventory and source map uploads, deployment registration, and a check that the first data arrived | "set up Fallow Cloud", "add the Fallow beacon", "why does Fallow Cloud show no data" |
 | [fallow-setup](fallow/skills/fallow-setup/) | Set up or modernize code-quality tooling: detect existing tools, configure and install Fallow, wire agents, and add a CI gate | "set up quality tooling for this repo", "make this repo agent-ready", "add a code-health gate to CI" |
 | [fallow-codex-onboarding](fallow/skills/fallow-codex-onboarding/) | Codex only: set up the Fallow app after install, choose defaults, run the first analysis | "Set up" in the Codex plugin page, "set up the Fallow app" |
 
