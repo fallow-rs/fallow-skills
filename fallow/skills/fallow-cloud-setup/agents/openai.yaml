@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fallow Cloud Setup"
+  short_description: "Connect a JS and TS app to Fallow Cloud"
+  default_prompt: "Use $fallow-cloud-setup to set up Fallow Cloud runtime coverage for this repository, with one commit SHA for every step."
