@@ -13,8 +13,8 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p ../agent-view/tsconfig.json",
+    "test": "node --test test/*.test.ts ../agent-view/test/*.test.ts",
     "harness": "node scripts/harness/serve.mjs",
     "check": "npm run typecheck && npm run build && npm test"
   },

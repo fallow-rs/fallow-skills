@@ -1,0 +1,4 @@
+fallow src/services/user.ts
+finding unused-export src/services/user.ts:42 `formatUser` is never imported
+finding complexity src/services/user.ts:14 loadUser cyclomatic 21
+cloud plan_required: production data needs a Fallow Cloud plan

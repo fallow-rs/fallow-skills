@@ -1,4 +1,4 @@
-import type { CategoryId } from "../shared/contracts.ts";
+import type { CategoryId } from "./contracts.ts";
 
 export interface RuleInfo {
   /** Kebab-case id that `fallow explain` accepts. */

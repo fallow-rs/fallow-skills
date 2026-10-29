@@ -7,7 +7,8 @@ import {
 } from "@modelcontextprotocol/ext-apps";
 import type { CallToolResult } from "@modelcontextprotocol/server";
 import { OpenAIExtensions } from "@openai/mcp-extensions/app";
-import type { Finding, ProjectRef, ViewPayload } from "../shared/contracts.ts";
+import type { Finding, ProjectRef } from "../../../agent-view/src/contracts.ts";
+import type { ViewPayload } from "../shared/contracts.ts";
 import { VIEW_META_KEY } from "../shared/view-meta.ts";
 
 /** Composer block `_meta` key that ties an attachment back to its finding. The model does not see `_meta`. */

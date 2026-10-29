@@ -3,9 +3,9 @@ import { open, readdir, readFile, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ProjectRef } from "../shared/contracts.ts";
+import type { ProjectRef } from "../../../agent-view/src/contracts.ts";
 import type { SandboxState } from "./fallow-cli.ts";
-import { isRecord, record, string } from "./json.ts";
+import { isRecord, record, string } from "../../../agent-view/src/json.ts";
 import type { StateStore } from "./state.ts";
 
 const SANDBOX_META_KEY = "codex/sandbox-state-meta";

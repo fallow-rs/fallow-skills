@@ -7,8 +7,8 @@ import {
   type Dispatch,
   type StateUpdater,
 } from "preact/hooks";
-import { CATEGORY_ORDER, CATEGORY_TITLES } from "../../shared/categories.ts";
-import type { CategoryId, Finding, Level, ProjectRef, Report } from "../../shared/contracts.ts";
+import { CATEGORY_ORDER, CATEGORY_TITLES } from "../../../../agent-view/src/categories.ts";
+import type { CategoryId, Finding, Level, ProjectRef, Report } from "../../../../agent-view/src/contracts.ts";
 import {
   Button,
   CategoryBar,

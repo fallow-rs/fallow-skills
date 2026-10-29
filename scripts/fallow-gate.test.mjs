@@ -111,6 +111,13 @@ test("hooks.json registers the gate as a PreToolUse Bash hook", () => {
   assert.match(group.hooks[0].command, /\$\{CLAUDE_PLUGIN_ROOT\}"?\/hooks\/fallow-gate\.sh$/);
 });
 
+test("hooks.json has only the hooks key, because Codex refuses any other key", () => {
+  // Codex reads this file too. Codex 0.164.0 refuses an unknown key such as `modules` and then
+  // loads no hook of the plugin, the commit gate included.
+  const config = JSON.parse(readFileSync(hooksConfig, "utf8"));
+  assert.deepEqual(Object.keys(config), ["hooks"]);
+});
+
 test("a command that is not a git commit or push passes without an audit", { skip }, () => {
   const fixture = makeCase({ fallowJson: { verdict: "fail" } });
   const result = runGate(fixture, "git status && ls");

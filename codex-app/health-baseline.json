@@ -117,11 +117,8 @@
       }
     },
     "src/server/app-tools.ts": {
-      "crap_critical": {
-        "count": 1
-      },
       "crap_high": {
-        "count": 2
+        "count": 3
       },
       "crap_moderate": {
         "count": 3
@@ -148,14 +145,6 @@
         "count": 2
       }
     },
-    "src/server/normalize.ts": {
-      "crap_high": {
-        "count": 5
-      },
-      "crap_moderate": {
-        "count": 5
-      }
-    },
     "src/server/project.ts": {
       "complexity_critical": {
         "count": 1
@@ -175,17 +164,6 @@
     },
     "src/server/state.ts": {
       "crap_high": {
-        "count": 1
-      }
-    },
-    "src/server/summary.ts": {
-      "complexity_critical": {
-        "count": 1
-      },
-      "crap_critical": {
-        "count": 1
-      },
-      "crap_moderate": {
         "count": 1
       }
     },
@@ -210,11 +188,9 @@
   },
   "runtime_coverage_findings": [],
   "target_keys": [
-    "src/server/json.ts:high impact",
     "src/server/project.ts:high impact",
-    "src/server/mentions.ts:untested risk",
     "src/app/host.ts:high impact",
-    "src/server/normalize.ts:untested risk",
+    "src/server/mentions.ts:untested risk",
     "src/app/sarif.ts:untested risk"
   ]
 }

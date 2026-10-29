@@ -20,5 +20,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src", "scripts", "test"]
+  "include": ["src", "scripts", "test", "../agent-view/src", "../agent-view/test"]
 }

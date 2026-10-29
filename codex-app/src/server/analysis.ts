@@ -1,14 +1,8 @@
 import { execFile } from "node:child_process";
-import type {
-  AuditResult,
-  FallowProblem,
-  Finding,
-  ProjectRef,
-  Report,
-} from "../shared/contracts.ts";
+import type { AuditResult, FallowProblem, Finding, ProjectRef, Report } from "../../../agent-view/src/contracts.ts";
 import { ignoredBase, runFallow, type RunResult, type SandboxState } from "./fallow-cli.ts";
 import { BASE_REF_PATTERN } from "./state.ts";
-import { allFindings, toAudit, toReport } from "./normalize.ts";
+import { allFindings, toAudit, toReport } from "../../../agent-view/src/normalize.ts";
 import type { AppSettings } from "./state.ts";
 
 interface AnalyzeRequest {

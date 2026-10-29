@@ -9,7 +9,7 @@ import {
   type Dispatch,
   type StateUpdater,
 } from "preact/hooks";
-import { CATEGORY_ORDER, CATEGORY_TITLES } from "../../shared/categories.ts";
+import { CATEGORY_ORDER, CATEGORY_TITLES } from "../../../../agent-view/src/categories.ts";
 import type { ConfigPreview } from "../../shared/contracts.ts";
 import {
   Button,

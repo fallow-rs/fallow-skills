@@ -1,0 +1,101 @@
+{
+  "kind": "inspect_target",
+  "target": {
+    "type": "file",
+    "file": "src/services/user.ts"
+  },
+  "identity": {
+    "file": "src/services/user.ts",
+    "is_reachable": true,
+    "is_entry_point": false,
+    "export_count": 3,
+    "import_count": 2,
+    "imported_by_count": 4
+  },
+  "evidence": {
+    "trace_file": {
+      "status": "ok",
+      "scope": "file",
+      "data": {
+        "kind": "trace",
+        "file": "src/services/user.ts"
+      }
+    },
+    "dead_code": {
+      "status": "ok",
+      "scope": "file",
+      "data": {
+        "kind": "dead-code",
+        "total_issues": 1
+      }
+    },
+    "complexity": {
+      "status": "ok",
+      "scope": "project_filtered_to_file",
+      "data": {
+        "findings": [],
+        "matched_count": 1
+      }
+    },
+    "cloud": {
+      "status": "ok",
+      "message": null,
+      "repo": "fallow-cloud",
+      "latest_sha": "abc1234def5678",
+      "period_days": 30,
+      "summary": {
+        "functions": 3,
+        "called": 1,
+        "never_called": 1,
+        "untracked": 1,
+        "calls": 4120,
+        "error_groups": 1,
+        "error_events": 7,
+        "text": "3 functions: 1 called, 1 never called, 1 untracked in 30 days."
+      },
+      "functions": [
+        {
+          "name": "loadUser",
+          "line": 14,
+          "stable_id": "0f3a9c1e7b2d4a60",
+          "match": "stable_id",
+          "state": "called",
+          "calls": 4120,
+          "errors": {
+            "groups": 1,
+            "events": 7
+          },
+          "cpu_ms_per_hour": 812.5,
+          "never_run_ranges": 2,
+          "summary": "loadUser ran 4120 times in 30 days. 1 error group (7 events). 812.5 ms CPU per hour."
+        },
+        {
+          "name": "parseRow",
+          "line": 60,
+          "stable_id": "9a1b2c3d4e5f6071",
+          "match": "name_ordinal",
+          "state": "never_called",
+          "calls": 0,
+          "errors": null,
+          "cpu_ms_per_hour": null,
+          "never_run_ranges": null,
+          "summary": "parseRow did not run in 30 days."
+        },
+        {
+          "name": "formatUser",
+          "line": 42,
+          "stable_id": "5c6d7e8f90a1b2c3",
+          "match": "stable_id",
+          "state": "untracked",
+          "calls": null,
+          "errors": null,
+          "cpu_ms_per_hour": null,
+          "never_run_ranges": null,
+          "summary": "No runtime data for formatUser."
+        }
+      ],
+      "unpaired_local": []
+    }
+  },
+  "warnings": []
+}

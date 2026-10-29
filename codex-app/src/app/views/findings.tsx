@@ -1,7 +1,7 @@
 import type { JSX } from "preact";
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { CATEGORY_COLORS, CATEGORY_TITLES } from "../../shared/categories.ts";
-import type { Finding, ProjectRef } from "../../shared/contracts.ts";
+import { CATEGORY_COLORS, CATEGORY_TITLES } from "../../../../agent-view/src/categories.ts";
+import type { Finding, ProjectRef } from "../../../../agent-view/src/contracts.ts";
 import {
   Button,
   CategoryLabel,
@@ -13,6 +13,7 @@ import {
   PathLabel,
 } from "../components/ui.tsx";
 import type { Host } from "../host.ts";
+import { ProductionSection } from "./production.tsx";
 
 const location = (finding: Finding): string =>
   finding.line === null ? finding.path : `${finding.path}:${finding.line}`;
@@ -572,6 +573,7 @@ export const FindingDetail = ({
       <FindingLocation host={host} project={project} finding={finding} snippet={snippet} />
       <FindingVerification command={finding.verify} />
       <FindingRemedies finding={finding} />
+      <ProductionSection host={host} project={project} finding={finding} />
       <section class="f-detail-section">
         <h3>Why this matters</h3>
         <FindingExplanation host={host} finding={finding} explanation={explanation} />

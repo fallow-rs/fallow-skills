@@ -5,14 +5,14 @@ import {
   type OpenAIUiToolMetadata,
 } from "@openai/mcp-extensions/server";
 import { z } from "zod";
-import type { Finding, ProjectRef, Report } from "../shared/contracts.ts";
+import type { Finding, ProjectRef, Report } from "../../../agent-view/src/contracts.ts";
 import type { Analysis } from "./analysis.ts";
 import { appFacing, isKnownRoot, problemResult, READ_ONLY, viewResult, type Extra, type ServerContext } from "./context.ts";
 import { fallowVersion } from "./fallow-cli.ts";
 import { AUDIT_ICON, SIDEBAR_ICON } from "./icons.ts";
 import { resolveProject, sandboxFor, sandboxFromMeta } from "./project.ts";
 import { BASE_REF_PATTERN } from "./state.ts";
-import { auditSummary, auditText, findingMarkdown, reportSummary, reportText } from "./summary.ts";
+import { auditSummary, auditText, findingMarkdown, reportSummary, reportText } from "../../../agent-view/src/summary.ts";
 
 type Visibility = Array<"model" | "app">;
 

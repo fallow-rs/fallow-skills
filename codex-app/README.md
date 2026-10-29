@@ -23,6 +23,7 @@ machine. It sends no code anywhere.
 | Inline results              | Ask "how healthy is this code?" and Codex shows a compact card that opens full screen.                                                              |
 | Branch audit                | Pass, warn or fail for the changes of the branch, with the findings that the branch introduced separated from the ones it inherited.               |
 | Finding detail              | The code around the finding, a read-only command that verifies it, fix options, and the rule explanation.                                          |
+| Production data             | The finding detail shows calls, errors and CPU per function of the file, from `fallow inspect --file <path> --cloud`. Without a key, a plan or a fallow release with `--cloud`, it shows the status and the command that fixes it. |
 | Composer attachments        | Select findings to attach them to the composer as labeled chips. Remove a chip and the selection follows.                                          |
 | **Fix with Codex**          | Sends the selected findings to the active thread, or to a new thread.                                                                               |
 | **@Fallow** mentions        | Search findings while you type. A mention gives Codex the finding with its evidence and verify command, or all findings of one rule.               |
@@ -90,9 +91,11 @@ These come from Codex itself, not from the app:
 codex-app/
   src/server/   MCP server: tools, forms, mentions, resources, settings, the fallow runner
   src/app/      MCP App: one Preact app that renders every view
-  src/shared/   Contracts and category metadata used by both
+  src/shared/   Codex payloads (ViewPayload and the app tool results) and the view meta key
   scripts/      build.mjs and the local harness
-  test/         node:test suites, with fixtures from a small demo project
+  test/         node:test suites
+agent-view/     Shared core with the Claude Code mod: contracts, categories, normalization,
+                the view model of `fallow inspect --cloud`, and the fixtures
 fallow/codex-app/   Build output: server.mjs, app.html, mcp.json (committed)
 ```
 

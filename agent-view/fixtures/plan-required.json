@@ -1,0 +1,52 @@
+{
+  "kind": "inspect_target",
+  "target": {
+    "type": "file",
+    "file": "src/services/user.ts"
+  },
+  "identity": {
+    "file": "src/services/user.ts",
+    "is_reachable": true,
+    "is_entry_point": false,
+    "export_count": 3,
+    "import_count": 2,
+    "imported_by_count": 4
+  },
+  "evidence": {
+    "trace_file": {
+      "status": "ok",
+      "scope": "file",
+      "data": {
+        "kind": "trace",
+        "file": "src/services/user.ts"
+      }
+    },
+    "dead_code": {
+      "status": "ok",
+      "scope": "file",
+      "data": {
+        "kind": "dead-code",
+        "total_issues": 1
+      }
+    },
+    "complexity": {
+      "status": "ok",
+      "scope": "project_filtered_to_file",
+      "data": {
+        "findings": [],
+        "matched_count": 1
+      }
+    },
+    "cloud": {
+      "status": "plan_required",
+      "message": "production data needs a Fallow Cloud plan",
+      "repo": "fallow-cloud",
+      "latest_sha": null,
+      "period_days": null,
+      "summary": null,
+      "functions": [],
+      "unpaired_local": []
+    }
+  },
+  "warnings": []
+}

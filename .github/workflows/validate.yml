@@ -243,6 +243,17 @@ jobs:
         working-directory: codex-app
         run: npm test
 
+      # The Claude Code mod reads the same agent-view core as the app. It does not ship in the
+      # plugin yet, so CI type-checks and builds it. `npm test` in claude-mod needs Claude Code
+      # (`claude plugin test`), so it runs locally, not here.
+      - name: Install the Fallow mod toolchain
+        working-directory: claude-mod
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck and build the Fallow mod
+        working-directory: claude-mod
+        run: npm run check
+
       - name: Read pinned Fallow source revision
         id: source-lock
         run: |

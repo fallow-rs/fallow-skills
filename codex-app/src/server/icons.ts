@@ -1,6 +1,6 @@
 import type { Icon } from "@modelcontextprotocol/server";
-import { CATEGORY_COLORS, CATEGORY_GLYPHS } from "../shared/categories.ts";
-import type { CategoryId } from "../shared/contracts.ts";
+import { CATEGORY_COLORS, CATEGORY_GLYPHS } from "../../../agent-view/src/categories.ts";
+import type { CategoryId } from "../../../agent-view/src/contracts.ts";
 
 /* The F mark of the Fallow logo, three leaf strokes. */
 const MARK_PATH =

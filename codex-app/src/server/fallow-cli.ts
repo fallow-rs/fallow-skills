@@ -2,8 +2,8 @@ import { spawn } from "node:child_process";
 import { access, constants } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, isAbsolute, join, relative } from "node:path";
-import type { FallowProblem } from "../shared/contracts.ts";
-import { isRecord, string, type Json } from "./json.ts";
+import type { FallowProblem } from "../../../agent-view/src/contracts.ts";
+import { isRecord, string, type Json } from "../../../agent-view/src/json.ts";
 
 export type FallowSource = "auto" | "project" | "path" | "npx";
 

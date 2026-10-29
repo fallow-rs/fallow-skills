@@ -5,9 +5,13 @@ change edits or deletes a function. The data is context for the review. It
 never replaces the static brief, and it never gates the verdict.
 
 Skip this file when the project has no Fallow Cloud connection. The CLI reads
-the key from `--api-key` or `FALLOW_API_KEY`. The local MCP tools read
-`FALLOW_API_KEY` from the server environment only. Without a key, a cloud read
-is refused before it sends a request.
+the key in this order: `--api-key`, `FALLOW_API_KEY`, then the key that
+`fallow cloud login` stored. `fallow cloud login` runs a device login in the
+browser and stores a read-only key in the OS keychain (or in
+`~/.config/fallow/credentials` when no keychain is available). `fallow cloud
+logout` removes it. The local MCP tools read `FALLOW_API_KEY` from the server
+environment only. Without a key, a cloud read is refused before it sends a
+request.
 
 ## Pick the smallest read
 
@@ -16,6 +20,17 @@ is refused before it sends a request.
 | Is a changed function hot, cold, or tested? | `fallow coverage review-packet --repo <owner/repo>` | `get_cloud_review_packet` |
 | Did the last deploy change what runs? | `fallow coverage deployment-changes --repo <owner/repo>` | `get_cloud_deployment_changes` |
 | Full runtime picture of the whole project | `fallow coverage analyze --cloud --repo <owner/repo> --format json --quiet` | `get_cloud_runtime_context` |
+| Static findings and production data of one file | `fallow inspect --file <path> --cloud --format json --quiet` | none |
+
+`fallow inspect --file <path> --cloud` adds a `cloud` section to the inspect
+evidence: calls, errors, CPU time and never-run ranges per function of the
+file. The section has a `status`: `ok`, `no_key`, `plan_required`,
+`unavailable` or `untracked`. Any status other than `ok` has no numbers, and
+the run does not fail. A function that the deployed code does not have yet
+shows the note `no production data (new or moved since deploy)`. A `null`
+value means "not measured", never zero. `--format compact` gives the same file
+as short plain text, one line per finding and per function. A fallow release
+without `inspect --cloud` refuses the flag.
 
 Prefer the two scoped reads. They return only the functions or the deploy that
 you ask about. The full runtime-context pull downloads the evidence of every

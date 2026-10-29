@@ -1,0 +1,21 @@
+{
+  "name": "fallow-claude-mod",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Source of the Fallow mod for Claude Code: a hook on Read, Edit and Write that adds the fallow file view.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node scripts/plugin-test.mjs",
+    "check": "npm run typecheck && npm run build"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
+}

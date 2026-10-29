@@ -4,17 +4,18 @@ import { lstat, open, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { parse, printParseErrorCode, type ParseError } from "jsonc-parser";
 import { z } from "zod";
-import { CATEGORY_ORDER } from "../shared/categories.ts";
+import { CATEGORY_ORDER } from "../../../agent-view/src/categories.ts";
 import type { ConfigPreview, LocatedFile } from "../shared/contracts.ts";
 import { appFacing, dataResult, isKnownRoot, READ_ONLY, type Extra, type ServerContext } from "./context.ts";
 import { runFallow } from "./fallow-cli.ts";
-import { record, string } from "./json.ts";
+import { record, string } from "../../../agent-view/src/json.ts";
 import {
   describeProject,
   detectProjectRoot,
   resourcePathFromMeta,
   toLocalPath,
 } from "./project.ts";
+import { createProductionLoader } from "./production.ts";
 import { BASE_REF_PATTERN } from "./state.ts";
 import { openAudit, openDashboard, pickerResult, uiMeta } from "./tools.ts";
 
@@ -90,6 +91,14 @@ const readLines = async (path: string, line: number, context: number) => {
   }
 };
 
+const loadProduction = createProductionLoader(runFallow);
+
+/** True when the newest report of the project names the file, so the app cannot ask about other files. */
+const reportedFile = (context: ServerContext, root: string, path: string): boolean =>
+  (context.analyzer.latest(resolve(root))?.findings ?? []).some(
+    (finding) => finding.path === path || finding.related.some((related) => related.path === path),
+  );
+
 const explainCache = new Map<string, Record<string, unknown>>();
 let schemaCache: Record<string, unknown> | null = null;
 
@@ -164,11 +173,7 @@ export const registerAppTools = (context: ServerContext): void => {
     async ({ root, path, line, context: around }) => {
       if (!(await isKnownRoot(context, root))) return dataResult({ found: false });
       // Only files that the newest report names, so the app cannot read other files in the project.
-      const reported = context.analyzer.latest(resolve(root))?.findings ?? [];
-      const listed = reported.some(
-        (finding) => finding.path === path || finding.related.some((related) => related.path === path),
-      );
-      if (!listed) return dataResult({ found: false });
+      if (!reportedFile(context, root, path)) return dataResult({ found: false });
       const located = await locate([resolve(root)], path);
       if (located === null) return dataResult({ found: false });
       const real = await realpath(located.path).catch(() => null);
@@ -180,6 +185,26 @@ export const registerAppTools = (context: ServerContext): void => {
           ? { found: false }
           : { found: true, ...snippet, language: extname(real).slice(1) },
       );
+    },
+  );
+
+  app.registerTool(
+    "fallow_app_production",
+    {
+      title: "Read production data",
+      description:
+        "Run fallow inspect --cloud for one file of the report: calls, errors and CPU per function from Fallow Cloud.",
+      inputSchema: z.object({ root: z.string(), path: z.string().min(1).max(4096) }),
+      annotations: READ_ONLY,
+      _meta: APP_ONLY,
+    },
+    async ({ root, path }) => {
+      if (!(await isKnownRoot(context, root)) || !reportedFile(context, root, path)) {
+        return dataResult({ found: false });
+      }
+      const settings = await context.store.settings();
+      const result = await loadProduction({ root: resolve(root), path, source: settings.source });
+      return dataResult({ found: true, ...result });
     },
   );
 

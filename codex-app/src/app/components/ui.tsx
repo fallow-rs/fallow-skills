@@ -1,7 +1,7 @@
 import type { ComponentChildren, JSX } from "preact";
 import { useState } from "preact/hooks";
-import { CATEGORY_COLORS, CATEGORY_GLYPHS, CATEGORY_TITLES } from "../../shared/categories.ts";
-import type { CategoryId, Level } from "../../shared/contracts.ts";
+import { CATEGORY_COLORS, CATEGORY_GLYPHS, CATEGORY_TITLES } from "../../../../agent-view/src/categories.ts";
+import type { CategoryId, Level } from "../../../../agent-view/src/contracts.ts";
 
 const ICONS = {
   refresh: "M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.2h-3.2",
