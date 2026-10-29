@@ -83,6 +83,18 @@ describe("production loader", () => {
     assert.equal(runner.calls.length, 2);
   });
 
+  it("does not keep a failed run, so the next try runs the CLI again", async () => {
+    const runner = fakeRunner({
+      ok: false,
+      problem: { code: "fallow_error", title: "Fallow stopped with an error", detail: "boom", fix: "fallow doctor" },
+    });
+    const load = createProductionLoader(runner.run, { ttlMs: 60_000, now: () => 1_000 });
+    const request = { root: "/project", path: "src/services/user.ts", source: "auto" } as const;
+    assert.equal((await load(request)).production.status, "cli_failed");
+    await load(request);
+    assert.equal(runner.calls.length, 2);
+  });
+
   it("refuses a path that fallow would read as an option", async () => {
     const runner = fakeRunner(ok("ok"));
     const load = createProductionLoader(runner.run);

@@ -21,11 +21,9 @@ const segments = (path: string): string[] => {
   return out;
 };
 
-/** A drive letter compares without case on Windows; other segments compare exactly. */
-const sameSegment = (left: string, right: string, index: number): boolean =>
-  index === 0 && /^[A-Za-z]:$/.test(left)
-    ? left.toLowerCase() === right.toLowerCase()
-    : left === right;
+/** Windows paths compare without case, as `node:path` does on Windows; POSIX paths compare exactly. */
+const sameSegment = (left: string, right: string, windows: boolean): boolean =>
+  windows ? left.toLowerCase() === right.toLowerCase() : left === right;
 
 /**
  * Makes `path` relative to `root` with forward slashes, like `node:path` `relative` does.
@@ -36,11 +34,12 @@ export const relativePath = (root: string, path: string): string => {
   if (!isAbsoluteForward(target)) return target;
   const from = segments(forward(root));
   const to = segments(target);
+  const windows = WINDOWS_DRIVE.test(target);
   let shared = 0;
   while (
     shared < from.length &&
     shared < to.length &&
-    sameSegment(from[shared] ?? "", to[shared] ?? "", shared)
+    sameSegment(from[shared] ?? "", to[shared] ?? "", windows)
   ) {
     shared += 1;
   }

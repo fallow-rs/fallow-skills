@@ -109,6 +109,7 @@ describe("functionText", () => {
     stableId: null,
     match: null,
     state: "called",
+    periodState: null,
     calls: 1,
     errors: { groups: 2, events: 1 },
     cpuMsPerHour: 812,
@@ -128,6 +129,22 @@ describe("functionText", () => {
     assert.equal(
       functionText({ ...fn, state: "untracked", calls: null, cpuMsPerHour: null, neverRunRanges: null }, 30),
       "untracked (no runtime data), 2 error groups (1 event)",
+    );
+  });
+
+  it("names a function that ran in an earlier deployment as the CLI does, not as never_called", () => {
+    const quiet = { ...fn, state: "never_called", calls: 0, errors: null, cpuMsPerHour: null, neverRunRanges: null };
+    assert.equal(
+      functionText({ ...quiet, periodState: "called" }, 7),
+      "not called in this deployment, called earlier in 7 days",
+    );
+    assert.equal(functionText({ ...quiet, periodState: "never_called" }, 7), "never_called in 7 days");
+  });
+
+  it("prints a state it does not know as it is, like the CLI", () => {
+    assert.equal(
+      functionText({ ...fn, state: "partial", calls: null, errors: null, cpuMsPerHour: null, neverRunRanges: null }, 30),
+      "partial",
     );
   });
 

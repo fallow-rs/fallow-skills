@@ -65,14 +65,19 @@ const readLine = (raw: string): CompactLine | null => {
   return null;
 };
 
+/** A function that did not run in this deployment but ran in an earlier one: it is not new code. */
+const CALLED_EARLIER = "not called in this deployment";
+/** The note of the CLI on a local function with no production pair. */
+const UNPAIRED_NOTE = "no production data";
+
 const countProd = (lines: CompactLine[]): CompactView["prod"] => {
   const prod = { called: 0, neverCalled: 0, untracked: 0, unpaired: 0, errorGroups: 0 };
   for (const line of lines) {
     if (line.kind !== "prod") continue;
-    if (line.text.startsWith("called")) prod.called += 1;
+    if (line.text.startsWith("called") || line.text.startsWith(CALLED_EARLIER)) prod.called += 1;
     else if (line.text.startsWith("never_called")) prod.neverCalled += 1;
     else if (line.text.startsWith("untracked")) prod.untracked += 1;
-    else prod.unpaired += 1;
+    else if (line.text.startsWith(UNPAIRED_NOTE)) prod.unpaired += 1;
     prod.errorGroups += Number(ERROR_GROUPS.exec(line.text)?.[1] ?? 0);
   }
   return prod;

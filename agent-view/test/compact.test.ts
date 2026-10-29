@@ -53,6 +53,15 @@ describe("compactStatusLine", () => {
     );
   });
 
+  it("counts a function that ran in an earlier deployment as called, not as new", () => {
+    const compact = [
+      "fallow src/a.ts",
+      "prod run:3 not called in this deployment, called earlier in 30 days",
+      "prod helper:9 no pair in this read (Fallow Cloud withheld never_called rows; not actionable yet)",
+    ].join("\n");
+    assert.equal(compactStatusLine(parseCompact(compact)), "fallow a.ts: 0 findings | prod 1 called");
+  });
+
   it("names a cloud status instead of production numbers", () => {
     assert.equal(
       compactStatusLine(parseCompact(text("no-key"))),

@@ -5,6 +5,7 @@ import { relativePath } from "../src/path.ts";
 
 describe("relativePath", () => {
   it("makes a POSIX path relative to the root", () => {
+    assert.equal(relativePath("/Project", "/project/a.ts"), "../project/a.ts");
     assert.equal(relativePath("/project", "/project/src/a.ts"), "src/a.ts");
     assert.equal(relativePath("/project/", "/project/src/./b/../a.ts"), "src/a.ts");
     assert.equal(relativePath("/project", "/project"), "");
@@ -19,6 +20,7 @@ describe("relativePath", () => {
   it("makes a Windows path relative, with the drive letter in any case", () => {
     assert.equal(relativePath("C:\\project", "c:\\project\\src\\a.ts"), "src/a.ts");
     assert.equal(relativePath("C:\\project", "D:\\other\\a.ts"), "D:/other/a.ts");
+    assert.equal(relativePath("C:\\Users\\Bart\\proj", "C:\\users\\bart\\proj\\src\\a.ts"), "src/a.ts");
   });
 });
 

@@ -15,6 +15,7 @@ export type CloudStatus = "ok" | "no_key" | "plan_required" | "unavailable" | "u
 /** Statuses that a host adds when the CLI gave no cloud section. */
 export type HostStatus = "not_requested" | "cli_unsupported" | "cli_failed";
 
+/** The states that the cloud reports. The CLI prints any other state as it is. */
 export type ProductionState = "called" | "never_called" | "untracked";
 
 export interface ProductionFunction {
@@ -23,7 +24,10 @@ export interface ProductionFunction {
   stableId: string | null;
   /** How the CLI paired the local function with the deployed one. */
   match: "stable_id" | "name_ordinal" | null;
-  state: ProductionState | null;
+  /** The state in this deployment: one of {@link ProductionState}, or another state of the cloud. */
+  state: string | null;
+  /** The state over the whole period, over every deployment (`called` when an earlier one ran it). */
+  periodState: string | null;
   calls: number | null;
   errors: { groups: number; events: number } | null;
   cpuMsPerHour: number | null;
@@ -99,8 +103,7 @@ const STATUS_TEXT: Record<Exclude<ProductionView["status"], "ok">, string> = {
 
 const CLOUD_STATUSES = new Set<string>(["ok", "no_key", "plan_required", "unavailable", "untracked"]);
 
-const toState = (value: unknown): ProductionState | null =>
-  value === "called" || value === "never_called" || value === "untracked" ? value : null;
+const toState = (value: unknown): string | null => text(value, NAME_MAX);
 
 const toMatch = (value: unknown): ProductionFunction["match"] =>
   value === "stable_id" || value === "name_ordinal" ? value : null;
@@ -121,6 +124,7 @@ const toFunction = (item: Json): ProductionFunction | null => {
     stableId: text(item["stable_id"], 64),
     match: toMatch(item["match"]),
     state: toState(item["state"]),
+    periodState: toState(item["period_state"]),
     calls: number(item["calls"]),
     errors: toErrors(item["errors"]),
     cpuMsPerHour: number(item["cpu_ms_per_hour"]),
@@ -222,8 +226,13 @@ const plural = (count: number, word: string): string => {
 
 const stateText = (fn: ProductionFunction, periodDays: number | null): string => {
   if (fn.state === "called") return fn.calls === null ? "called" : `called ${plural(fn.calls, "call")}`;
-  if (fn.state === "never_called") return `never_called in ${periodDays ?? DEFAULT_PERIOD_DAYS} days`;
-  return "untracked (no runtime data)";
+  const days = periodDays ?? DEFAULT_PERIOD_DAYS;
+  if (fn.state === "never_called" && fn.periodState === "called") {
+    return `not called in this deployment, called earlier in ${days} days`;
+  }
+  if (fn.state === "never_called") return `never_called in ${days} days`;
+  if (fn.state === "untracked" || fn.state === null) return "untracked (no runtime data)";
+  return fn.state;
 };
 
 /**

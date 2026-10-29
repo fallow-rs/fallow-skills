@@ -72,6 +72,9 @@ const createCache = (ttlMs: number, now: () => number): Cache => {
   };
 };
 
+/** Answers that can change on the next try. They are not kept, so a short failure does not stay. */
+const TRANSIENT = new Set<string>(["cli_failed", "unavailable"]);
+
 /** A path that fallow would read as an option, or no path, never reaches the CLI. */
 const isSafePath = (path: string): boolean => path.length > 0 && !path.startsWith("-");
 
@@ -86,12 +89,12 @@ export const createProductionLoader = (
   const cache = createCache(options.ttlMs ?? DEFAULT_TTL_MS, options.now ?? Date.now);
   return async ({ root, path, source }) => {
     if (!isSafePath(path)) return refused(path);
-    const key = `${root}\u0000${path}`;
+    const key = `${root}\u0000${path}\u0000${JSON.stringify(source)}`;
     const cached = cache.get(key);
     if (cached !== null) return cached;
     const ran = await run({ root, args: inspectArguments(path), source, sandbox: null, timeoutMs: INSPECT_TIMEOUT_MS });
     const result = toResult(path, ran);
-    cache.set(key, result);
+    if (!TRANSIENT.has(result.production.status)) cache.set(key, result);
     return result;
   };
 };
