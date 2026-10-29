@@ -24,7 +24,7 @@ describe("readInspect", () => {
     assert.equal(view.path, "src/services/user.ts");
     assert.deepEqual(
       view.sections.map((section) => `${section.name}:${section.status}`),
-      ["trace_file:ok", "dead_code:ok", "complexity:ok"],
+      ["trace_file:ok", "dead_code:ok", "duplication:ok", "complexity:ok", "security:ok", "impact_closure:ok"],
     );
     const cloud = view.production;
     assert.equal(cloud.status, "ok");
@@ -36,8 +36,8 @@ describe("readInspect", () => {
       cloud.functions.map((fn) => [fn.name, fn.line, fn.match, fn.state]),
       [
         ["loadUser", 14, "stable_id", "called"],
-        ["parseRow", 60, "name_ordinal", "never_called"],
         ["formatUser", 42, "stable_id", "untracked"],
+        ["parseRow", 60, "name_ordinal", "never_called"],
       ],
     );
   });
@@ -99,6 +99,56 @@ describe("readInspect", () => {
     assert.equal(readInspect(envelope).production.status, "unavailable");
     assert.equal(readInspect("nonsense").production.status, "not_requested");
     assert.equal(readInspect(null).path, null);
+  });
+});
+
+describe("functionText", () => {
+  const fn = {
+    name: "loadUser",
+    line: 14,
+    stableId: null,
+    match: null,
+    state: "called",
+    calls: 1,
+    errors: { groups: 2, events: 1 },
+    cpuMsPerHour: 812,
+    neverRunRanges: 1,
+    summary: null,
+  } as const;
+
+  it("uses the words of the CLI prod line: one decimal for CPU, branch for a never-run range", () => {
+    assert.equal(functionText(fn, 30), "called 1 call, 2 error groups (1 event), 812.0 ms CPU/h, 1 never-run branch");
+    assert.equal(
+      functionText({ ...fn, calls: 3, cpuMsPerHour: 812.456, neverRunRanges: 2 }, 30),
+      "called 3 calls, 2 error groups (1 event), 812.5 ms CPU/h, 2 never-run branches",
+    );
+  });
+
+  it("names an untracked function as the CLI does, and keeps its errors", () => {
+    assert.equal(
+      functionText({ ...fn, state: "untracked", calls: null, cpuMsPerHour: null, neverRunRanges: null }, 30),
+      "untracked (no runtime data), 2 error groups (1 event)",
+    );
+  });
+
+  it("uses the default period of the CLI when the answer names none", () => {
+    assert.equal(
+      functionText({ ...fn, state: "never_called", calls: 0, errors: null, cpuMsPerHour: null, neverRunRanges: null }, null),
+      "never_called in 30 days",
+    );
+  });
+});
+
+describe("readCloudSection", () => {
+  it("keeps the note of an ok section, for example that the cloud left out functions", () => {
+    const note = "Fallow Cloud left out 4 functions to fit its size limit";
+    const envelope = json("ok") as { evidence: Record<string, Record<string, unknown>> };
+    envelope.evidence["cloud"] = { ...envelope.evidence["cloud"], message: note };
+    const cloud = readInspect(envelope).production;
+    assert.equal(cloud.status, "ok");
+    if (cloud.status === "ok") assert.equal(cloud.message, note);
+    const plain = production("ok");
+    if (plain.status === "ok") assert.equal(plain.message, null);
   });
 });
 

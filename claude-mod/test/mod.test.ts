@@ -80,9 +80,20 @@ for (const surface of SURFACES) {
       const ran = await $.tool.call({ tool: "Read", file_path: FILE });
       expect(ran.text).toBe("file text");
       expect(ran.context ?? []).toEqual([]);
-      expect(statuses).toEqual([]);
+      expect(statuses).toEqual([undefined]);
     });
   }
+
+  test(`a call that adds nothing clears the entry of the previous file (${surface})`, async ($, on) => {
+    const { statuses } = setUp(on, { stdout: ok });
+    await $.session.start({ cwd: "/repo", surface, isInteractive: true });
+    await $.tool.call({ tool: "Read", file_path: FILE });
+    await $.tool.call({ tool: "Read", file_path: "/repo/README.md" });
+    expect(statuses).toEqual([
+      "fallow user.ts: 2 findings | prod 1 called, 1 never_called, 1 untracked, 1 error group",
+      undefined,
+    ]);
+  });
 
   test(`a file that fallow does not analyze runs nothing (${surface})`, async ($, on) => {
     const { runs } = setUp(on, { stdout: ok });

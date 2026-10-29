@@ -8,7 +8,9 @@ function. It also sets a status line entry, for example
 `fallow user.ts: 2 findings | prod 1 called, 1 never_called`.
 
 The run has a budget of 2 seconds. A failed start, a timeout, a non-zero exit or
-empty output adds nothing, and the tool result stays as it was.
+empty output adds nothing, and the tool result stays as it was. A call that adds
+nothing also clears the status line entry, so the entry never names an earlier
+file.
 
 The mod does not ship in the `fallow` plugin yet. Codex reads the same
 `fallow/hooks/hooks.json` and refuses the `modules` key. Codex then loads no

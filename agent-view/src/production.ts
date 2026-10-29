@@ -55,6 +55,8 @@ export type ProductionView =
       repo: string | null;
       latestSha: string | null;
       periodDays: number | null;
+      /** A note of the CLI on an ok section, for example that the cloud left out functions. */
+      message: string | null;
       summary: ProductionSummary | null;
       functions: ProductionFunction[];
       unpaired: UnpairedFunction[];
@@ -174,6 +176,7 @@ export const readCloudSection = (section: unknown): ProductionView => {
     repo: text(fields["repo"], NAME_MAX),
     latestSha: text(fields["latest_sha"], 64),
     periodDays: number(fields["period_days"]),
+    message,
     summary: toSummary(fields["summary"]),
     functions: array(fields["functions"]).filter(isRecord).map(toFunction).filter(present),
     unpaired: array(fields["unpaired_local"]).filter(isRecord).map(toUnpaired).filter(present),
@@ -208,39 +211,68 @@ export const productionFromProblem = (problem: FallowProblem): ProductionView =>
   };
 };
 
-const plural = (count: number, word: string): string => `${count} ${word}${count === 1 ? "" : "s"}`;
+/** The period of the cloud read when the answer names none, as in the CLI. */
+const DEFAULT_PERIOD_DAYS = 30;
 
-const calledText = (fn: ProductionFunction): string => {
-  const parts = [fn.calls === null ? "called" : `called ${plural(fn.calls, "call")}`];
+/** The plural of the CLI: `branch` gives `branches`. */
+const plural = (count: number, word: string): string => {
+  if (count === 1) return `${count} ${word}`;
+  return `${count} ${word}${word.endsWith("ch") ? "es" : "s"}`;
+};
+
+const stateText = (fn: ProductionFunction, periodDays: number | null): string => {
+  if (fn.state === "called") return fn.calls === null ? "called" : `called ${plural(fn.calls, "call")}`;
+  if (fn.state === "never_called") return `never_called in ${periodDays ?? DEFAULT_PERIOD_DAYS} days`;
+  return "untracked (no runtime data)";
+};
+
+/**
+ * One function as text, with the words of a `prod` line of `fallow inspect --format compact`
+ * (contract B.5, `prod_text` in the CLI). A value that the cloud did not measure is left out,
+ * never written as zero.
+ */
+export const functionText = (fn: ProductionFunction, periodDays: number | null): string => {
+  const parts = [stateText(fn, periodDays)];
   if (fn.errors !== null && fn.errors.groups > 0) {
     parts.push(`${plural(fn.errors.groups, "error group")} (${plural(fn.errors.events, "event")})`);
   }
-  if (fn.cpuMsPerHour !== null) parts.push(`${fn.cpuMsPerHour} ms CPU/h`);
+  if (fn.cpuMsPerHour !== null) parts.push(`${fn.cpuMsPerHour.toFixed(1)} ms CPU/h`);
   if (fn.neverRunRanges !== null && fn.neverRunRanges > 0) {
-    parts.push(plural(fn.neverRunRanges, "never-run range"));
+    parts.push(plural(fn.neverRunRanges, "never-run branch"));
   }
   return parts.join(", ");
 };
 
-/**
- * One function as text, the same words as a `prod` line of the compact format (contract B.5).
- * A value that the cloud did not measure is left out, never written as zero.
- */
-export const functionText = (fn: ProductionFunction, periodDays: number | null): string => {
-  if (fn.state === "called") return calledText(fn);
-  if (fn.state === "never_called") return periodDays === null ? "never_called" : `never_called in ${periodDays} days`;
-  return "untracked";
-};
-
 const label = (name: string, line: number | null): string => (line === null ? name : `${name}:${line}`);
 
-/** The production part of the compact text: `prod` lines, or one `cloud <status>: <text>` line. */
+/** The rank of a `prod` line in the CLI: most signal first, so its byte cap cuts the least useful lines. */
+const RANK = { errors: 0, neverCalled: 1, unpaired: 2, other: 3 } as const;
+
+const functionRank = (fn: ProductionFunction): number => {
+  if (fn.errors !== null && fn.errors.groups > 0) return RANK.errors;
+  return fn.state === "never_called" ? RANK.neverCalled : RANK.other;
+};
+
+/**
+ * The production part of the compact text: `prod` lines in the order of the CLI (functions with
+ * errors, never_called functions, unpaired functions, the rest; each group in line order), or one
+ * `cloud <status>: <text>` line.
+ */
 export const productionLines = (view: ProductionView): string[] => {
   if (view.status !== "ok") return [`cloud ${view.status}: ${view.message}`];
-  return [
-    ...view.functions.map((fn) => `prod ${label(fn.name, fn.line)} ${functionText(fn, view.periodDays)}`),
-    ...view.unpaired.map((fn) => `prod ${label(fn.name, fn.line)} ${fn.note}`),
+  const entries = [
+    ...view.functions.map((fn) => ({
+      rank: functionRank(fn),
+      line: fn.line ?? 0,
+      text: `prod ${label(fn.name, fn.line)} ${functionText(fn, view.periodDays)}`,
+    })),
+    ...view.unpaired.map((fn) => ({
+      rank: RANK.unpaired,
+      line: fn.line ?? 0,
+      text: `prod ${label(fn.name, fn.line)} ${fn.note}`,
+    })),
   ];
+  return entries.sort((a, b) => a.rank - b.rank || a.line - b.line).map((entry) => entry.text);
 };
 
 /** The status as one sentence for a person: a capital letter and a full stop. Ok gives the summary. */

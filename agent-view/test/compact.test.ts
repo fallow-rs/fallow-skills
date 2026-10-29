@@ -49,7 +49,7 @@ describe("compactStatusLine", () => {
     );
     assert.equal(
       compactStatusLine(parseCompact(text("unpaired"))),
-      "fallow user.ts: 2 findings | prod 1 called, 1 never_called, 1 new, 1 error group",
+      "fallow user.ts: 2 findings | prod 1 called, 1 never_called, 1 untracked, 1 new, 1 error group",
     );
   });
 

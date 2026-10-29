@@ -99,6 +99,7 @@ const ProductionData = ({
   return (
     <div class="f-explain">
       {summary.length === 0 ? null : <p class="f-muted">{summary}</p>}
+      {view.message === null ? null : <p class="f-muted">{view.message}</p>}
       <FunctionRows view={view} finding={finding} />
     </div>
   );

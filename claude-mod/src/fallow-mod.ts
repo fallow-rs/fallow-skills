@@ -11,16 +11,22 @@ import {
   type Ran,
 } from "./view.ts";
 
-/** One hook for the three tools: run the tool, then add the fallow file view to its result. */
+const fileViewOf = async ($: Host, ran: Ran, path: string): Promise<string | null> => {
+  if (!wantsFileView(ran, path)) return null;
+  const run = await $.process.run(inspectArgv(path), { timeoutMs: BUDGET_MS }).catch(() => null);
+  return fileViewText(run);
+};
+
+/**
+ * One hook for the three tools: run the tool, then add the fallow file view to its result. The
+ * status line entry always names the file of this call: a call that adds nothing clears it, so
+ * the entry of an earlier file does not stay.
+ */
 const fileView = async <E extends FileCall, R extends Ran>($: Host, e: E, next: (e: E) => Promise<R>): Promise<R> => {
   const ran = await next(e);
-  if (!wantsFileView(ran, e.file_path)) return ran;
-  const run = await $.process.run(inspectArgv(e.file_path), { timeoutMs: BUDGET_MS }).catch(() => null);
-  const text = fileViewText(run);
-  if (text === null) return ran;
-  const status = statusLineOf(text);
-  if (status !== null) $.ui.status(status);
-  return withFileView(ran, text);
+  const text = await fileViewOf($, ran, e.file_path);
+  $.ui.status(text === null ? undefined : (statusLineOf(text) ?? undefined));
+  return text === null ? ran : withFileView(ran, text);
 };
 
 /**
