@@ -1,5 +1,5 @@
-import { CATEGORY_ORDER, CATEGORY_TITLES } from "../shared/categories.ts";
-import type { AuditResult, Finding, ProjectRef, Report } from "../shared/contracts.ts";
+import { CATEGORY_ORDER, CATEGORY_TITLES } from "./categories.ts";
+import type { AuditResult, Finding, ProjectRef, Report } from "./contracts.ts";
 
 /**
  * Codex gives the model `structuredContent` and drops `content` when both exist.

@@ -1,0 +1,488 @@
+{
+  "kind": "inspect_target",
+  "target": {
+    "type": "file",
+    "file": "src/services/user.ts"
+  },
+  "identity": {
+    "file": "src/services/user.ts",
+    "is_reachable": true,
+    "is_entry_point": false,
+    "export_count": 5,
+    "import_count": 0,
+    "imported_by_count": 1
+  },
+  "evidence": {
+    "trace_file": {
+      "status": "ok",
+      "scope": "file",
+      "data": {
+        "kind": "trace",
+        "file": "src/services/user.ts",
+        "is_reachable": true,
+        "is_entry_point": false,
+        "exports": [
+          {
+            "name": "Row",
+            "is_type_only": true,
+            "reference_count": 0,
+            "referenced_by": []
+          },
+          {
+            "name": "User",
+            "is_type_only": true,
+            "reference_count": 0,
+            "referenced_by": []
+          },
+          {
+            "name": "loadUser",
+            "is_type_only": false,
+            "reference_count": 1,
+            "referenced_by": [
+              {
+                "from_file": "src/index.ts",
+                "kind": "named import"
+              }
+            ]
+          },
+          {
+            "name": "formatUser",
+            "is_type_only": false,
+            "reference_count": 0,
+            "referenced_by": []
+          },
+          {
+            "name": "newHelper",
+            "is_type_only": false,
+            "reference_count": 1,
+            "referenced_by": [
+              {
+                "from_file": "src/index.ts",
+                "kind": "named import"
+              }
+            ]
+          }
+        ],
+        "imports_from": [],
+        "imported_by": [
+          "src/index.ts"
+        ],
+        "re_exports": [],
+        "_meta": {
+          "telemetry": {
+            "analysis_run_id": "run_1bf56cd60db86374"
+          }
+        }
+      }
+    },
+    "dead_code": {
+      "status": "ok",
+      "scope": "file",
+      "data": {
+        "kind": "dead-code",
+        "schema_version": 10,
+        "version": "3.37.0",
+        "elapsed_ms": 25,
+        "total_issues": 1,
+        "entry_points": {
+          "total": 1,
+          "sources": {
+            "package.json": 1
+          }
+        },
+        "summary": {
+          "total_issues": 1,
+          "unused_files": 0,
+          "unused_exports": 1,
+          "unused_types": 0,
+          "private_type_leaks": 0,
+          "deprecated_exports_in_use": 0,
+          "unused_dependencies": 0,
+          "unused_enum_members": 0,
+          "unused_class_members": 0,
+          "unused_store_members": 0,
+          "unprovided_injects": 0,
+          "unrendered_components": 0,
+          "unused_component_props": 0,
+          "absent_component_props": 0,
+          "unused_component_emits": 0,
+          "unused_component_inputs": 0,
+          "unused_component_outputs": 0,
+          "unused_svelte_events": 0,
+          "unused_effect_layers": 0,
+          "unused_tagged_errors": 0,
+          "unproduced_catch_tags": 0,
+          "unused_server_actions": 0,
+          "unused_load_data_keys": 0,
+          "unresolved_imports": 0,
+          "unlisted_dependencies": 0,
+          "duplicate_exports": 0,
+          "type_only_dependencies": 0,
+          "test_only_dependencies": 0,
+          "dev_dependencies_in_production": 0,
+          "circular_dependencies": 0,
+          "re_export_cycles": 0,
+          "package_cycles": 0,
+          "boundary_violations": 0,
+          "boundary_coverage_violations": 0,
+          "boundary_call_violations": 0,
+          "policy_violations": 0,
+          "stale_suppressions": 0,
+          "unused_catalog_entries": 0,
+          "empty_catalog_groups": 0,
+          "unresolved_catalog_references": 0,
+          "unused_dependency_overrides": 0,
+          "misconfigured_dependency_overrides": 0,
+          "invalid_client_exports": 0,
+          "mixed_client_server_barrels": 0,
+          "misplaced_directives": 0,
+          "route_collisions": 0,
+          "dynamic_segment_name_conflicts": 0
+        },
+        "unused_files": [],
+        "unused_exports": [
+          {
+            "path": "src/services/user.ts",
+            "export_name": "formatUser",
+            "is_type_only": false,
+            "line": 42,
+            "col": 16,
+            "span_start": 949,
+            "is_re_export": false,
+            "finding_id": "dc1:unused-export:ebaa7f8c6dd96568",
+            "actions": [
+              {
+                "type": "remove-export",
+                "auto_fixable": true,
+                "description": "Remove the unused export from the public API"
+              },
+              {
+                "type": "suppress-line",
+                "auto_fixable": false,
+                "description": "Suppress with an inline comment above the line",
+                "comment": "// fallow-ignore-next-line unused-export"
+              }
+            ],
+            "effective_severity": "error"
+          }
+        ],
+        "unused_types": [],
+        "private_type_leaks": [],
+        "deprecated_exports_in_use": [],
+        "unused_dependencies": [],
+        "unused_dev_dependencies": [],
+        "unused_optional_dependencies": [],
+        "unused_enum_members": [],
+        "unused_class_members": [],
+        "unresolved_imports": [],
+        "unlisted_dependencies": [],
+        "duplicate_exports": [],
+        "type_only_dependencies": [],
+        "test_only_dependencies": [],
+        "dev_dependencies_in_production": [],
+        "circular_dependencies": [],
+        "re_export_cycles": [],
+        "package_cycles": [],
+        "boundary_violations": [],
+        "boundary_coverage_violations": [],
+        "boundary_call_violations": [],
+        "policy_violations": [],
+        "stale_suppressions": [],
+        "unused_catalog_entries": [],
+        "empty_catalog_groups": [],
+        "unresolved_catalog_references": [],
+        "unused_dependency_overrides": [],
+        "misconfigured_dependency_overrides": [],
+        "invalid_client_exports": [],
+        "mixed_client_server_barrels": [],
+        "misplaced_directives": [],
+        "route_collisions": [],
+        "dynamic_segment_name_conflicts": [],
+        "gate_outcomes": {
+          "error-severity-findings": {
+            "status": "fail",
+            "enforced": true,
+            "observed": 1.0,
+            "threshold_label": "error"
+          }
+        },
+        "workspace_diagnostics": [
+          {
+            "path": "node_modules",
+            "kind": "node-modules-missing",
+            "message": "'node_modules' does not exist. Package exports and conditional exports cannot be read, framework plugins that activate on an installed package stay inactive, and dependency classification degrades, so imports and dependencies can be misreported. Run npm install / pnpm install / yarn / bun install first.",
+            "degrades_analysis": true
+          },
+          {
+            "path": ".",
+            "kind": "boundaries-not-configured",
+            "message": "No architecture boundaries are configured, so the boundary detector did not run and its violation counts are zero because nothing was measured. Add `boundaries` to the config, or set `boundary-violation` to off to state that the check is not wanted."
+          },
+          {
+            "path": ".",
+            "kind": "rule-packs-not-configured",
+            "message": "No rule packs are configured, so the policy detector did not run and its violation counts are zero because nothing was measured. Add `rulePacks` to the config, or set `policy-violation` to off to state that the check is not wanted."
+          }
+        ],
+        "next_steps": [
+          {
+            "id": "setup",
+            "command": "fallow agent install --dry-run",
+            "reason": "fallow has no config here; offer the user `fallow init` for a config, and this dry run previews the agent guide, skills, MCP server, and commit gate"
+          },
+          {
+            "id": "trace-unused-export",
+            "command": "fallow dead-code --trace src/services/user.ts:formatUser",
+            "reason": "verify an export is truly unused before deleting"
+          },
+          {
+            "id": "audit-changed",
+            "command": "fallow audit",
+            "reason": "gate only the files your branch changed (auto-detects the base)"
+          }
+        ],
+        "_meta": {
+          "telemetry": {
+            "analysis_run_id": "run_044dfd16794ce8cf"
+          }
+        }
+      }
+    },
+    "duplication": {
+      "status": "ok",
+      "scope": "project_filtered_to_file",
+      "data": {
+        "clone_groups": [],
+        "matched_count": 0,
+        "summary": null,
+        "stats": {
+          "total_files": 1,
+          "files_with_clones": 0,
+          "total_lines": 82,
+          "duplicated_lines": 0,
+          "total_tokens": 384,
+          "duplicated_tokens": 0,
+          "clone_groups": 0,
+          "clone_families": 0,
+          "clone_instances": 0,
+          "duplication_percentage": 0.0
+        }
+      }
+    },
+    "complexity": {
+      "status": "ok",
+      "scope": "project_filtered_to_file",
+      "data": {
+        "findings": [
+          {
+            "path": "src/services/user.ts",
+            "name": "loadUser",
+            "line": 14,
+            "col": 7,
+            "cyclomatic": 21,
+            "cognitive": 20,
+            "line_count": 24,
+            "param_count": 1,
+            "exceeded": "all",
+            "severity": "critical",
+            "effective_severity": "error",
+            "crap": 462.0,
+            "coverage_tier": "none",
+            "coverage_source": "estimated",
+            "actions": [
+              {
+                "type": "add-tests",
+                "auto_fixable": false,
+                "description": "Add test coverage for `loadUser` to lower its CRAP score (coverage reduces risk even without refactoring)",
+                "note": "CRAP = CC^2 * (1 - cov/100)^3 + CC; higher coverage is the fastest way to bring CRAP under threshold"
+              },
+              {
+                "type": "refactor-function",
+                "auto_fixable": false,
+                "description": "Refactor `loadUser` to reduce complexity (extract helper functions, simplify branching)",
+                "note": "Split into smaller functions with single responsibilities. Splitting relocates branching, so it lowers this function's score without lowering the total"
+              },
+              {
+                "type": "suppress-line",
+                "auto_fixable": false,
+                "description": "Suppress with an inline comment above the function declaration",
+                "comment": "// fallow-ignore-next-line complexity",
+                "placement": "above-function-declaration"
+              }
+            ]
+          }
+        ],
+        "matched_count": 1,
+        "summary": {
+          "files_analyzed": 2,
+          "functions_analyzed": 4,
+          "functions_above_threshold": 1,
+          "max_cyclomatic_threshold": 20,
+          "max_cognitive_threshold": 15,
+          "max_crap_threshold": 30.0,
+          "max_unit_size_threshold": 60,
+          "coverage_source_consistency": "uniform",
+          "severity_critical_count": 1,
+          "severity_high_count": 0,
+          "severity_moderate_count": 0
+        },
+        "stats": null
+      }
+    },
+    "security": {
+      "status": "ok",
+      "scope": "file",
+      "data": {
+        "kind": "security",
+        "schema_version": "8",
+        "version": "3.37.0",
+        "elapsed_ms": 30,
+        "config": {
+          "rules": {
+            "security_client_server_leak": {
+              "configured": "off",
+              "effective": "warn"
+            },
+            "security_sink": {
+              "configured": "off",
+              "effective": "warn"
+            }
+          },
+          "categories_include": null,
+          "categories_exclude": null
+        },
+        "gate_outcomes": {
+          "security-advisory": {
+            "status": "pass",
+            "enforced": false
+          }
+        },
+        "workspace_diagnostics": [
+          {
+            "path": "node_modules",
+            "kind": "node-modules-missing",
+            "message": "'node_modules' does not exist. Package exports and conditional exports cannot be read, framework plugins that activate on an installed package stay inactive, and dependency classification degrades, so imports and dependencies can be misreported. Run npm install / pnpm install / yarn / bun install first.",
+            "degrades_analysis": true
+          },
+          {
+            "path": ".",
+            "kind": "boundaries-not-configured",
+            "message": "No architecture boundaries are configured, so the boundary detector did not run and its violation counts are zero because nothing was measured. Add `boundaries` to the config, or set `boundary-violation` to off to state that the check is not wanted."
+          },
+          {
+            "path": ".",
+            "kind": "rule-packs-not-configured",
+            "message": "No rule packs are configured, so the policy detector did not run and its violation counts are zero because nothing was measured. Add `rulePacks` to the config, or set `policy-violation` to off to state that the check is not wanted."
+          }
+        ],
+        "security_findings": [],
+        "unresolved_edge_files": 0,
+        "unresolved_callee_sites": 0,
+        "_meta": {
+          "telemetry": {
+            "analysis_run_id": "run_22c42c0a27250404"
+          }
+        }
+      }
+    },
+    "impact_closure": {
+      "status": "ok",
+      "scope": "project_filtered_to_file",
+      "data": {
+        "kind": "trace",
+        "seed": "src/services/user.ts",
+        "affected_not_shown": [
+          "src/index.ts"
+        ],
+        "coordination_gap": [
+          {
+            "consumer_file": "src/index.ts",
+            "consumed_symbols": [
+              "loadUser",
+              "newHelper"
+            ],
+            "note": "syntactic attention pointer, not a correctness proof",
+            "search_visibility": "found",
+            "search_symbol": "loadUser"
+          }
+        ],
+        "_meta": {
+          "telemetry": {
+            "analysis_run_id": "run_8d8ad87f085ce200"
+          }
+        }
+      }
+    },
+    "cloud": {
+      "status": "ok",
+      "message": null,
+      "repo": "fallow-cloud",
+      "latest_sha": "abc1234def5678",
+      "period_days": 30,
+      "summary": {
+        "functions": 3,
+        "called": 1,
+        "never_called": 1,
+        "untracked": 1,
+        "calls": 4120,
+        "error_groups": 1,
+        "error_events": 7,
+        "text": "3 functions: 1 called, 1 never called, 1 untracked in 30 days."
+      },
+      "functions": [
+        {
+          "name": "loadUser",
+          "line": 14,
+          "stable_id": "fallow:fn:5284d5488ac598b1",
+          "match": "stable_id",
+          "state": "called",
+          "calls": 4120,
+          "errors": {
+            "groups": 1,
+            "events": 7
+          },
+          "cpu_ms_per_hour": 812.456,
+          "never_run_ranges": 2,
+          "summary": "loadUser ran 4120 times in 30 days. 1 error group (7 events). 812.5 ms CPU per hour."
+        },
+        {
+          "name": "formatUser",
+          "line": 42,
+          "stable_id": "fallow:fn:ccacf8d5ef90cf61",
+          "match": "stable_id",
+          "state": "untracked",
+          "calls": null,
+          "errors": null,
+          "cpu_ms_per_hour": null,
+          "never_run_ranges": null,
+          "summary": "No runtime data for formatUser."
+        },
+        {
+          "name": "parseRow",
+          "line": 60,
+          "stable_id": "fallow:fn:2880082d79a238cd",
+          "match": "name_ordinal",
+          "state": "never_called",
+          "calls": 0,
+          "errors": null,
+          "cpu_ms_per_hour": null,
+          "never_run_ranges": null,
+          "summary": "parseRow did not run in 30 days."
+        }
+      ],
+      "unpaired_local": [
+        {
+          "name": "newHelper",
+          "line": 80,
+          "note": "no production data (new or moved since deploy)"
+        }
+      ]
+    }
+  },
+  "warnings": [],
+  "_meta": {
+    "telemetry": {
+      "analysis_run_id": "run_5011784ac7977a2b"
+    }
+  }
+}

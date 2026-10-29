@@ -29,6 +29,8 @@ const hasFallow = (() => {
   }
 })();
 
+const NEEDS_FALLOW = { skip: hasFallow ? false : "fallow is not installed" };
+
 /** A small project with one unused file, one unused export and one unused dependency. */
 const createProject = (): string => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "fallow-app-e2e-")));
@@ -252,6 +254,23 @@ describe(
     const unlisted = (await client.callTool({
       name: "fallow_app_source",
       arguments: { root: project, path: "src/index.ts", line: 1 },
+    })) as CallToolResult;
+    assert.deepEqual(unlisted.structuredContent, { found: false });
+  });
+
+  it("gives production data only for files in the report, as a status when fallow has no --cloud", NEEDS_FALLOW, async () => {
+    const listed = (await client.callTool({
+      name: "fallow_app_production",
+      arguments: { root: project, path: "src/money.ts" },
+    })) as CallToolResult;
+    const result = listed.structuredContent as { found: boolean; path: string; production: { status: string } };
+    assert.equal(result.found, true);
+    assert.equal(result.path, "src/money.ts");
+    // The fallow release of the tests predates `inspect --cloud`: the app shows a status, never zeros.
+    assert.equal(result.production.status, "cli_unsupported");
+    const unlisted = (await client.callTool({
+      name: "fallow_app_production",
+      arguments: { root: project, path: "src/index.ts" },
     })) as CallToolResult;
     assert.deepEqual(unlisted.structuredContent, { found: false });
   });

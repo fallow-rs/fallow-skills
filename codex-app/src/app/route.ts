@@ -1,5 +1,5 @@
-import { CATEGORY_ORDER } from "../shared/categories.ts";
-import type { CategoryId } from "../shared/contracts.ts";
+import { CATEGORY_ORDER } from "../../../agent-view/src/categories.ts";
+import type { CategoryId } from "../../../agent-view/src/contracts.ts";
 
 export type Tab = "overview" | "findings" | "insights";
 

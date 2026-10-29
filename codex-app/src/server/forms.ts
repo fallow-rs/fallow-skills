@@ -6,8 +6,8 @@ import {
   type OpenAIFormResult,
 } from "@openai/mcp-extensions/server";
 import { z } from "zod";
-import { CATEGORY_ORDER, CATEGORY_TITLES } from "../shared/categories.ts";
-import type { CategoryId, Finding, ProjectRef } from "../shared/contracts.ts";
+import { CATEGORY_ORDER, CATEGORY_TITLES } from "../../../agent-view/src/categories.ts";
+import type { CategoryId, Finding, ProjectRef } from "../../../agent-view/src/contracts.ts";
 import { appFacing, problemResult, READ_ONLY, type Extra, type ServerContext } from "./context.ts";
 import { categoryThumbnail } from "./icons.ts";
 import { resolveProject, sandboxFor, sandboxFromMeta, toLocalPath } from "./project.ts";

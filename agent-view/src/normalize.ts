@@ -1,5 +1,4 @@
-import { isAbsolute, relative, sep } from "node:path";
-import { CATEGORY_ORDER, emptyCategoryCounts } from "../shared/categories.ts";
+import { CATEGORY_ORDER, emptyCategoryCounts } from "./categories.ts";
 import type {
   AuditResult,
   CloneInstance,
@@ -12,8 +11,9 @@ import type {
   Score,
   Target,
   Vitals,
-} from "../shared/contracts.ts";
+} from "./contracts.ts";
 import { array, boolean, isRecord, number, record, string, type Json } from "./json.ts";
+import { relativePath } from "./path.ts";
 import { complexityRule, DUPLICATION_RULE, ruleForKey, type RuleInfo } from "./rules.ts";
 
 /** The app renders at most this many findings; counts still cover every finding. */
@@ -49,10 +49,7 @@ const cleanOrNull = (text: string | null, max: number): string | null =>
   text === null ? null : clean(text, max);
 
 /** Makes a fallow path repo-relative with forward slashes, whatever form fallow printed. */
-export const repoPath = (root: string, path: string): string => {
-  const local = isAbsolute(path) ? relative(root, path) : path;
-  return clean(local.split(sep).join("/"), 400);
-};
+export const repoPath = (root: string, path: string): string => clean(relativePath(root, path), 400);
 
 const toActions = (value: unknown): FindingAction[] =>
   array(value)

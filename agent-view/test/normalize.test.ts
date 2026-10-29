@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { allFindings, repoPath, toAudit, toReport } from "../src/server/normalize.ts";
-import { ruleForKey } from "../src/server/rules.ts";
-import { auditSummary, findingMarkdown, reportSummary } from "../src/server/summary.ts";
+import { allFindings, repoPath, toAudit, toReport } from "../src/normalize.ts";
+import { ruleForKey } from "../src/rules.ts";
+import { auditSummary, findingMarkdown, reportSummary } from "../src/summary.ts";
 
 const fixture = (name: string): Record<string, unknown> =>
-  JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8"));
+  JSON.parse(readFileSync(new URL(`../fixtures/${name}`, import.meta.url), "utf8"));
 
 const project = { root: "/project", name: "demo-shop", branch: "feature" };
 const combined = fixture("combined.json");

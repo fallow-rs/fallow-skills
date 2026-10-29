@@ -1,0 +1,7 @@
+fallow src/services/user.ts
+finding unused-export src/services/user.ts:42 `formatUser` is never imported
+finding complexity src/services/user.ts:14 loadUser cyclomatic 21 cognitive 20
+prod loadUser:14 called 4120 calls, 1 error group (7 events), 812.5 ms CPU/h, 2 never-run branches
+prod parseRow:60 never_called in 30 days
+prod newHelper:80 no production data (new or moved since deploy)
+prod formatUser:42 untracked (no runtime data)

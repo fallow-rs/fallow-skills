@@ -1,6 +1,7 @@
 import type { JSX } from "preact";
 import { useState } from "preact/hooks";
-import type { AuditResult, Finding, ViewPayload } from "../../shared/contracts.ts";
+import type { AuditResult, Finding } from "../../../../agent-view/src/contracts.ts";
+import type { ViewPayload } from "../../shared/contracts.ts";
 import { Button, EmptyState, Icon, relativeTime } from "../components/ui.tsx";
 import type { Host } from "../host.ts";
 import { setIds, toggleId } from "../selection.ts";

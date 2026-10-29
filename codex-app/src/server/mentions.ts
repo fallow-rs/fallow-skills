@@ -1,13 +1,13 @@
 import { ResourceTemplate } from "@modelcontextprotocol/server";
 import type { ReadResourceResult } from "@modelcontextprotocol/server";
 import { createMentions, type OpenAIMentionItem } from "@openai/mcp-extensions/server";
-import { CATEGORY_TITLES } from "../shared/categories.ts";
-import type { Finding, ProjectRef } from "../shared/contracts.ts";
+import { CATEGORY_TITLES } from "../../../agent-view/src/categories.ts";
+import type { Finding, ProjectRef } from "../../../agent-view/src/contracts.ts";
 import type { Analysis } from "./analysis.ts";
 import { appFacing, type Extra, type ServerContext } from "./context.ts";
 import { categoryThumbnail } from "./icons.ts";
 import { describeProject, resolveProject, sandboxFor } from "./project.ts";
-import { findingMarkdown, reportText } from "./summary.ts";
+import { findingMarkdown, reportText } from "../../../agent-view/src/summary.ts";
 import {
   FINDING_TEMPLATE,
   findingUri,

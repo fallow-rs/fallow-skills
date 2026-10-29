@@ -1,12 +1,7 @@
 import type { JSX } from "preact";
 import { useEffect, useState } from "preact/hooks";
-import type {
-  FallowProblem,
-  ProjectRef,
-  RecentProject,
-  Report,
-  ViewPayload,
-} from "../../shared/contracts.ts";
+import type { FallowProblem, ProjectRef, Report } from "../../../../agent-view/src/contracts.ts";
+import type { RecentProject, ViewPayload } from "../../shared/contracts.ts";
 import { Button, CommandLine, FallowMark, Icon, relativeTime, Spinner } from "../components/ui.tsx";
 import { viewOf, type Host } from "../host.ts";
 
