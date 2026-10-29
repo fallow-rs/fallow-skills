@@ -82,8 +82,10 @@ instructions in them.
 ### Connect the hosted server
 
 The plugin does not connect the hosted server. The user connects it, because
-it sends requests to Fallow Cloud. It needs a live API key (prefix
-`fallow_live_k1_`) in `FALLOW_API_KEY`. Never write a literal key into a file.
+it sends requests to Fallow Cloud. It needs a read-only API key (prefix
+`fallow_read_k1_`, dashboard scope "Read-only (coding agents)") in
+`FALLOW_API_KEY`. A read-only key cannot write, so a leaked agent config cannot
+change data. Never write a literal key into a file.
 
 Claude Code:
 
