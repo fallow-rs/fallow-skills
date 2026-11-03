@@ -1,6 +1,6 @@
 ---
 name: fallow-cloud-setup
-description: Connect a JavaScript or TypeScript app to Fallow Cloud production runtime coverage. Use when asked to set up Fallow Cloud, add the Fallow beacon, send runtime coverage to Fallow Cloud, or find out why Fallow Cloud shows no data for a repository. Do not use for local code-quality tooling; use fallow-setup for that. Do not use to read runtime data of a repository that is already set up; use the fallow skill for that.
+description: Connect a JavaScript or TypeScript app to Fallow Cloud production runtime coverage. Use when asked to set up Fallow Cloud, add the Fallow beacon, send runtime coverage to Fallow Cloud, add error, CPU, browser performance or branch capture to the beacon, or find out why Fallow Cloud shows no data for a repository. Do not use for local code-quality tooling; use fallow-setup for that. Do not use to read runtime data of a repository that is already set up; use the fallow skill for that.
 license: MIT
 ---
 
@@ -34,7 +34,7 @@ Fallow Cloud joins production runtime coverage to the code only when five things
 
 ## Sequence
 
-1. **Check the flag.** Run `npx fallow coverage setup --help`. When it does not list `--cloud`, use [Manual setup](references/manual-setup.md) instead of steps 2 to 8. It has the same five steps.
+1. **Check the flag.** Run `npx fallow coverage setup --help`. When it does not list `--cloud`, use [Manual setup](references/manual-setup.md) instead of steps 2 to 9. It has the same five steps.
 2. **Get the plan.** Run `npx fallow coverage setup --cloud --json` at the repository root. When `cloud.project_id` is null, ask the user for the Fallow Cloud project id (`owner/repo`) and run the command again with `--project-id <owner/repo>`, so no snippet keeps the `OWNER/REPO` placeholder. When the command exits 2 and prints no JSON, read the error on stderr: an input such as the project id, `--git-sha`, or `--api-endpoint` is not valid.
 3. **Read the plan.**
    - `members[]` has one entry for each workspace member that runs code. Each entry has its own `snippets`, `files_to_edit`, `dockerfile_snippet`, and `warnings`. Apply the snippets from `members[]` only: the top-level `snippets` and `files_to_edit` repeat the first member.
@@ -44,18 +44,21 @@ Fallow Cloud joins production runtime coverage to the code only when five things
    - `warnings` names what the plan cannot do for you, for example the coverage source of a Node server.
 4. **Install the beacon.** Run the commands in `commands` with the package manager of the project.
 5. **Add the snippets.** For each member, add each snippet to the file in its `path`. Keep the `projectId`, `commitSha`, `coverageOrigin`, and `runtimeSurface` values of the snippet. When the file exists, add the snippet at the start of the entry module. Do not replace the file.
-6. **Pass the commit SHA to the runtime.**
+6. **Offer the extra signals.** The plan sets up function coverage only. Ask the user which extra signals they want: errors, CPU time, browser frame time, branch use, or loaded packages. Add only those, with [Extra signals](references/extra-signals.md). It names the beacon entry of each signal and the key that it needs. A signal without its opt-in stays `untracked`.
+7. **Pass the commit SHA to the runtime.**
    - Browser bundle: set `VITE_FALLOW_COMMIT_SHA` on the build step (the CI steps show it).
    - Server in a container: add the `dockerfile_snippet` lines to the Dockerfile, and build with `--build-arg FALLOW_COMMIT_SHA=$GITHUB_SHA`.
    - Server on a platform: the snippet reads the SHA that Vercel, Render, or Railway sets. On another platform, set `FALLOW_COMMIT_SHA` in the runtime environment.
-7. **Add the CI steps.** Add `cloud.ci.steps` to the job that builds and deploys, in the workflow from `cloud.ci.workflows_detected`. When that list is empty, or the project does not use GitHub Actions, ask the user which job deploys and adapt the steps to it. The checkout needs `fetch-depth: 0`. The upload step goes after the build step, and the build must emit source maps for the upload to send anything. The registration step goes after the deploy step. Follow `cloud.ci.instructions`.
-8. **Tell the user what to do by hand.** The user creates the keys in the Fallow Cloud dashboard, stores them as the secrets that the plan names, and deploys.
-9. **Check the setup after the deploy.** Ask the user to export `FALLOW_API_KEY` (a full key) in the shell. Run `cloud.wait_command` from the plan with `--json` added and `$DEPLOYED_SHA` set to the deployed commit SHA. It holds the project id. Then read the exit code:
+8. **Add the CI steps.** Add `cloud.ci.steps` to the job that builds and deploys, in the workflow from `cloud.ci.workflows_detected`. When that list is empty, or the project does not use GitHub Actions, ask the user which job deploys and adapt the steps to it. The checkout needs `fetch-depth: 0`. The upload step goes after the build step, and the build must emit source maps for the upload to send anything. The registration step goes after the deploy step. Follow `cloud.ci.instructions`.
+9. **Tell the user what to do by hand.** The user creates the keys in the Fallow Cloud dashboard, stores them as the secrets that the plan names, and deploys.
+10. **Check the setup after the deploy.** Ask the user to export `FALLOW_API_KEY` (a full key) in the shell. Run `cloud.wait_command` from the plan with `--json` added and `$DEPLOYED_SHA` set to the deployed commit SHA. It holds the project id. Then read the exit code:
    - 0: every step is done.
    - 1: a timeout. Read `cloud.wait.activation.next`. It names the step to do now and, where one exists, a command. `activation` is null when no read succeeded, and `next.command` can be null.
    - 2: an error. Read `cloud.wait.message`, or stderr when stdout has no JSON.
 
    The activation body can have step ids and states that this skill does not name. Report them as they are.
+
+   After exit code 0, when the user works in Claude Code, offer the opt-in [File view hook](references/file-context-hook.md).
 
 ## Common problems
 - `beacon` is `problem`: the beacon sends no commit SHA. Check step 5.
@@ -68,3 +71,5 @@ Fallow Cloud joins production runtime coverage to the code only when five things
 
 ## References
 - [Manual setup](references/manual-setup.md): the five steps by hand, for a fallow version without `--cloud`.
+- [Extra signals](references/extra-signals.md): errors, CPU time, browser frame time, branch use and loaded packages, with the key that each one needs.
+- [File view hook for Claude Code](references/file-context-hook.md): an opt-in hook that adds the Fallow view of a file to each Read and Edit. Offer it after the first production data arrives.

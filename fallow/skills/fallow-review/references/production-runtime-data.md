@@ -44,7 +44,7 @@ Two MCP servers give the cloud reads:
 - The local fallow MCP server (`fallow-mcp`) runs in the checkout. It gives
   static analysis and the cloud tools together.
 - The hosted Fallow Cloud MCP server runs at `https://api.fallow.cloud/mcp`.
-  It needs no fallow install and no checkout. It also has five tools that the
+  It needs no fallow install and no checkout. It also has six tools that the
   local server does not have.
 
 Pick the server:
@@ -53,11 +53,11 @@ Pick the server:
   review needs the static brief, and only the local server gives it.
 - Use the hosted server when fallow is not installed, when no checkout is
   available, or when you need a hosted-only tool.
-- When both servers are connected, use the local server for the four shared
+- When both servers are connected, use the local server for the three shared
   tools. Use the hosted server only for the hosted-only tools.
 
-The four shared tools have the same names and arguments on both servers:
-`list_repos`, `get_cloud_runtime_context`, `get_cloud_review_packet`, and
+Three tools have the same names and arguments on both servers:
+`get_cloud_runtime_context`, `get_cloud_review_packet`, and
 `get_cloud_deployment_changes`. The hosted server has no checkout, so:
 
 - `get_cloud_deployment_changes` needs `sha`.
@@ -68,6 +68,7 @@ The hosted-only tools:
 
 | Question | Hosted tool | Main arguments |
 |---|---|---|
+| Which repositories can this key read? | `list_repos` | none |
 | What does production say about this file? Call it when you open or change a file. | `get_file_context` | `repo`, `path`, `format`, `period_days`, `commit_sha`, `max_output_bytes` |
 | Did the changed functions run after a deploy, with new errors or a CPU change? | `verify_deployment` | `repo`, `sha`, `functions` or `files`, `base` |
 | Which errors does production throw? | `list_errors` | `repo`, `file`, `stable_id`, `sha`, `period_days`, `limit`, `cursor` |
@@ -75,9 +76,11 @@ The hosted-only tools:
 | Which npm packages ran in production? | `get_runtime_dependencies` | `repo`, `declared`, `commit_sha`, `period_days` |
 
 Every hosted tool is read-only. Every tool except `list_repos` takes `repo`.
-Get the `repo` value from `list_repos`. `verify_deployment` gives a verdict of
-`confirmed`, `attention`, `incomplete`, or `awaiting_runtime`. This verdict is
-context, not proof that a change is safe.
+On the hosted server, get the `repo` value from `list_repos`. The local server
+has no `list_repos`: use the `owner/repo` of the Fallow Cloud project.
+`verify_deployment` gives a verdict of `confirmed`, `attention`, `incomplete`,
+or `awaiting_runtime`. This verdict is context, not proof that a change is
+safe.
 
 `get_cloud_runtime_context`, `get_cloud_review_packet`, `get_file_context`, and
 `get_branch_usage` need continuous runtime coverage on the organization.
