@@ -50,6 +50,8 @@ fallowBeacon.start();
 
 Start the server process with `NODE_V8_COVERAGE` set to a writable directory, or instrument the build with Istanbul. In a container, pass the SHA as a build argument and set `FALLOW_COMMIT_SHA` from it.
 
+These snippets send function coverage only. For errors, CPU time, browser frame time, branch use or loaded packages, see [Extra signals](extra-signals.md).
+
 ## 3 to 5. CI steps
 
 Add these steps to the GitHub Actions job that builds and deploys. Show them to the user first. The secret `FALLOW_API_KEY` holds a full key (`fallow_live_k1_`).

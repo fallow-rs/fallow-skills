@@ -150,7 +150,10 @@ That is older than this work and does not come from `modules`.
 
 1. **Where the mod ships.** Options: a separate Claude-only plugin in the same marketplace, a
    second hooks file named only in `.claude-plugin/plugin.json` (breaks Claude Code 2.1.200), or
-   `hooks/hooks.json` after Codex accepts unknown keys.
+   `hooks/hooks.json` after Codex accepts unknown keys. Until then, a user can install a plain
+   PostToolUse command hook by hand. `fallow-cloud-setup` has the script and the settings in
+   `references/file-context-hook.md`. It runs the same `fallow inspect --cloud --format compact`
+   command and does not change `hooks/hooks.json`.
 2. **Hook script.** The hand-written PostToolUse script of Fallow Cloud
    (`scripts/agent-hooks/fallow-file-context.ts`) does the same job for users without mods.
    Decide when to retire it.
