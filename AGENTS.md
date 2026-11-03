@@ -54,3 +54,20 @@ into this repository.
 
 Keep skills concise, use progressive disclosure through direct references, and
 require a dry run before destructive Fallow operations.
+
+## Task completion
+
+A task is done only when all of these are true:
+
+- every pull request of the task is merged to `main`, and the CI of the
+  merged commit is green;
+- every companion pull request in another repository is merged;
+- every follow-up that the work found is fixed, or has a GitHub issue that
+  the final report links;
+- the touched branches and worktrees are clean.
+
+An open pull request is not done. This is also true while CI runs. A note in a
+scratch file or in the chat report does not track a follow-up. When a merge is
+blocked, report the pull request, the blocker, and the next action.
+
+Sign each commit with `git commit -S -s`. The DCO check requires the sign-off.
