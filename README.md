@@ -98,6 +98,7 @@ statusline behavior for the Claude Code and Codex surfaces.
 | [fallow-review](fallow/skills/fallow-review/) | Graph-grounded review of changed-code risk, blast radius, and consequential structural decisions | "review this branch", "review this PR", "check changed code before merge" |
 | [fallow-cloud-setup](fallow/skills/fallow-cloud-setup/) | Connect an app to Fallow Cloud: beacon with the commit SHA, inventory and source map uploads, deployment registration, and a check that the first data arrived | "set up Fallow Cloud", "add the Fallow beacon", "why does Fallow Cloud show no data" |
 | [fallow-setup](fallow/skills/fallow-setup/) | Set up or modernize code-quality tooling: detect existing tools, configure and install Fallow, wire agents, and add a CI gate | "set up quality tooling for this repo", "make this repo agent-ready", "add a code-health gate to CI" |
+| [cargo-fallow](fallow/skills/cargo-fallow/) | Rust workspaces with `cargo fallow`: unused dependencies and files, visibility, boundaries, size, complexity, duplication, API changes and mutation testing | "audit this Rust workspace", "find unused Rust dependencies", "run cargo fallow" |
 | [fallow-codex-onboarding](fallow/skills/fallow-codex-onboarding/) | Codex only: set up the Fallow app after install, choose defaults, run the first analysis | "Set up" in the Codex plugin page, "set up the Fallow app" |
 
 ## Reference Documentation
@@ -110,7 +111,9 @@ statusline behavior for the Claude Code and Codex surfaces.
 
 See [AGENTS.md](AGENTS.md) for repository structure and quality standards.
 Each skill listed in `source-lock.json` is vendored byte-for-byte from the
-fallow source repository at the pinned commit. CI checks that pin against a
+fallow source repository at the pinned commit. The `cargo-fallow` skill comes
+from the cargo-fallow repository in the same way, with the pin in
+`cargo-fallow-source-lock.json`. CI checks that pin against a
 clean source checkout and rejects contract or privacy-boundary drift.
 Maintainers can find the versioning, packaging, and store update procedure in
 [RELEASING.md](RELEASING.md).

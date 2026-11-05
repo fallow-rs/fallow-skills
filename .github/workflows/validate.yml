@@ -276,6 +276,25 @@ jobs:
           FALLOW_SOURCE_DIR: ${{ github.workspace }}/.source/fallow
         run: node scripts/check-source-contract.mjs
 
+      - name: Read pinned cargo-fallow source revision
+        id: cargo-source-lock
+        run: |
+          node -e 'process.stdout.write("commit=" + require("./cargo-fallow-source-lock.json").commit + "\n")' \
+            >> "$GITHUB_OUTPUT"
+
+      - name: Checkout pinned public cargo-fallow source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: fallow-rs/cargo-fallow
+          ref: ${{ steps.cargo-source-lock.outputs.commit }}
+          path: .source/cargo-fallow
+          persist-credentials: false
+
+      - name: Verify the cargo-fallow skill source
+        env:
+          CARGO_FALLOW_SOURCE_DIR: ${{ github.workspace }}/.source/cargo-fallow
+        run: node scripts/check-source-contract.mjs --lock cargo-fallow-source-lock.json
+
       - name: Upload OpenAI submission archive
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

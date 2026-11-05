@@ -1,0 +1,4 @@
+interface:
+  display_name: "cargo-fallow"
+  short_description: "Analyze Rust workspaces"
+  default_prompt: "Use $cargo-fallow to check this Rust workspace for unused dependencies, unused files, visibility, boundaries, complexity and duplication."

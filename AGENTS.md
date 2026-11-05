@@ -10,7 +10,10 @@ or public user documentation.
 - Each skill listed in `source-lock.json` follows the pinned public product
   contract. The lock has one entry per released Fallow skill. Each entry has a
   source root, a target root, and transforms.
-- Skills that the lock does not list, such as `fallow-review`, belong to this
+- `cargo-fallow-source-lock.json` pins the `cargo-fallow` skill from
+  `fallow-rs/cargo-fallow` in the same shape. Run the check with
+  `--lock cargo-fallow-source-lock.json`.
+- Skills that no lock lists, such as `fallow-review`, belong to this
   repository. The source contract check ignores them.
 - Agent-specific interface files may wrap a skill, but must not fork its
   authored instructions.
@@ -46,6 +49,7 @@ python3 scripts/validate_skill_frontmatter.py .
 (cd codex-app && npm ci && npm run check)
 (cd claude-mod && npm ci && npm run check && npm test)
 FALLOW_SOURCE_DIR=/path/to/pinned/fallow node scripts/check-source-contract.mjs
+CARGO_FALLOW_SOURCE_DIR=/path/to/pinned/cargo-fallow node scripts/check-source-contract.mjs --lock cargo-fallow-source-lock.json
 ```
 
 The source contract check fails closed when the pinned source is absent,

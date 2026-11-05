@@ -10,6 +10,7 @@ JavaScript.
 - `fallow-review`: graph-grounded review of changed code and structural risk.
 - `fallow-cloud-setup`: connects an app to Fallow Cloud runtime coverage, with one commit SHA for the beacon, the inventory, the source maps, and the deployment registration.
 - `fallow-setup`: sets up code-quality tooling for a JavaScript or TypeScript project and adds Fallow, the agent integration, and a CI gate.
+- `cargo-fallow`: runs `cargo fallow` on a Rust workspace and acts on its findings. The skill is not in the OpenAI directory listing.
 - `impact-statusline`: an optional Claude Code command that previews and manages
   a local statusline setting.
 - Commit gate: a Claude Code `PreToolUse` hook that runs

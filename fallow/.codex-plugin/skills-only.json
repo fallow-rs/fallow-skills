@@ -1,7 +1,8 @@
 {
   "$comment": "Skills-only listing for the OpenAI plugin directory. scripts/plugin_release.py package removes mcpServers and extensions, leaves out omitSkills, and applies this interface over the manifest. The local marketplace install keeps the full manifest and the Fallow app.",
   "omitSkills": [
-    "fallow-codex-onboarding"
+    "fallow-codex-onboarding",
+    "cargo-fallow"
   ],
   "interface": {
     "shortDescription": "Local JS/TS code analysis",
