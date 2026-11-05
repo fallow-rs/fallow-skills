@@ -123,7 +123,8 @@ A fresh clone runs no hooks. Turn them on once per clone:
 git config core.hooksPath .githooks
 ```
 
-The hook only checks manifest version agreement and the bump rule; see
+The hook checks new comments for edit history, manifest version agreement,
+and the bump rule; see
 [.githooks/pre-commit](.githooks/pre-commit) for why it stops there.
 
 ## Related
