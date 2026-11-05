@@ -213,6 +213,9 @@ jobs:
       - name: Test JavaScript tooling
         run: node --test scripts/*.test.mjs
 
+      - name: Check comments for edit history
+        run: node scripts/check-comment-quality.mjs --all
+
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           package-manager-cache: false

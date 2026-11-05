@@ -10,6 +10,13 @@ set -e
 # check silently never ran, reporting success while checking nothing. So this
 # only covers what it can check correctly and locally, with no judgement call.
 
+# Comments must describe the code as it is now, not its edit history.
+if command -v node > /dev/null 2>&1; then
+  node scripts/check-comment-quality.mjs --staged
+else
+  echo "pre-commit: node is missing; skipping the comment check (CI still enforces it)." >&2
+fi
+
 if ! command -v python3 > /dev/null 2>&1; then
   echo "pre-commit: python3 is missing; skipping the plugin version checks (CI still enforces them)." >&2
   exit 0
