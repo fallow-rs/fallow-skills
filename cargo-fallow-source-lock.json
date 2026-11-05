@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "repository": "https://github.com/fallow-rs/cargo-fallow",
-  "commit": "671154d9940d26c691ca1c7064729cfd0bf47f40",
+  "commit": "d1d919d0f01162e09f7cf3455ade79b8be77eb77",
   "skills": [
     {
       "name": "cargo-fallow",
