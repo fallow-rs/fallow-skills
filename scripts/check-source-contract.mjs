@@ -12,6 +12,22 @@ import { fileURLToPath } from "node:url";
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const LOCK_PATH = "source-lock.json";
+/**
+ * Each source lock, with the public repository that it pins and the
+ * variable that names a checkout of that repository. `source-lock.json`
+ * pins the Fallow skills. `cargo-fallow-source-lock.json` pins the skill of
+ * cargo-fallow, the Rust tool.
+ */
+export const SOURCE_LOCKS = {
+  "source-lock.json": {
+    repository: "https://github.com/fallow-rs/fallow",
+    sourceVariable: "FALLOW_SOURCE_DIR",
+  },
+  "cargo-fallow-source-lock.json": {
+    repository: "https://github.com/fallow-rs/cargo-fallow",
+    sourceVariable: "CARGO_FALLOW_SOURCE_DIR",
+  },
+};
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/u;
 const LOCK_SCHEMA_VERSION = 2;
 const SKILL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/u;
@@ -127,14 +143,14 @@ const isValidSkillEntry = (skill) =>
   isPlainObject(skill.transforms);
 
 /**
- * Parse `source-lock.json`. Each entry in `skills` is one released Fallow
- * skill. Skills that the lock does not list belong to this repository.
+ * Parse a source lock. Each entry in `skills` is one released skill of the
+ * pinned repository. Skills that no lock lists belong to this repository.
  */
-export const parseSourceLock = (lock) => {
+export const parseSourceLock = (lock, repository = SOURCE_LOCKS[LOCK_PATH].repository) => {
   if (
     !isPlainObject(lock) ||
     lock.schemaVersion !== LOCK_SCHEMA_VERSION ||
-    lock.repository !== "https://github.com/fallow-rs/fallow" ||
+    lock.repository !== repository ||
     !COMMIT_PATTERN.test(lock.commit ?? "") ||
     !Array.isArray(lock.skills) ||
     lock.skills.length === 0 ||
@@ -176,14 +192,14 @@ const releasedSourceRoots = async (sourceDir, skills) => {
   return released.toSorted();
 };
 
-const assertEveryReleasedSkillListed = async (sourceDir, skills) => {
+const assertEveryReleasedSkillListed = async (sourceDir, skills, lockPath) => {
   const listed = new Set(skills.map((skill) => skill.sourceRoot));
   const unlisted = (await releasedSourceRoots(sourceDir, skills)).filter(
     (root) => !listed.has(root),
   );
   if (unlisted.length > 0) {
     throw new Error(
-      `Released Fallow skills are not listed in ${LOCK_PATH}: ` +
+      `Released skills are not listed in ${lockPath}: ` +
         unlisted.map((root) => posix.basename(root)).join(", "),
     );
   }
@@ -255,15 +271,21 @@ export const validateSourceContract = async ({
   sourceDir,
   verifyCommit = true,
   publicFiles,
+  lockPath = LOCK_PATH,
 }) => {
+  const known = SOURCE_LOCKS[lockPath];
+  if (known === undefined) {
+    throw new Error(`Unknown source lock: ${lockPath}`);
+  }
   const lock = parseSourceLock(
-    JSON.parse(await readFile(join(repositoryRoot, LOCK_PATH), "utf8")),
+    JSON.parse(await readFile(join(repositoryRoot, lockPath), "utf8")),
+    known.repository,
   );
   if (verifyCommit && sourceCommit(sourceDir) !== lock.commit) {
-    throw new Error(`Fallow source checkout does not match locked commit ${lock.commit}`);
+    throw new Error(`Source checkout does not match locked commit ${lock.commit}`);
   }
 
-  await assertEveryReleasedSkillListed(sourceDir, lock.skills);
+  await assertEveryReleasedSkillListed(sourceDir, lock.skills, lockPath);
   const skills = [];
   for (const skill of lock.skills) {
     skills.push(await validateSkill(repositoryRoot, sourceDir, skill));
@@ -274,14 +296,21 @@ export const validateSourceContract = async ({
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
-  const configuredSource = process.env.FALLOW_SOURCE_DIR;
-  if (!configuredSource) {
+  // `--lock <file>` picks the lock. The default is `source-lock.json`.
+  const lockIndex = process.argv.indexOf("--lock");
+  const lockPath = lockIndex === -1 ? LOCK_PATH : process.argv[lockIndex + 1];
+  const known = SOURCE_LOCKS[lockPath];
+  const configuredSource = known === undefined ? undefined : process.env[known.sourceVariable];
+  if (known === undefined) {
+    process.stderr.write(`Unknown source lock: ${String(lockPath)}\n`);
+    process.exitCode = 2;
+  } else if (!configuredSource) {
     process.stderr.write(
-      "FALLOW_SOURCE_DIR must point to the exact public Fallow checkout in source-lock.json.\n",
+      `${known.sourceVariable} must point to the exact public checkout in ${lockPath}.\n`,
     );
     process.exitCode = 2;
   } else {
-    validateSourceContract({ sourceDir: resolve(configuredSource) })
+    validateSourceContract({ sourceDir: resolve(configuredSource), lockPath })
       .then((result) => {
         const summary = result.skills
           .map((skill) => `${skill.name}: ${skill.files.length.toString()} files`)

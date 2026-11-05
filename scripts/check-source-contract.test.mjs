@@ -217,3 +217,64 @@ test("rejects private repository markers and machine-local paths", async (t) => 
 
   await assert.rejects(validate(input, [...PUBLIC_FILES, "README.md"]), /private-data guard/u);
 });
+
+const CARGO_LOCK = "cargo-fallow-source-lock.json";
+
+const cargoFixture = async (t, repository = "https://github.com/fallow-rs/cargo-fallow") => {
+  const root = await mkdtemp(join(tmpdir(), "fallow-skills-cargo-contract-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const repositoryRoot = join(root, "skills");
+  const sourceDir = join(root, "cargo-fallow");
+  const source = skillSource("cargo-fallow");
+  await write(sourceDir, "skills/cargo-fallow/SKILL.md", source);
+  await write(repositoryRoot, "fallow/skills/cargo-fallow/SKILL.md", stripUnsupportedMetadata(source));
+  const lock = {
+    schemaVersion: 2,
+    repository,
+    commit: COMMIT,
+    skills: [
+      {
+        name: "cargo-fallow",
+        sourceRoot: "skills/cargo-fallow",
+        targetRoot: "fallow/skills/cargo-fallow",
+        transforms: { "SKILL.md": "strip-unsupported-metadata" },
+      },
+    ],
+  };
+  await write(repositoryRoot, CARGO_LOCK, `${JSON.stringify(lock, null, 2)}\n`);
+  return { repositoryRoot, sourceDir };
+};
+
+const cargoFiles = ["fallow/skills/cargo-fallow/SKILL.md", CARGO_LOCK];
+
+test("the cargo-fallow lock pins the skill of the Rust tool", async (t) => {
+  const input = await cargoFixture(t);
+  const result = await validateSourceContract({
+    ...input,
+    verifyCommit: false,
+    publicFiles: cargoFiles,
+    lockPath: CARGO_LOCK,
+  });
+  assert.deepEqual(result.skills, [{ name: "cargo-fallow", files: ["SKILL.md"] }]);
+});
+
+test("the cargo-fallow lock rejects another repository and drift", async (t) => {
+  const wrong = await cargoFixture(t, "https://github.com/fallow-rs/fallow");
+  await assert.rejects(
+    validateSourceContract({ ...wrong, verifyCommit: false, publicFiles: cargoFiles, lockPath: CARGO_LOCK }),
+    /Invalid public source lock/u,
+  );
+  const drift = await cargoFixture(t);
+  await write(drift.sourceDir, "skills/cargo-fallow/SKILL.md", skillSource("cargo-fallow") + "new\n");
+  await assert.rejects(
+    validateSourceContract({ ...drift, verifyCommit: false, publicFiles: cargoFiles, lockPath: CARGO_LOCK }),
+    /content drift/u,
+  );
+});
+
+test("an unknown lock is refused", async () => {
+  await assert.rejects(
+    validateSourceContract({ sourceDir: ".", verifyCommit: false, lockPath: "other.json" }),
+    /Unknown source lock/u,
+  );
+});

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 2,
+  "repository": "https://github.com/fallow-rs/cargo-fallow",
+  "commit": "671154d9940d26c691ca1c7064729cfd0bf47f40",
+  "skills": [
+    {
+      "name": "cargo-fallow",
+      "sourceRoot": "skills/cargo-fallow",
+      "targetRoot": "fallow/skills/cargo-fallow",
+      "transforms": {
+        "SKILL.md": "strip-unsupported-metadata"
+      }
+    }
+  ]
+}
