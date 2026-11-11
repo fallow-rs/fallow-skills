@@ -82,3 +82,22 @@ test("the companion's own pins name the fallow release that the app runs through
     assert.ok(pins.every((pin) => pin === npxVersion), `${file} pins ${pins.join(", ")}, not ${npxVersion}`);
   }
 });
+
+const directory = new URL("../claude-directory/fallow/", import.meta.url);
+const DIRECTORY_TYPES = /\.(md|json|ya?ml|txt|png)$|^LICENSE$/u;
+
+test("the directory bundle holds only skills, text and images, and runs nothing", () => {
+  const root = fileURLToPath(directory);
+  const files = pluginFiles(root).map((path) => relative(root, path));
+  assert.ok(files.includes(".claude-plugin/plugin.json"));
+  for (const file of files) {
+    assert.match(file.split("/").at(-1) ?? "", DIRECTORY_TYPES, `${file} is not a type the directory accepts`);
+    assert.ok(!readFileSync(join(root, file), "utf8").startsWith("#!"), `${file} starts with #!`);
+    assert.deepEqual(unpinnedLaunchers(readFileSync(join(root, file), "utf8")), [], file);
+  }
+  const listed = JSON.parse(readFileSync(join(root, ".claude-plugin/plugin.json"), "utf8"));
+  for (const field of ["mcpServers", "hooks", "commands", "agents", "lspServers", "bin"]) {
+    assert.equal(listed[field], undefined, `the bundle manifest sets ${field}`);
+  }
+  assert.ok(!files.some((file) => /^(hooks|commands|scripts|bin)\//u.test(file)));
+});

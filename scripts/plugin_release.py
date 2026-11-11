@@ -462,6 +462,125 @@ def _write_zip(archive: Path, entries: list[tuple[str, bytes, bool]]) -> Path:
     return archive.resolve()
 
 
+DIRECTORY_BUNDLE = Path("claude-directory/fallow")
+DIRECTORY_MANIFEST_KEYS = (
+    "name",
+    "displayName",
+    "description",
+    "version",
+    "author",
+    "homepage",
+    "repository",
+    "license",
+    "keywords",
+)
+DIRECTORY_SKILL_EXCLUDES = {"fallow-codex-onboarding"}
+DIRECTORY_FILE_TYPES = {".md", ".json", ".yaml", ".yml", ".txt", ".png"}
+DIRECTORY_README = """# Fallow Code Analysis
+
+Fallow gives Claude codebase intelligence for TypeScript and JavaScript
+projects. The skills teach Claude to find unused files, exports and
+dependencies, duplicated code, complex functions, circular dependencies and
+architecture boundary violations, to review a change before a commit or a pull
+request, and to set up code-quality tooling and a CI gate.
+
+## What the plugin contains
+
+- `fallow`: static analysis, changed-code risk, cleanup, architecture, styling,
+  runtime evidence and Impact summaries.
+- `fallow-review`: graph-grounded review of changed code.
+- `fallow-setup`: sets up code-quality tooling, the agent integration and a CI
+  gate for a project.
+- `fallow-cloud-setup`: connects an app to Fallow Cloud runtime coverage.
+- `cargo-fallow`: runs `cargo fallow` on a Rust workspace.
+
+This listing holds only skills. The plugin runs no hooks, scripts or servers of
+its own.
+
+## What runs, and what leaves your machine
+
+Claude runs the fallow command-line tool in your project. When fallow is not
+installed, the skills run an exact fallow release with npx, which downloads
+that release from your npm registry. The analysis runs on your machine, and
+product telemetry is off unless you turn it on. Fallow Cloud commands send data
+only after you ask for them and set up a Fallow Cloud account.
+
+## The full plugin
+
+The plugin in the fallow-rs/fallow-skills marketplace adds the interactive
+Fallow dashboard, a commit gate and a statusline command:
+
+```text
+/plugin install fallow --marketplace fallow-rs/fallow-skills
+```
+
+See the [Fallow privacy policy](https://fallow.tools/privacy) and the
+[plugin documentation](https://fallow.tools/plugins). The plugin is MIT
+licensed.
+"""
+
+
+def _directory_bundle_files(repo_root: Path) -> dict[str, bytes]:
+    """The files of the skills-only bundle that the Claude plugin directory lists."""
+    plugin_root = repo_root / PLUGIN_ROOT
+    version = check_versions(repo_root)
+    manifest = _load_json(plugin_root / ".claude-plugin/plugin.json")
+    listed = {key: manifest[key] for key in DIRECTORY_MANIFEST_KEYS if key in manifest}
+    listed["version"] = version
+    files = {
+        ".claude-plugin/plugin.json": json.dumps(listed, indent=2).encode() + b"\n",
+        "LICENSE": (repo_root / "LICENSE").read_bytes(),
+        "README.md": DIRECTORY_README.encode(),
+        "assets/icon.png": (plugin_root / "assets/icon.png").read_bytes(),
+    }
+    for skill in sorted((plugin_root / "skills").iterdir()):
+        if not skill.is_dir() or skill.name in DIRECTORY_SKILL_EXCLUDES:
+            continue
+        for path in sorted(skill.rglob("*")):
+            relative = path.relative_to(plugin_root)
+            if not path.is_file() or "agents" in relative.parts:
+                continue
+            if path.is_symlink() or path.suffix not in DIRECTORY_FILE_TYPES:
+                raise ReleaseError(f"The directory bundle cannot hold {relative.as_posix()}")
+            files[relative.as_posix()] = path.read_bytes()
+    return files
+
+
+def build_directory_bundle(repo_root: Path, output: Path = DIRECTORY_BUNDLE) -> Path:
+    """Write the skills-only directory bundle, replacing any earlier copy."""
+    target = output if output.is_absolute() else repo_root / output
+    files = _directory_bundle_files(repo_root)
+    if target.exists():
+        for path in sorted(target.rglob("*"), reverse=True):
+            path.unlink() if path.is_file() or path.is_symlink() else path.rmdir()
+    for name, contents in files.items():
+        destination = target / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(contents)
+    return target.resolve()
+
+
+def check_directory_bundle(repo_root: Path, output: Path = DIRECTORY_BUNDLE) -> list[str]:
+    """Return each difference between the committed bundle and a fresh build."""
+    target = output if output.is_absolute() else repo_root / output
+    if not target.is_dir():
+        return ["missing bundle"]
+    expected = _directory_bundle_files(repo_root)
+    actual = {
+        path.relative_to(target).as_posix(): path.read_bytes()
+        for path in target.rglob("*")
+        if path.is_file()
+    }
+    problems = [f"missing {name}" for name in sorted(expected.keys() - actual.keys())]
+    problems += [f"extra {name}" for name in sorted(actual.keys() - expected.keys())]
+    problems += [
+        f"changed {name}"
+        for name in sorted(expected.keys() & actual.keys())
+        if expected[name] != actual[name]
+    ]
+    return problems
+
+
 def _desktop_manifest(version: str) -> dict[str, object]:
     """The MCPB manifest of the Fallow app as a Claude Desktop extension."""
     return {
@@ -570,6 +689,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     desktop.add_argument("--expected-version")
     desktop.add_argument("--output-dir", type=Path, default=Path("dist-submissions"))
+
+    directory = commands.add_parser(
+        "directory-bundle",
+        help="write or check the skills-only bundle that the Claude plugin directory lists",
+    )
+    directory.add_argument("--check", action="store_true")
     return parser
 
 
@@ -585,6 +710,17 @@ def main() -> int:
         elif args.command == "set-version":
             set_version(REPO_ROOT, args.version)
             print(args.version)
+        elif args.command == "directory-bundle" and args.check:
+            problems = check_directory_bundle(REPO_ROOT)
+            if problems:
+                raise ReleaseError(
+                    "claude-directory/fallow is out of date ("
+                    + ", ".join(problems)
+                    + "). Run: python3 scripts/plugin_release.py directory-bundle"
+                )
+            print("claude-directory/fallow matches the plugin")
+        elif args.command == "directory-bundle":
+            print(build_directory_bundle(REPO_ROOT))
         elif args.command == "package-desktop":
             print(build_desktop_extension(REPO_ROOT, args.output_dir, args.expected_version))
         else:

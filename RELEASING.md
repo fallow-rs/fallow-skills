@@ -57,26 +57,33 @@ for the cache and update rules.
 
 ### Claude plugin directory
 
-The directory lists the `fallow` folder of this repository as a plugin bundle.
-It follows `main`, so a merged version bump is a new directory version. The
-directory does not take `.mcpb` desktop extensions. It reaches the Fallow app
-through the plugin.
+The directory lists `claude-directory/fallow` as a plugin bundle. That folder
+holds the skills of the plugin, a manifest without `mcpServers`, the icon, the
+license and a directory README. The directory accepts hooks, scripts, local MCP
+servers and files other than Markdown, text, JSON, YAML and images only from
+Verified organizations, and Anthropic grants that label during review, so the
+commit gate, the statusline command and the Fallow app stay on the marketplace
+install. `python3 scripts/plugin_release.py directory-bundle` rebuilds the
+folder, CI fails when it is out of date, and the skill sync of fallow rebuilds
+it after each sync.
+
+The listing follows `main`, so a merged version bump is a new directory
+version. The directory does not take `.mcpb` desktop extensions either, so the
+Fallow app reaches Claude only through the marketplace install.
 
 To submit or to check the listing:
 
-1. Run `claude plugin validate ./fallow` from the repository root.
+1. Run `claude plugin validate ./claude-directory/fallow` from the repository root.
 2. Open the [developer portal](https://claude.ai/directory/manage) in the Fallow
    organization, select **Submit new**, then **Plugin bundle**.
-3. Enter `fallow-rs/fallow-skills` as the repository and `fallow` as the plugin
-   path. Select **Validate**, and fix each finding that blocks.
+3. Enter `fallow-rs/fallow-skills` as the repository and `claude-directory/fallow`
+   as the plugin path. Select **Validate**, and fix each finding that blocks.
 4. Answer the data handling questions from the privacy section of
    `fallow/README.md`. The plugin reads no personal data, keeps no data, and
    sends data only when the user runs a Fallow Cloud command.
 5. Select **Submit for review**, and keep the GitHub push webhook.
 
-Expect a reviewer hold for `codex-app/server.mjs` and `codex-app/app.html`:
-the directory holds every file over 256 KiB. The server bundle is not minified,
-so the reviewer can read it.
+A reviewer reads the first version before it goes live.
 
 ### Claude Desktop extension
 
