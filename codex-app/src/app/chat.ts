@@ -28,20 +28,23 @@ export const plainMessage = (
   project: ProjectRef | null,
 ): string => {
   const tail = project === null ? [] : [projectText(project)];
-  const lines = [instruction];
   // The reserve keeps room for the remainder line and the project line.
   const reserve = [remainderText(findings.length), ...tail].join("\n").length + 2;
-  let used = instruction.length;
-  let shown = 0;
-  for (const finding of findings) {
-    const line = findingText(finding);
-    if (used + line.length + 1 + reserve > MAX_PLAIN_MESSAGE) break;
-    lines.push(line);
+  const shown = fittingLines(findings, MAX_PLAIN_MESSAGE - instruction.length - reserve);
+  const rest = findings.length - shown.length;
+  return [instruction, ...shown, ...(rest > 0 ? [remainderText(rest)] : []), ...tail].join("\n");
+};
+
+/** The finding lines, in order, that fit in `budget` characters with one line break each. */
+const fittingLines = (findings: readonly Finding[], budget: number): string[] => {
+  const lines: string[] = [];
+  let used = 0;
+  for (const line of findings.map(findingText)) {
     used += line.length + 1;
-    shown += 1;
+    if (used > budget) break;
+    lines.push(line);
   }
-  if (shown < findings.length) lines.push(remainderText(findings.length - shown));
-  return [...lines, ...tail].join("\n");
+  return lines;
 };
 
 /** The assistant to name on a button, or null when the host is not known. */

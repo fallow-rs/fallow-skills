@@ -28,7 +28,7 @@ const isWithinRealDirectory = async (base: string, candidate: string): Promise<b
   return realBase !== null && realCandidate !== null && isWithinDirectory(realBase, realCandidate);
 };
 
-export const isDirectory = async (path: string): Promise<boolean> => {
+const isDirectory = async (path: string): Promise<boolean> => {
   try {
     return (await stat(path)).isDirectory();
   } catch {
@@ -211,6 +211,15 @@ const readSessionCwd = async (file: string): Promise<string | null> => {
   }
 };
 
+/** The first URI or path that names an existing local folder, in order. */
+export const firstLocalFolder = async (uris: readonly string[]): Promise<string | null> => {
+  for (const uri of uris) {
+    const local = toLocalPath(uri);
+    if (local !== null && (await isDirectory(local))) return local;
+  }
+  return null;
+};
+
 export type ProjectSource = "argument" | "thread" | "file" | "client" | "recent";
 
 export interface ResolvedProject {
@@ -240,16 +249,19 @@ const once = (ask: ClientRoot): ClientRoot => {
 const recentRoot = async (store: StateStore): Promise<string | null> =>
   (await store.recents())[0]?.root ?? null;
 
+const fallbackBase = async (
+  store: StateStore,
+  threadId: string | null,
+  clientRoot: ClientRoot,
+): Promise<string | null> =>
+  (await store.threadRoot(threadId ?? "")) ?? (await clientRoot()) ?? (await recentRoot(store));
+
 const explicitBase = async (
   store: StateStore,
   cwd: string | null,
   threadId: string | null,
   clientRoot: ClientRoot,
-): Promise<string | null> =>
-  cwd ??
-  (await store.threadRoot(threadId ?? "")) ??
-  (await clientRoot()) ??
-  (await recentRoot(store));
+): Promise<string | null> => cwd ?? (await fallbackBase(store, threadId, clientRoot));
 
 const explicitPath = async (
   store: StateStore,
@@ -345,6 +357,10 @@ const contextProject = async (
   (await clientRootProject(await clientRoot(), remember)) ??
   (await recentProject(store, remember));
 
+/** True when a Codex thread or the client names a folder, so a refused path must not fall back. */
+const hasGrantedFolder = async (cwd: string | null, clientRoot: ClientRoot): Promise<boolean> =>
+  cwd !== null || (await clientRoot()) !== null;
+
 const hasExplicitRoot = (root: string | undefined): root is string =>
   root !== undefined && root.length > 0;
 
@@ -366,7 +382,7 @@ const requestedProject = async (
   const local = await explicitPath(store, explicitRoot, cwd, threadId, clientRoot);
   const project = await explicitProject(local, cwd, allowRoot, remember);
   if (project !== null) return project;
-  return cwd !== null || (await clientRoot()) !== null ? null : undefined;
+  return (await hasGrantedFolder(cwd, clientRoot)) ? null : undefined;
 };
 
 /**

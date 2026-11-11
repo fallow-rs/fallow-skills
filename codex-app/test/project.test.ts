@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import { isWithin, locate } from "../src/server/app-tools.ts";
 import {
   detectProjectRoot,
+  firstLocalFolder,
   resolveProject,
   sandboxFromMeta,
   threadCwdFromCodexSessions,
@@ -165,6 +166,15 @@ describe("project roots", () => {
     const fromRoot = async (): Promise<string | null> => project;
     const knownOnly = async (): Promise<boolean> => false;
     assert.equal(await resolveProject(store, {}, outside, knownOnly, fromRoot), null);
+  });
+
+  it("takes the first client root that is a local folder", async () => {
+    const project = scratch();
+    const file = join(project, "package.json");
+    writeFileSync(file, "{}");
+    const roots = ["https://example.com/repo", pathToFileURL(file).href, join(project, "missing"), pathToFileURL(project).href];
+    assert.equal(await firstLocalFolder(roots), project);
+    assert.equal(await firstLocalFolder(roots.slice(0, 3)), null);
   });
 
   it("resolves a relative path argument against the client root, not the last project", async () => {

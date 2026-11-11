@@ -1,6 +1,6 @@
 import { isAbsolute, resolve } from "node:path";
 import type { McpServer } from "@modelcontextprotocol/server";
-import { isDirectory, toLocalPath, withoutSandboxMeta } from "./project.ts";
+import { firstLocalFolder, withoutSandboxMeta } from "./project.ts";
 import type { CallToolResult, ServerContext as RequestContext } from "@modelcontextprotocol/server";
 import type { FallowProblem, ProjectRef } from "../../../agent-view/src/contracts.ts";
 import type { ViewPayload } from "../shared/contracts.ts";
@@ -94,14 +94,15 @@ const ROOTS_TIMEOUT_MS = 2000;
 export const clientRoot = async (context: ServerContext): Promise<string | null> => {
   const client = context.server.server;
   if (client.getClientCapabilities()?.roots === undefined) return null;
+  return firstLocalFolder(await rootUris(client));
+};
+
+const rootUris = async (client: McpServer["server"]): Promise<string[]> => {
   try {
     const { roots } = await client.listRoots(undefined, { timeout: ROOTS_TIMEOUT_MS });
-    for (const root of roots) {
-      const local = toLocalPath(root.uri);
-      if (local !== null && (await isDirectory(local))) return local;
-    }
+    return roots.map((root) => root.uri);
   } catch {
     // A client that fails the request is treated as a client without roots.
+    return [];
   }
-  return null;
 };

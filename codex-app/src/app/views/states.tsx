@@ -216,7 +216,7 @@ export const ProblemView = ({
               )
             }
           >
-            {host.assistant === null ? "Ask in chat" : `Ask ${host.assistant} to fix it`}
+            {host.askLabel}
           </Button>
         ) : null}
       </div>

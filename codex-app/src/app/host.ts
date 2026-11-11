@@ -183,6 +183,11 @@ export class Host {
     return assistantName(this.app.getHostVersion()?.name, this.openai.message !== undefined);
   }
 
+  /** The label of the button that asks the assistant of the host to fix a problem. */
+  get askLabel(): string {
+    return this.assistant === null ? "Ask in chat" : `Ask ${this.assistant} to fix it`;
+  }
+
   /** The label of the button that sends findings to the assistant of the host. */
   get fixLabel(): string {
     return this.assistant === null ? "Send to chat" : `Fix with ${this.assistant}`;
@@ -240,15 +245,7 @@ export class Host {
     target: "active" | "new" = "active",
   ): Promise<boolean> {
     const message = this.openai.message;
-    if (message === undefined) {
-      if (this.app.getHostCapabilities()?.message === undefined) return false;
-      const result = await this.app.sendMessage({
-        role: "user",
-        content: [{ type: "text", text: plainMessage(text, findings, project) }],
-      });
-      // A host that refuses the message keeps the selection, so the user can send it again.
-      return result.isError !== true;
-    }
+    if (message === undefined) return this.sendPlain(plainMessage(text, findings, project));
     const result = await message.send({
       role: "user",
       content: [
@@ -258,6 +255,13 @@ export class Host {
       ],
       ...(target === "new" ? { _meta: { "openai/message": { target: "new" } } } : {}),
     });
+    return result.isError !== true;
+  }
+
+  /** The standard `ui/message`, for hosts without the OpenAI extension. False when the host refuses it. */
+  private async sendPlain(text: string): Promise<boolean> {
+    if (this.app.getHostCapabilities()?.message === undefined) return false;
+    const result = await this.app.sendMessage({ role: "user", content: [{ type: "text", text }] });
     return result.isError !== true;
   }
 
