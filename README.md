@@ -125,8 +125,9 @@ npx fallow                   # or run without installing
 See the [installation guide](https://fallow.tools/docs/installation/) for all options including `cargo install fallow-cli`.
 
 The Fallow app in Claude runs only a fallow that you chose, never the copy that
-a project ships. When Claude cannot find fallow on its PATH, use one of these
-options:
+a project ships. A PATH folder inside the project or inside any `node_modules`
+folder does not count. When Claude cannot find fallow on its PATH, use one of
+these options:
 
 - Set the **Fallow binary** setting to `npx`. The app then downloads a pinned
   fallow release with npx. Claude can change the setting for you after you agree.
