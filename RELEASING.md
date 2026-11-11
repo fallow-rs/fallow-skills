@@ -55,6 +55,45 @@ See Anthropic's
 [marketplace versioning documentation](https://code.claude.com/docs/en/plugin-marketplaces)
 for the cache and update rules.
 
+### Claude plugin directory
+
+The directory lists the `fallow` folder of this repository as a plugin bundle.
+It follows `main`, so a merged version bump is a new directory version. The
+directory does not take `.mcpb` desktop extensions. It reaches the Fallow app
+through the plugin.
+
+To submit or to check the listing:
+
+1. Run `claude plugin validate ./fallow` from the repository root.
+2. Open the [developer portal](https://claude.ai/directory/manage) in the Fallow
+   organization, select **Submit new**, then **Plugin bundle**.
+3. Enter `fallow-rs/fallow-skills` as the repository and `fallow` as the plugin
+   path. Select **Validate**, and fix each finding that blocks.
+4. Answer the data handling questions from the privacy section of
+   `fallow/README.md`. The plugin reads no personal data, keeps no data, and
+   sends data only when the user runs a Fallow Cloud command.
+5. Select **Submit for review**, and keep the GitHub push webhook.
+
+Expect a reviewer hold for `codex-app/server.mjs` and `codex-app/app.html`:
+the directory holds every file over 256 KiB. The server bundle is not minified,
+so the reviewer can read it.
+
+### Claude Desktop extension
+
+Each tag release also attaches `fallow-app-<version>.mcpb`, which
+`plugin_release.py package-desktop` builds from the committed app bundle. It is
+for people who install the app by hand in Claude Desktop. Users install a new
+version by hand, so the README points to the release page, not a fixed file.
+Desktop chat calls the extension through a bridge and shows the result as text.
+It loads the dashboard view but does not send it the result, so the view shows a
+note after 20 seconds.
+
+### Pinned npx release
+
+`FALLOW_NPX_VERSION` in `codex-app/src/server/fallow-cli.ts` is the exact fallow
+release that the `npx` source downloads. The directory refuses an unpinned
+launcher. Raise it to a tested fallow release, then rebuild the app.
+
 ## OpenAI
 
 OpenAI public updates use the skills-only ZIP attached to the matching GitHub

@@ -17,6 +17,7 @@ const buildApp = async () => {
     write: false,
     format: "iife",
     target: "es2022",
+    // Minified: the host loads this file into every chat view that shows the app.
     minify: true,
     legalComments: "none",
     jsx: "automatic",
@@ -44,9 +45,7 @@ const buildServer = (output) =>
     mainFields: ["module", "main"],
     target: "node20",
     outfile: join(output, "server.mjs"),
-    // Smaller output, readable stack traces: identifiers keep their names.
-    minifyWhitespace: true,
-    minifySyntax: true,
+    // Not minified: the Claude plugin directory scans the bundle and sends packed code to a reviewer.
     legalComments: "none",
     banner: {
       js: "// Built from codex-app/ in fallow-rs/fallow-skills. Do not edit; run `npm run build`.\nimport { createRequire as __fallowCreateRequire } from 'node:module';\nconst require = __fallowCreateRequire(import.meta.url);",

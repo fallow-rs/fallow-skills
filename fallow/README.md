@@ -3,6 +3,21 @@
 Fallow provides local-first codebase intelligence for TypeScript and
 JavaScript.
 
+## Install
+
+In Claude Code 2.1.275 or later:
+
+```text
+/plugin install fallow --marketplace fallow-rs/fallow-skills
+```
+
+In an earlier version, add the marketplace first:
+
+```text
+/plugin marketplace add fallow-rs/fallow-skills
+/plugin install fallow@fallow-skills
+```
+
 ## Included surfaces
 
 - `fallow`: static analysis, changed-code risk, cleanup, architecture, styling,
@@ -13,6 +28,8 @@ JavaScript.
 - `cargo-fallow`: runs `cargo fallow` on a Rust workspace and acts on its findings. The skill is not in the OpenAI directory listing.
 - `impact-statusline`: an optional Claude Code command that previews and manages
   a local statusline setting.
+- `analyze`: the `/fallow:analyze` command, which opens the Fallow dashboard for
+  the project of the session. Add `changed` to analyze only the changed files.
 - Commit gate: a Claude Code `PreToolUse` hook that runs
   `fallow audit --format json --quiet --explain --gate-marker agent` before
   `git commit` and `git push`, and blocks the command on a `fail` verdict. It
@@ -34,7 +51,10 @@ JavaScript.
   starts. Claude hosts that render MCP Apps show the dashboard inline, in the
   side panel or full screen, and **Fix with Claude** sends the selected findings
   to the conversation. The Codex-only parts (sidebar, thread tab, mentions,
-  file handlers, forms and settings) are not shown there.
+  file handlers, forms and settings) are not shown there. The app needs Node.js
+  20 or later on the PATH of Claude. Claude Code and the Code tab of Claude
+  Desktop start it. A Cowork session that runs in the cloud and Claude chat on
+  the web do not start it.
 - `fallow-codex-onboarding`: the setup skill that Codex runs after install.
 
 Codex receives the skills, their referenced assets and the Fallow app. Codex
@@ -63,8 +83,11 @@ listing text for that ZIP.
   them and configures the required credentials.
 - The Fallow app runs the fallow CLI on the machine and makes no network
   requests itself. Code that an opened repository controls, such as its own
-  fallow binary or an `npx` download, runs only inside the Codex sandbox of the
-  thread; outside it, the app runs only a fallow on your PATH. It reads source
+  fallow binary, runs only inside the Codex sandbox of the thread. Outside it,
+  the app runs a fallow on your PATH, the executable in `FALLOW_BIN`, or, when
+  you set the Fallow binary setting to `npx`, a pinned fallow release that npx
+  downloads from your npm registry. npx runs in a new empty folder each time, so
+  a project `.npmrc` or `node_modules` cannot change what runs. It reads source
   lines only from files that a report names. To open the right project in a
   thread tab, it reads the first line of that thread's Codex session log, which
   holds the working directory. It stores settings, recent projects and a

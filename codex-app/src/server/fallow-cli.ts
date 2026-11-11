@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { access, constants } from "node:fs/promises";
+import { access, constants, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, isAbsolute, join, relative } from "node:path";
 import type { FallowProblem } from "../../../agent-view/src/contracts.ts";
@@ -33,7 +33,7 @@ interface Executable {
   command: string;
   prefix: readonly string[];
   label: string;
-  /** npx runs outside the project, so a repository `.npmrc` cannot change what it installs. */
+  /** npx runs in a new empty folder, so a repository `.npmrc` cannot change what it installs. */
   runsOutsideProject: boolean;
 }
 
@@ -42,8 +42,14 @@ const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
 const IS_WINDOWS = process.platform === "win32";
 const BIN_NAMES = IS_WINDOWS ? ["fallow.exe", "fallow.cmd", "fallow"] : ["fallow"];
 const INSTALL_FIX = "npm install --global fallow";
-/** The fallow major version that this plugin is built and tested against. */
-const NPX_PACKAGE = "fallow@3";
+/**
+ * The exact fallow release that the npx source runs. A range would let a new release run without
+ * review, and the Claude plugin directory refuses an unpinned launcher.
+ */
+export const FALLOW_NPX_VERSION = "3.42.0";
+const NPX_PACKAGE = `fallow@${FALLOW_NPX_VERSION}`;
+/** An absolute path to a fallow executable that the user chose, for hosts with a short PATH. */
+const BIN_OVERRIDE = "FALLOW_BIN";
 
 const isExecutable = async (path: string): Promise<boolean> => {
   try {
@@ -81,16 +87,67 @@ const findProjectBinary = async (root: string): Promise<string | null> => {
 };
 
 /**
- * A fallow on PATH that the user installed. PATH entries that are relative, or that point into
- * the project (a tool such as direnv can add `node_modules/.bin`), do not count.
+ * A command on PATH that the user installed. PATH entries that are relative, or that point into
+ * the project (a tool such as direnv can add `node_modules/.bin`), do not count. A candidate that
+ * resolves into the project through a symbolic link does not count either.
  */
+const findUserCommand = async (
+  root: string,
+  names: readonly string[],
+  chosen: readonly string[] = [],
+): Promise<string | null> => {
+  const project = await realpath(root).catch(() => root);
+  const candidates = [
+    ...chosen,
+    ...(await userPathEntries(root)).flatMap((entry) => names.map((name) => join(entry, name))),
+  ];
+  for (const candidate of candidates) {
+    if (!(await isExecutable(candidate))) continue;
+    const target = await realpath(candidate).catch(() => candidate);
+    if (!insideProject(project, target)) return candidate;
+  }
+  return null;
+};
+
+/** macOS and Windows compare paths without case, so a project path can hide behind other case. */
+const foldCase = (path: string): string =>
+  IS_WINDOWS || process.platform === "darwin" ? path.toLowerCase() : path;
+
+const insideProject = (project: string, path: string): boolean =>
+  isInside(foldCase(project), foldCase(path));
+
+/** A `node_modules` folder belongs to some project, also when it is a parent workspace of the root. */
+const inNodeModules = (path: string): boolean => path.split(/[\\/]/).includes("node_modules");
+
+/**
+ * The absolute PATH entries that the user controls: outside the project, also after symbolic
+ * links resolve, and outside every `node_modules`. They serve the lookup and the PATH of the child.
+ */
+const userPathEntries = async (root: string): Promise<string[]> => {
+  const project = await realpath(root).catch(() => root);
+  const entries = (process.env["PATH"] ?? "").split(delimiter);
+  const kept = await Promise.all(entries.map((entry) => isUserEntry(root, project, entry)));
+  return entries.filter((_, index) => kept[index]);
+};
+
+const projectControlled = (project: string, path: string): boolean =>
+  inNodeModules(path) || insideProject(project, path);
+
+const isUserEntry = async (root: string, project: string, entry: string): Promise<boolean> => {
+  if (!isAbsolute(entry) || projectControlled(root, entry)) return false;
+  return !projectControlled(project, await realpath(entry).catch(() => entry));
+};
+
 const findUserBinary = (root: string): Promise<string | null> =>
-  firstExecutable(
-    (process.env["PATH"] ?? "")
-      .split(delimiter)
-      .filter((entry) => isAbsolute(entry) && !isInside(root, entry))
-      .flatMap((entry) => BIN_NAMES.map((name) => join(entry, name))),
-  );
+  findUserCommand(root, BIN_NAMES, overrideBinary(root));
+
+/** `FALLOW_BIN` counts only as an absolute path outside the project, like a PATH entry. */
+const overrideBinary = (root: string): string[] => {
+  const path = process.env[BIN_OVERRIDE] ?? "";
+  return isAbsolute(path) && !isInside(root, path) ? [path] : [];
+};
+
+const NPX_NAMES = IS_WINDOWS ? ["npx.cmd", "npx"] : ["npx"];
 
 const NPX: Executable = {
   command: IS_WINDOWS ? "npx.cmd" : "npx",
@@ -101,26 +158,62 @@ const NPX: Executable = {
 
 /**
  * Finds the fallow binary for a project. Code that the opened repository controls (its own
- * `node_modules/.bin/fallow`, or an npx install that its `.npmrc` could redirect) runs only inside
- * the Codex sandbox. Outside it, only a fallow on the user's PATH runs.
+ * `node_modules/.bin/fallow`) runs only inside the Codex sandbox. Outside it, fallow runs from the
+ * user's PATH or `FALLOW_BIN`, or from npx when the user set the source to npx. npx starts in a
+ * new empty folder, so a project `.npmrc` or `node_modules` cannot change what runs.
  */
 export const resolveFallow = async (
   root: string,
   source: FallowSource,
   sandboxed: boolean,
 ): Promise<Executable | null> => {
-  const user = async (): Promise<Executable | null> => {
-    const found = await findUserBinary(root);
-    return found === null ? null : { command: found, prefix: [], label: "fallow on PATH", runsOutsideProject: false };
-  };
-  if (!sandboxed) return user();
-  if (source === "npx") return NPX;
-  if (source === "project" || source === "auto") {
-    const local = await findProjectBinary(root);
-    if (local !== null) return { command: local, prefix: [], label: "project fallow", runsOutsideProject: false };
-    if (source === "project") return null;
+  const order = (sandboxed ? SANDBOXED_ORDER : UNSANDBOXED_ORDER)[source];
+  for (const step of order) {
+    const found = await FINDERS[step](root);
+    if (found !== null) return found;
   }
-  return (await user()) ?? (source === "auto" ? NPX : null);
+  return null;
+};
+
+type Finder = "project" | "user" | "npx" | "userNpx";
+
+/** The lookup order for each source. Outside the sandbox, no step reaches a project binary. */
+const SANDBOXED_ORDER: Record<FallowSource, readonly Finder[]> = {
+  auto: ["project", "user", "npx"],
+  project: ["project"],
+  path: ["user"],
+  npx: ["npx"],
+};
+const UNSANDBOXED_ORDER: Record<FallowSource, readonly Finder[]> = {
+  auto: ["user"],
+  project: ["user"],
+  path: ["user"],
+  npx: ["userNpx"],
+};
+
+const userFallow = async (root: string): Promise<Executable | null> => {
+  const found = await findUserBinary(root);
+  if (found === null) return null;
+  const label = overrideBinary(root).includes(found) ? "fallow from FALLOW_BIN" : "fallow on PATH";
+  return { command: found, prefix: [], label, runsOutsideProject: false };
+};
+
+const projectFallow = async (root: string): Promise<Executable | null> => {
+  const local = await findProjectBinary(root);
+  return local === null ? null : { command: local, prefix: [], label: "project fallow", runsOutsideProject: false };
+};
+
+const FINDERS: Record<Finder, (root: string) => Promise<Executable | null>> = {
+  project: projectFallow,
+  user: userFallow,
+  npx: () => Promise.resolve(NPX),
+  userNpx: (root) => userNpx(root),
+};
+
+/** Outside the sandbox, npx must come from the user's PATH too, never from a project folder. */
+const userNpx = async (root: string): Promise<Executable | null> => {
+  const command = await findUserCommand(root, NPX_NAMES);
+  return command === null ? null : { ...NPX, command };
 };
 
 /**
@@ -135,13 +228,19 @@ const ENV_ALLOWLIST =
 /** A name that can hold a credential never passes, even when a prefix above would allow it. */
 const ENV_SECRET = /TOKEN|SECRET|PASSWORD|PASSWD|AUTH|CREDENTIAL|_KEY$|APIKEY/i;
 
-const childEnvironment = (): NodeJS.ProcessEnv => ({
-  ...Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => ENV_ALLOWLIST.test(name) && !ENV_SECRET.test(name)),
-  ),
-  NO_COLOR: "1",
-  FORCE_COLOR: "0",
-});
+/** PATH keeps only the user's entries, so npx and fallow never find a project binary. */
+const childEnvironment = async (root: string): Promise<NodeJS.ProcessEnv> => {
+  const path = (await userPathEntries(root)).join(delimiter);
+  return {
+    ...Object.fromEntries(
+      Object.entries(process.env)
+        .filter(([name]) => ENV_ALLOWLIST.test(name) && !ENV_SECRET.test(name))
+        .map(([name, value]) => [name, /^path$/i.test(name) ? path : value]),
+    ),
+    NO_COLOR: "1",
+    FORCE_COLOR: "0",
+  };
+};
 
 /** cmd.exe parses these characters even inside arguments, so a `.cmd` shim never gets them. */
 const CMD_UNSAFE = /[&|<>^%"!`\r\n]/;
@@ -153,7 +252,7 @@ const notFound = (source: FallowSource, sandboxed: boolean): FallowProblem => ({
   code: "fallow_not_found",
   title: "Fallow is not installed",
   detail: !sandboxed
-    ? "No fallow binary is on PATH. Outside the Codex sandbox of a thread, the app only runs a fallow that you installed, never one that the project ships. Install fallow, then try again."
+    ? `No fallow binary is on PATH. Outside the Codex sandbox of a thread, the app runs only a fallow that you chose, never one that the project ships. Install fallow, or set the Fallow binary setting to npx to download fallow ${FALLOW_NPX_VERSION}. Then try again.`
     : source === "project"
       ? "The settings say to use the project copy of fallow, but node_modules/.bin has no fallow binary."
       : "No fallow binary was found in the project or on PATH.",
@@ -176,13 +275,14 @@ const run = (
   command: string,
   args: readonly string[],
   cwd: string,
+  env: NodeJS.ProcessEnv,
   timeoutMs: number,
   signal: AbortSignal | undefined,
 ): Promise<Spawned> =>
   new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd,
-      env: childEnvironment(),
+      env,
       stdio: ["ignore", "pipe", "pipe"],
       shell: IS_WINDOWS && command.endsWith(".cmd"),
       windowsHide: true,
@@ -271,9 +371,27 @@ const fallowArguments = (request: RunRequest, executable: Executable): string[] 
   ...(executable.runsOutsideProject ? ["--root", request.root] : []),
 ];
 
-const executionFor = (request: RunRequest, executable: Executable): Execution => {
+/**
+ * Runs `task` in the folder that the executable needs. npx gets a new empty folder for each run:
+ * npm reads `.npmrc` and runs a matching `node_modules/fallow` from its working folder, so neither
+ * the project folder nor the shared temporary folder is safe.
+ */
+const inWorkdir = async <T>(
+  executable: Executable,
+  root: string,
+  task: (cwd: string) => Promise<T>,
+): Promise<T> => {
+  if (!executable.runsOutsideProject) return task(root);
+  const folder = await mkdtemp(join(tmpdir(), "fallow-npx-"));
+  try {
+    return await task(folder);
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
+};
+
+const executionFor = (request: RunRequest, executable: Executable, cwd: string): Execution => {
   const args = fallowArguments(request, executable);
-  const cwd = executable.runsOutsideProject ? tmpdir() : request.root;
   const sandbox = request.sandbox;
   if (sandbox === null) return { command: executable.command, args, cwd, sandbox };
   return {
@@ -418,7 +536,11 @@ export const runFallow = async (request: RunRequest): Promise<RunResult> => {
   const executable = await resolveFallow(request.root, request.source, request.sandbox !== null);
   if (executable === null) return { ok: false, problem: notFound(request.source, request.sandbox !== null) };
 
-  const execution = executionFor(request, executable);
+  return inWorkdir(executable, request.root, (cwd) => runIn(request, executable, cwd));
+};
+
+const runIn = async (request: RunRequest, executable: Executable, cwd: string): Promise<RunResult> => {
+  const execution = executionFor(request, executable, cwd);
   const display = `fallow ${request.args.join(" ")}`;
   if (unsafeCommand(execution)) return { ok: false, problem: unsafePathProblem() };
 
@@ -427,6 +549,7 @@ export const runFallow = async (request: RunRequest): Promise<RunResult> => {
     execution.command,
     execution.args,
     execution.cwd,
+    await childEnvironment(request.root),
     requestTimeout(request),
     request.signal,
   );
@@ -449,20 +572,19 @@ export const fallowVersion = async (
 > => {
   const executable = await resolveFallow(root, source, false);
   if (executable === null) return { ok: false, problem: notFound(source, false) };
-  const result = await run(
-    executable.command,
-    [...executable.prefix, "--version"],
-    root,
-    60_000,
-    undefined,
+  const env = await childEnvironment(root);
+  const result = await inWorkdir(executable, root, (cwd) =>
+    run(executable.command, [...executable.prefix, "--version"], cwd, env, 60_000, undefined),
   );
-  const version = result.stdout.trim().replace(/^fallow\s+/, "");
+  const version = versionLine(result.stdout);
   if (result.exitCode !== 0 || version.length === 0)
     return { ok: false, problem: notFound(source, false) };
-  return {
-    ok: true,
-    version,
-    binary:
-      executable.prefix.length > 0 ? `npx ${executable.prefix.join(" ")}` : executable.command,
-  };
+  return { ok: true, version, binary: binaryText(executable) };
 };
+
+/** A signed release prints a second `verified:` line after the version, so only the first counts. */
+const versionLine = (stdout: string): string =>
+  (stdout.trim().split("\n")[0] ?? "").replace(/^fallow\s+/, "").trim();
+
+const binaryText = (executable: Executable): string =>
+  executable.prefix.length > 0 ? `npx ${executable.prefix.join(" ")}` : executable.command;

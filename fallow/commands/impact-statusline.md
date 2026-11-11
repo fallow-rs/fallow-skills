@@ -1,7 +1,6 @@
 ---
 description: Show or configure the compact Fallow Impact statusline in Claude Code
 argument-hint: status|setup|remove [user|project] [replace|compose]
-allowed-tools: Bash(node:*)
 ---
 
 # Fallow Impact statusline

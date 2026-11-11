@@ -124,14 +124,6 @@
         "count": 3
       }
     },
-    "src/server/fallow-cli.ts": {
-      "crap_high": {
-        "count": 1
-      },
-      "crap_moderate": {
-        "count": 1
-      }
-    },
     "src/server/forms.ts": {
       "crap_moderate": {
         "count": 1
