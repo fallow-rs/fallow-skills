@@ -31,7 +31,7 @@
   "mcpServers": {
     "fallow": {
       "command": "npx",
-      "args": ["--yes", "--package", "fallow", "fallow-mcp"]
+      "args": ["--yes", "--prefix", "${userHome}", "--package", "fallow@3", "fallow-mcp"]
     }
   }
 }

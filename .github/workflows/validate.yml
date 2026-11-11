@@ -190,8 +190,14 @@ jobs:
           assert manifest["hooks"] == {"version": 1, "hooks": {}}
 
           # The fallow MCP server, from the fallow npm package. Cursor reads no root mcp.json here.
+          # Cursor starts the server in the opened project. Without --prefix, npx runs a
+          # fallow-mcp from the node_modules of that project, so an untrusted project could
+          # run its own code. The major pin stops a new major release from loading unasked.
           server = manifest["mcpServers"]["fallow"]
-          assert server == {"command": "npx", "args": ["--yes", "--package", "fallow", "fallow-mcp"]}
+          assert server == {
+              "command": "npx",
+              "args": ["--yes", "--prefix", "${userHome}", "--package", "fallow@3", "fallow-mcp"],
+          }
           assert not (root / "mcp.json").exists()
           PY
 
