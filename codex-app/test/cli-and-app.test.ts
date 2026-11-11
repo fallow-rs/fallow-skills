@@ -246,7 +246,7 @@ describe("runFallow", { skip: IS_WINDOWS ? "uses POSIX shell scripts as fake bin
   it("runs the pinned npx release outside the sandbox when the user chose npx", async () => {
     const root = projectWithFallow(`echo '{"kind":"combined"}'`);
     const executable = await resolveFallow(root, "npx", false);
-    assert.equal(executable?.label, "npx fallow");
+    assert.equal(executable?.label, `fallow ${FALLOW_NPX_VERSION} through npx`);
     assert.ok(executable !== null && !executable.command.startsWith(root));
     assert.ok(executable?.runsOutsideProject);
     assert.ok(executable?.prefix.includes(`fallow@${FALLOW_NPX_VERSION}`));

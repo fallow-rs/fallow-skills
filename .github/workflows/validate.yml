@@ -192,11 +192,12 @@ jobs:
           # The fallow MCP server, from the fallow npm package. Cursor reads no root mcp.json here.
           # Cursor starts the server in the opened project. Without --prefix, npx runs a
           # fallow-mcp from the node_modules of that project, so an untrusted project could
-          # run its own code. The major pin stops a new major release from loading unasked.
+          # run its own code. The exact pin stops a new release from loading unasked. Keep it
+          # equal to FALLOW_NPX_VERSION in codex-app/src/server/fallow-cli.ts.
           server = manifest["mcpServers"]["fallow"]
           assert server == {
               "command": "npx",
-              "args": ["--yes", "--prefix", "${userHome}", "--package", "fallow@3", "fallow-mcp"],
+              "args": ["--yes", "--prefix", "${userHome}", "--package", "fallow@3.42.0", "fallow-mcp"],
           }
           assert not (root / "mcp.json").exists()
           PY

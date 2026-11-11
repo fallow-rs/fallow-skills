@@ -65,7 +65,8 @@ inside the Codex sandbox of the thread when one is available. See
 
 The Cursor plugin manifest is at `fallow/.cursor-plugin/plugin.json`. The
 plugin adds the Fallow skills and the fallow MCP server
-(`npx --yes --prefix ${userHome} --package fallow@3 fallow-mcp`). The
+(`npx --yes --prefix ${userHome} --package fallow@3.42.0 fallow-mcp`, an exact
+release). The
 `--prefix` flag makes npx resolve fallow from your home folder, so a
 `fallow-mcp` in the `node_modules` of the opened project does not run. The
 Claude Code commit gate and the statusline command are not in the Cursor

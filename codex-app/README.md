@@ -142,10 +142,12 @@ the committed files differ.
 The threat model: you open a repository you do not trust, its content can steer the model, and
 the app iframe runs inside the Codex host.
 
-- **Which fallow runs.** Code that the repository controls runs only inside the Codex sandbox of
-  the thread: its own `node_modules/.bin/fallow`, or `npx` (pinned to `fallow@3`, run from a temp
-  folder with `--root`, so a repository `.npmrc` cannot redirect the install). Outside the sandbox
-  the app runs only a fallow on your PATH, and skips PATH entries inside the project.
+- **Which fallow runs.** Code that the repository controls, such as its own
+  `node_modules/.bin/fallow`, runs only inside the Codex sandbox of the thread. Outside the sandbox
+  the app runs a fallow on your PATH or in `FALLOW_BIN`, or, when you set the source to `npx`, the
+  exact release in `FALLOW_NPX_VERSION`. npx starts in a new empty folder with `--root`, so a
+  repository `.npmrc` or `node_modules` cannot change what runs. PATH entries inside the project
+  or inside any `node_modules` folder do not count.
 - **Whose sandbox state counts.** Only the model-only tools (`fallow_analyze`, `fallow_audit`,
   `fallow_plan_cleanup`) read `codex/sandbox-state-meta` from the call, and only when
   `codexExecutable` is an absolute path to `codex`. Every tool that the app iframe can call goes
