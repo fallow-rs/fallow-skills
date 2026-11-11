@@ -194,6 +194,39 @@ describe("runFallow", { skip: IS_WINDOWS ? "uses POSIX shell scripts as fake bin
     }
   });
 
+  it("drops PATH entries that link into the project or sit in a parent workspace", async () => {
+    const workspace = mkdtempSync(join(tmpdir(), "fallow-workspace-"));
+    const workspaceBin = join(workspace, "node_modules", ".bin");
+    mkdirSync(workspaceBin, { recursive: true });
+    const root = join(workspace, "packages", "app");
+    mkdirSync(join(root, "bin"), { recursive: true });
+    const linkFolder = mkdtempSync(join(tmpdir(), "fallow-link-entry-"));
+    const linked = join(linkFolder, "bin");
+    symlinkSync(join(root, "bin"), linked);
+    for (const folder of [workspaceBin, join(root, "bin")]) {
+      writeFileSync(join(folder, "npx"), `#!/bin/sh\nprintf '{"kind":"combined","from":"project"}'\n`);
+      chmodSync(join(folder, "npx"), 0o755);
+    }
+    const userBin = mkdtempSync(join(tmpdir(), "fallow-user-npx-"));
+    writeFileSync(
+      join(userBin, "npx"),
+      `#!/bin/sh\nprintf '{"kind":"combined","from":"user","path":"%s"}' "$PATH"\n`,
+    );
+    chmodSync(join(userBin, "npx"), 0o755);
+    const path = process.env["PATH"];
+    process.env["PATH"] = [linked, workspaceBin, userBin, "/usr/bin", "/bin"].join(delimiter);
+    try {
+      const run = await runFallow({ root, args: ["--format", "json"], source: "npx", sandbox: null });
+      assert.ok(run.ok);
+      assert.equal(run.json["from"], "user");
+      const childPath = String(run.json["path"]).split(delimiter);
+      assert.ok(!childPath.includes(linked), `kept the linked entry: ${childPath.join(delimiter)}`);
+      assert.ok(!childPath.includes(workspaceBin), `kept the workspace entry: ${childPath.join(delimiter)}`);
+    } finally {
+      process.env["PATH"] = path;
+    }
+  });
+
   it("ignores a FALLOW_BIN that links into the project", async () => {
     const root = projectWithFallow(`echo '{"kind":"combined"}'`);
     const outside = mkdtempSync(join(tmpdir(), "fallow-link-"));

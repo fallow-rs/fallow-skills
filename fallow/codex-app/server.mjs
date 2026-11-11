@@ -36336,16 +36336,29 @@ var findUserCommand = async (root, names, chosen = []) => {
   const project = await realpath(root).catch(() => root);
   const candidates = [
     ...chosen,
-    ...userPathEntries(root).flatMap((entry) => names.map((name) => join(entry, name)))
+    ...(await userPathEntries(root)).flatMap((entry) => names.map((name) => join(entry, name)))
   ];
   for (const candidate of candidates) {
     if (!await isExecutable(candidate)) continue;
     const target = await realpath(candidate).catch(() => candidate);
-    if (!isInside(project, target)) return candidate;
+    if (!insideProject(project, target)) return candidate;
   }
   return null;
 };
-var userPathEntries = (root) => (process.env["PATH"] ?? "").split(delimiter).filter((entry) => isAbsolute(entry) && !isInside(root, entry));
+var foldCase = (path) => IS_WINDOWS || process.platform === "darwin" ? path.toLowerCase() : path;
+var insideProject = (project, path) => isInside(foldCase(project), foldCase(path));
+var inNodeModules = (path) => path.split(/[\\/]/).includes("node_modules");
+var userPathEntries = async (root) => {
+  const project = await realpath(root).catch(() => root);
+  const entries = [];
+  for (const entry of (process.env["PATH"] ?? "").split(delimiter)) {
+    if (!isAbsolute(entry) || inNodeModules(entry) || insideProject(root, entry)) continue;
+    const target = await realpath(entry).catch(() => entry);
+    if (inNodeModules(target) || insideProject(project, target)) continue;
+    entries.push(entry);
+  }
+  return entries;
+};
 var findUserBinary = (root) => findUserCommand(root, BIN_NAMES, overrideBinary(root));
 var overrideBinary = (root) => {
   const path = process.env[BIN_OVERRIDE] ?? "";
@@ -36380,13 +36393,16 @@ var userNpx = async (root) => {
 };
 var ENV_ALLOWLIST = /^(PATH|PATHEXT|HOME|USERPROFILE|HOMEDRIVE|HOMEPATH|TMPDIR|TEMP|TMP|LANG|LANGUAGE|LC_[A-Z]+|TZ|SYSTEMROOT|SYSTEMDRIVE|COMSPEC|WINDIR|APPDATA|LOCALAPPDATA|PROGRAMDATA|XDG_[A-Z_]+|SHELL|USER|LOGNAME|TERM|SSL_CERT_FILE|SSL_CERT_DIR|NODE_EXTRA_CA_CERTS|HTTPS?_PROXY|NO_PROXY|ALL_PROXY|NPM_CONFIG_(REGISTRY|PROXY|HTTPS_PROXY|NOPROXY|STRICT_SSL|CAFILE)|FALLOW_[A-Z0-9_]+|GIT_(DIR|WORK_TREE|CEILING_DIRECTORIES))$/i;
 var ENV_SECRET = /TOKEN|SECRET|PASSWORD|PASSWD|AUTH|CREDENTIAL|_KEY$|APIKEY/i;
-var childEnvironment = (root) => ({
-  ...Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => ENV_ALLOWLIST.test(name) && !ENV_SECRET.test(name)).map(([name, value]) => [name, /^path$/i.test(name) ? userPathEntries(root).join(delimiter) : value])
-  ),
-  NO_COLOR: "1",
-  FORCE_COLOR: "0"
-});
+var childEnvironment = async (root) => {
+  const path = (await userPathEntries(root)).join(delimiter);
+  return {
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(([name]) => ENV_ALLOWLIST.test(name) && !ENV_SECRET.test(name)).map(([name, value]) => [name, /^path$/i.test(name) ? path : value])
+    ),
+    NO_COLOR: "1",
+    FORCE_COLOR: "0"
+  };
+};
 var CMD_UNSAFE = /[&|<>^%"!`\r\n]/;
 var tail = (text2, lines) => text2.trim().split("\n").slice(-lines).join("\n");
 var notFound = (source, sandboxed) => ({
@@ -36396,10 +36412,10 @@ var notFound = (source, sandboxed) => ({
   fix: INSTALL_FIX
 });
 var KILL_GRACE_MS = 3e3;
-var run = (command, args, cwd, root, timeoutMs, signal) => new Promise((resolve4) => {
+var run = (command, args, cwd, env, timeoutMs, signal) => new Promise((resolve4) => {
   const child = spawn(command, args, {
     cwd,
-    env: childEnvironment(root),
+    env,
     stdio: ["ignore", "pipe", "pipe"],
     shell: IS_WINDOWS && command.endsWith(".cmd"),
     windowsHide: true
@@ -36589,7 +36605,7 @@ var runIn = async (request, executable, cwd) => {
     execution.command,
     execution.args,
     execution.cwd,
-    request.root,
+    await childEnvironment(request.root),
     requestTimeout(request),
     request.signal
   );
@@ -36602,10 +36618,11 @@ var ignoredBase = (warnings) => warnings.some((warning) => IGNORED_BASE.test(war
 var fallowVersion = async (root, source) => {
   const executable = await resolveFallow(root, source, false);
   if (executable === null) return { ok: false, problem: notFound(source, false) };
+  const env = await childEnvironment(root);
   const result = await inWorkdir(
     executable,
     root,
-    (cwd) => run(executable.command, [...executable.prefix, "--version"], cwd, root, 6e4, void 0)
+    (cwd) => run(executable.command, [...executable.prefix, "--version"], cwd, env, 6e4, void 0)
   );
   const version3 = (result.stdout.trim().split("\n")[0] ?? "").replace(/^fallow\s+/, "").trim();
   if (result.exitCode !== 0 || version3.length === 0)

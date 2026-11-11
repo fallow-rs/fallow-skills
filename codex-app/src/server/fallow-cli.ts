@@ -99,21 +99,41 @@ const findUserCommand = async (
   const project = await realpath(root).catch(() => root);
   const candidates = [
     ...chosen,
-    ...userPathEntries(root).flatMap((entry) => names.map((name) => join(entry, name))),
+    ...(await userPathEntries(root)).flatMap((entry) => names.map((name) => join(entry, name))),
   ];
   for (const candidate of candidates) {
     if (!(await isExecutable(candidate))) continue;
     const target = await realpath(candidate).catch(() => candidate);
-    if (!isInside(project, target)) return candidate;
+    if (!insideProject(project, target)) return candidate;
   }
   return null;
 };
 
-/** The absolute PATH entries outside the project, for the lookup and for the PATH of the child. */
-const userPathEntries = (root: string): string[] =>
-  (process.env["PATH"] ?? "")
-    .split(delimiter)
-    .filter((entry) => isAbsolute(entry) && !isInside(root, entry));
+/** macOS and Windows compare paths without case, so a project path can hide behind other case. */
+const foldCase = (path: string): string =>
+  IS_WINDOWS || process.platform === "darwin" ? path.toLowerCase() : path;
+
+const insideProject = (project: string, path: string): boolean =>
+  isInside(foldCase(project), foldCase(path));
+
+/** A `node_modules` folder belongs to some project, also when it is a parent workspace of the root. */
+const inNodeModules = (path: string): boolean => path.split(/[\\/]/).includes("node_modules");
+
+/**
+ * The absolute PATH entries that the user controls: outside the project, also after symbolic
+ * links resolve, and outside every `node_modules`. They serve the lookup and the PATH of the child.
+ */
+const userPathEntries = async (root: string): Promise<string[]> => {
+  const project = await realpath(root).catch(() => root);
+  const entries: string[] = [];
+  for (const entry of (process.env["PATH"] ?? "").split(delimiter)) {
+    if (!isAbsolute(entry) || inNodeModules(entry) || insideProject(root, entry)) continue;
+    const target = await realpath(entry).catch(() => entry);
+    if (inNodeModules(target) || insideProject(project, target)) continue;
+    entries.push(entry);
+  }
+  return entries;
+};
 
 const findUserBinary = (root: string): Promise<string | null> =>
   findUserCommand(root, BIN_NAMES, overrideBinary(root));
@@ -178,16 +198,19 @@ const ENV_ALLOWLIST =
 /** A name that can hold a credential never passes, even when a prefix above would allow it. */
 const ENV_SECRET = /TOKEN|SECRET|PASSWORD|PASSWD|AUTH|CREDENTIAL|_KEY$|APIKEY/i;
 
-/** PATH keeps only the user's absolute entries, so npx and fallow never find a project binary. */
-const childEnvironment = (root: string): NodeJS.ProcessEnv => ({
-  ...Object.fromEntries(
-    Object.entries(process.env)
-      .filter(([name]) => ENV_ALLOWLIST.test(name) && !ENV_SECRET.test(name))
-      .map(([name, value]) => [name, /^path$/i.test(name) ? userPathEntries(root).join(delimiter) : value]),
-  ),
-  NO_COLOR: "1",
-  FORCE_COLOR: "0",
-});
+/** PATH keeps only the user's entries, so npx and fallow never find a project binary. */
+const childEnvironment = async (root: string): Promise<NodeJS.ProcessEnv> => {
+  const path = (await userPathEntries(root)).join(delimiter);
+  return {
+    ...Object.fromEntries(
+      Object.entries(process.env)
+        .filter(([name]) => ENV_ALLOWLIST.test(name) && !ENV_SECRET.test(name))
+        .map(([name, value]) => [name, /^path$/i.test(name) ? path : value]),
+    ),
+    NO_COLOR: "1",
+    FORCE_COLOR: "0",
+  };
+};
 
 /** cmd.exe parses these characters even inside arguments, so a `.cmd` shim never gets them. */
 const CMD_UNSAFE = /[&|<>^%"!`\r\n]/;
@@ -222,14 +245,14 @@ const run = (
   command: string,
   args: readonly string[],
   cwd: string,
-  root: string,
+  env: NodeJS.ProcessEnv,
   timeoutMs: number,
   signal: AbortSignal | undefined,
 ): Promise<Spawned> =>
   new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd,
-      env: childEnvironment(root),
+      env,
       stdio: ["ignore", "pipe", "pipe"],
       shell: IS_WINDOWS && command.endsWith(".cmd"),
       windowsHide: true,
@@ -496,7 +519,7 @@ const runIn = async (request: RunRequest, executable: Executable, cwd: string): 
     execution.command,
     execution.args,
     execution.cwd,
-    request.root,
+    await childEnvironment(request.root),
     requestTimeout(request),
     request.signal,
   );
@@ -519,8 +542,9 @@ export const fallowVersion = async (
 > => {
   const executable = await resolveFallow(root, source, false);
   if (executable === null) return { ok: false, problem: notFound(source, false) };
+  const env = await childEnvironment(root);
   const result = await inWorkdir(executable, root, (cwd) =>
-    run(executable.command, [...executable.prefix, "--version"], cwd, root, 60_000, undefined),
+    run(executable.command, [...executable.prefix, "--version"], cwd, env, 60_000, undefined),
   );
   // A signed release prints a second `verified:` line after the version.
   const version = (result.stdout.trim().split("\n")[0] ?? "").replace(/^fallow\s+/, "").trim();
