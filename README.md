@@ -23,12 +23,27 @@ Agent skills for [fallow](https://github.com/fallow-rs/fallow), codebase intelli
 npx skills add fallow-rs/fallow-skills
 ```
 
-### Claude Code
+### Claude Code and Claude Desktop
 
 ```bash
 /plugin marketplace add fallow-rs/fallow-skills
 /plugin install fallow@fallow-skills
 ```
+
+The plugin also adds the **Fallow app**: an interactive code health dashboard
+that Claude Code and the Code tab of Claude Desktop show inline in the
+conversation. Run `/fallow:analyze`, or ask Claude to analyze the project with
+Fallow. **Fix with Claude** sends the findings that you select to the
+conversation. The app needs Node.js 20 or later. It runs the fallow CLI on your
+machine, so your code stays local.
+
+In Claude Desktop, open **Customize**, then **Plugins**, add the
+`fallow-rs/fallow-skills` marketplace, and install **Fallow Code Analysis**.
+Each [release](https://github.com/fallow-rs/fallow-skills/releases) also has a
+`fallow-app-<version>.mcpb` file. Open it in Claude Desktop to give Claude chat
+the Fallow tools as a desktop extension. Chat shows the analysis as text: it
+does not pass the result to the dashboard yet. Install the extension or the
+plugin, not both, so Claude sees one set of Fallow tools.
 
 ### OpenAI Codex
 
@@ -108,6 +123,15 @@ npx fallow                   # or run without installing
 ```
 
 See the [installation guide](https://fallow.tools/docs/installation/) for all options including `cargo install fallow-cli`.
+
+The Fallow app in Claude runs only a fallow that you chose, never the copy that
+a project ships. When Claude cannot find fallow on its PATH, use one of these
+options:
+
+- Set the **Fallow binary** setting to `npx`. The app then downloads a pinned
+  fallow release with npx. Claude can change the setting for you after you agree.
+- Set `FALLOW_BIN` to the absolute path of the fallow executable. In the desktop
+  extension, choose the file under **Fallow executable**.
 
 ## Privacy and network behavior
 

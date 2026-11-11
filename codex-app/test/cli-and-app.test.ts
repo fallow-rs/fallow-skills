@@ -1,12 +1,27 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { describe, it } from "node:test";
 import { ruleCategory } from "../src/app/config-rules.ts";
 import { parseRoute } from "../src/app/route.ts";
 import { parseSarif } from "../src/app/sarif.ts";
-import { ignoredBase, resolveFallow, runFallow } from "../src/server/fallow-cli.ts";
+import {
+  FALLOW_NPX_VERSION,
+  fallowVersion,
+  ignoredBase,
+  resolveFallow,
+  runFallow,
+} from "../src/server/fallow-cli.ts";
 
 const IS_WINDOWS = process.platform === "win32";
 
@@ -119,13 +134,97 @@ describe("runFallow", { skip: IS_WINDOWS ? "uses POSIX shell scripts as fake bin
 
   it("never runs a project's own fallow outside the sandbox", async () => {
     const root = projectWithFallow(`echo '{"kind":"combined","version":"from-project"}'`);
-    for (const source of ["auto", "project", "npx"] as const) {
+    for (const source of ["auto", "project", "path"] as const) {
       const executable = await resolveFallow(root, source, false);
       assert.ok(executable === null || !executable.command.startsWith(root), `${source}: ${executable?.command}`);
       assert.ok(executable === null || executable.label === "fallow on PATH", source);
     }
     const sandboxed = await resolveFallow(root, "auto", true);
     assert.ok(sandboxed?.command.startsWith(root));
+  });
+
+  it("runs npx in a new empty folder, never in the project or the shared temporary folder", async () => {
+    const root = projectWithFallow(`echo '{"kind":"combined","version":"from-project"}'`);
+    const fakeBin = mkdtempSync(join(tmpdir(), "fallow-fake-npx-"));
+    writeFileSync(
+      join(fakeBin, "npx"),
+      `#!/bin/sh\ncase "$*" in *--version*) echo "fallow $(pwd)";; *) printf '{"kind":"combined","cwd":"%s"}' "$(pwd)";; esac\n`,
+    );
+    chmodSync(join(fakeBin, "npx"), 0o755);
+    const path = process.env["PATH"];
+    process.env["PATH"] = `${fakeBin}${delimiter}/usr/bin${delimiter}/bin`;
+    try {
+      const version = await fallowVersion(root, "npx");
+      assert.ok(version.ok);
+      const run = await runFallow({ root, args: ["--format", "json"], source: "npx", sandbox: null });
+      assert.ok(run.ok);
+      for (const folder of [version.version, String(run.json["cwd"])]) {
+        const real = realpathSync(root);
+        assert.ok(!folder.startsWith(real) && !folder.startsWith(root), `ran in the project: ${folder}`);
+        assert.notEqual(folder, realpathSync(tmpdir()));
+        assert.ok(!existsSync(folder), `left the folder behind: ${folder}`);
+      }
+    } finally {
+      process.env["PATH"] = path;
+    }
+  });
+
+  it("ignores a FALLOW_BIN that links into the project", async () => {
+    const root = projectWithFallow(`echo '{"kind":"combined"}'`);
+    const outside = mkdtempSync(join(tmpdir(), "fallow-link-"));
+    const link = join(outside, "fallow");
+    symlinkSync(join(root, "node_modules", ".bin", "fallow"), link);
+    const path = process.env["PATH"];
+    process.env["PATH"] = join(root, "missing");
+    process.env["FALLOW_BIN"] = link;
+    try {
+      assert.equal(await resolveFallow(root, "auto", false), null);
+    } finally {
+      process.env["PATH"] = path;
+      delete process.env["FALLOW_BIN"];
+    }
+  });
+
+  it("runs the pinned npx release outside the sandbox when the user chose npx", async () => {
+    const root = projectWithFallow(`echo '{"kind":"combined"}'`);
+    const executable = await resolveFallow(root, "npx", false);
+    assert.equal(executable?.label, "npx fallow");
+    assert.ok(executable !== null && !executable.command.startsWith(root));
+    assert.ok(executable?.runsOutsideProject);
+    assert.ok(executable?.prefix.includes(`fallow@${FALLOW_NPX_VERSION}`));
+    assert.match(FALLOW_NPX_VERSION, /^\d+\.\d+\.\d+$/);
+  });
+
+  it("reads only the version line of a signed release", async () => {
+    const root = projectWithFallow("exit 0");
+    const signed = projectWithFallow(`printf 'fallow 3.42.0\\nverified: yes (sentinel); fallow 3.42.0 signed\\n'`);
+    process.env["FALLOW_BIN"] = join(signed, "node_modules", ".bin", "fallow");
+    try {
+      const result = await fallowVersion(root, "auto");
+      assert.ok(result.ok);
+      assert.equal(result.version, "3.42.0");
+    } finally {
+      delete process.env["FALLOW_BIN"];
+    }
+  });
+
+  it("uses FALLOW_BIN only when it points outside the project", async () => {
+    const root = projectWithFallow(`echo '{"kind":"combined"}'`);
+    const outside = projectWithFallow(`echo '{"kind":"combined"}'`);
+    const chosen = join(outside, "node_modules", ".bin", "fallow");
+    const path = process.env["PATH"];
+    process.env["PATH"] = join(root, "missing");
+    try {
+      process.env["FALLOW_BIN"] = chosen;
+      assert.equal((await resolveFallow(root, "auto", false))?.command, chosen);
+      process.env["FALLOW_BIN"] = join(root, "node_modules", ".bin", "fallow");
+      assert.equal(await resolveFallow(root, "auto", false), null);
+      process.env["FALLOW_BIN"] = "relative/fallow";
+      assert.equal(await resolveFallow(root, "auto", false), null);
+    } finally {
+      process.env["PATH"] = path;
+      delete process.env["FALLOW_BIN"];
+    }
   });
 
   it("says how to install fallow when PATH has none outside the sandbox", async () => {

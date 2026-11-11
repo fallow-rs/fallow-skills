@@ -408,33 +408,51 @@ def build_archive(
             f"Codex manifest version {manifest_version} differs from {synchronized_version}"
         )
     members = _archive_members(plugin_root, files)
+    archive = (
+        _output_directory(repo_root, output_dir)
+        / f"fallow-plugin-{synchronized_version}-openai.zip"
+    )
 
+    entries = [
+        (
+            name,
+            manifest_bytes if path == manifest_path else path.read_bytes(),
+            bool(path.stat().st_mode & stat.S_IXUSR),
+        )
+        for path, name in members
+    ]
+    return _write_zip(archive, entries)
+
+
+def _output_directory(repo_root: Path, output_dir: Path) -> Path:
     if not output_dir.is_absolute():
         output_dir = repo_root / output_dir
     try:
-        output_dir.resolve().relative_to(plugin_root.resolve(strict=True))
+        output_dir.resolve().relative_to((repo_root / PLUGIN_ROOT).resolve(strict=True))
     except ValueError:
         pass
     else:
         raise ReleaseError("Output directory must be outside the plugin root")
     output_dir.mkdir(parents=True, exist_ok=True)
-    archive = output_dir / f"fallow-plugin-{synchronized_version}-openai.zip"
+    return output_dir
 
+
+def _write_zip(archive: Path, entries: list[tuple[str, bytes, bool]]) -> Path:
+    """Write a deterministic ZIP: fixed times, sorted input, and only the executable bit kept."""
     with tempfile.NamedTemporaryFile(
-        dir=output_dir,
+        dir=archive.parent,
         prefix=f".{archive.name}.",
         delete=False,
     ) as handle:
         temporary = Path(handle.name)
     try:
         with ZipFile(temporary, "w") as bundle:
-            for path, name in members:
-                mode = 0o755 if path.stat().st_mode & stat.S_IXUSR else 0o644
+            for name, contents, executable in entries:
+                mode = 0o755 if executable else 0o644
                 info = ZipInfo(name, FIXED_ZIP_TIME)
                 info.compress_type = ZIP_DEFLATED
                 info.create_system = 3
                 info.external_attr = (stat.S_IFREG | mode) << 16
-                contents = manifest_bytes if path == manifest_path else path.read_bytes()
                 bundle.writestr(info, contents, compresslevel=9)
         if temporary.stat().st_size > ARCHIVE_LIMIT:
             raise ReleaseError("Compressed archive exceeds the 100 MB upload limit")
@@ -442,6 +460,83 @@ def build_archive(
     finally:
         temporary.unlink(missing_ok=True)
     return archive.resolve()
+
+
+def _desktop_manifest(version: str) -> dict[str, object]:
+    """The MCPB manifest of the Fallow app as a Claude Desktop extension."""
+    return {
+        "manifest_version": "0.3",
+        "name": "fallow-app",
+        "display_name": "Fallow Code Analysis",
+        "version": version,
+        "description": "Fallow's code health dashboard for TypeScript and JavaScript projects.",
+        "long_description": (
+            "Runs fallow on your machine and shows the results as an interactive dashboard: "
+            "dead code, unused dependencies, duplication, complexity, circular dependencies "
+            "and architecture boundaries. Fallow must be installed on your PATH, chosen below, "
+            "or downloaded with npx when you set the Fallow binary setting to npx. "
+            "Your code stays on your machine."
+        ),
+        "author": {"name": "Bart Waardenburg", "email": "bart@fallow.tools", "url": "https://fallow.tools"},
+        "homepage": "https://fallow.tools",
+        "repository": {"type": "git", "url": "https://github.com/fallow-rs/fallow-skills"},
+        "support": "https://github.com/fallow-rs/fallow-skills/issues",
+        "license": "MIT",
+        "icon": "icon.png",
+        "keywords": ["fallow", "dead-code", "duplication", "complexity", "typescript", "javascript"],
+        "server": {
+            "type": "node",
+            "entry_point": "server/server.mjs",
+            "mcp_config": {
+                "command": "node",
+                "args": ["${__dirname}/server/server.mjs"],
+                "env": {"FALLOW_BIN": "${user_config.fallow_bin}"},
+            },
+        },
+        "user_config": {
+            "fallow_bin": {
+                "type": "file",
+                "title": "Fallow executable",
+                "description": (
+                    "Optional. Choose the fallow binary when Claude cannot find it on your PATH, "
+                    "for example a global npm install in a version manager folder."
+                ),
+                "required": False,
+            }
+        },
+        "compatibility": {
+            "platforms": ["darwin", "win32", "linux"],
+            "runtimes": {"node": ">=20.0.0"},
+        },
+    }
+
+
+def build_desktop_extension(
+    repo_root: Path,
+    output_dir: Path,
+    expected_version: str | None = None,
+) -> Path:
+    """Build and return a deterministic `.mcpb` of the Fallow app for Claude Desktop."""
+    version = check_versions(repo_root, expected_version)
+    plugin_root = repo_root / PLUGIN_ROOT
+    built = {name: plugin_root / "codex-app" / name for name in ("app.html", "server.mjs")}
+    missing = [name for name, path in built.items() if not path.is_file()]
+    if missing:
+        raise ReleaseError(
+            f"Missing app build output {', '.join(missing)}: run `npm run build` in codex-app"
+        )
+    manifest = json.dumps(_desktop_manifest(version), indent=2).encode() + b"\n"
+    # The server reads its version from `../.codex-plugin/plugin.json`, as in the plugin folder.
+    server_version = json.dumps({"name": "fallow", "version": version}, indent=2).encode() + b"\n"
+    entries = [
+        (".codex-plugin/plugin.json", server_version, False),
+        ("icon.png", (plugin_root / "assets/icon.png").read_bytes(), False),
+        ("manifest.json", manifest, False),
+        ("server/app.html", built["app.html"].read_bytes(), False),
+        ("server/server.mjs", built["server.mjs"].read_bytes(), False),
+    ]
+    archive = _output_directory(repo_root, output_dir) / f"fallow-app-{version}.mcpb"
+    return _write_zip(archive, entries)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -469,6 +564,12 @@ def _parser() -> argparse.ArgumentParser:
     package = commands.add_parser("package", help="build the OpenAI submission ZIP")
     package.add_argument("--expected-version")
     package.add_argument("--output-dir", type=Path, default=Path("dist-submissions"))
+
+    desktop = commands.add_parser(
+        "package-desktop", help="build the Claude Desktop extension (.mcpb) of the Fallow app"
+    )
+    desktop.add_argument("--expected-version")
+    desktop.add_argument("--output-dir", type=Path, default=Path("dist-submissions"))
     return parser
 
 
@@ -484,6 +585,8 @@ def main() -> int:
         elif args.command == "set-version":
             set_version(REPO_ROOT, args.version)
             print(args.version)
+        elif args.command == "package-desktop":
+            print(build_desktop_extension(REPO_ROOT, args.output_dir, args.expected_version))
         else:
             print(build_archive(REPO_ROOT, args.output_dir, args.expected_version))
     except ReleaseError as error:

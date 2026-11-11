@@ -5,6 +5,7 @@ import type { JSX } from "preact";
 import { render } from "preact";
 import { useEffect, useReducer, useState } from "preact/hooks";
 import type { ViewPayload } from "../shared/contracts.ts";
+import { BOOT_NOTE_AFTER_MS, bootNote } from "./boot.ts";
 import { FallowMark } from "./components/ui.tsx";
 import { Host } from "./host.ts";
 import { AuditView } from "./views/audit.tsx";
@@ -45,6 +46,11 @@ const PENDING_LABELS: Record<string, string> = {
 /** Shown while the tool call runs. The host already sent the tool name, so say what is going on. */
 const Boot = (): JSX.Element => {
   const label = PENDING_LABELS[host.context()?.toolInfo?.tool.name ?? ""];
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => setNote(bootNote(BOOT_NOTE_AFTER_MS)), BOOT_NOTE_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, []);
   return (
     <div class="f-loading f-boot" role="status" aria-busy="true">
       <FallowMark size={24} />
@@ -54,6 +60,7 @@ const Boot = (): JSX.Element => {
           <div class="f-progress" />
         </>
       )}
+      {note === null ? null : <p class="f-subtle">{note}</p>}
     </div>
   );
 };

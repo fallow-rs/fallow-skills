@@ -306,6 +306,19 @@ jobs:
         working-directory: codex-app
         run: npm test
 
+      # The release attaches this bundle for people who install the app in Claude Desktop by hand.
+      - name: Build and validate the Claude Desktop extension
+        id: desktop
+        run: |
+          extension=$(python3 scripts/plugin_release.py package-desktop)
+          echo "extension=$extension" >> "$GITHUB_OUTPUT"
+          echo "extension_name=$(basename "$extension" .mcpb)" >> "$GITHUB_OUTPUT"
+          unpacked=$(mktemp -d)
+          python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' \
+            "$extension" "$unpacked"
+          npx --yes "@anthropic-ai/mcpb@$(node -p 'require("./codex-app/package.json").config.mcpbForChecks')" \
+            validate "$unpacked/manifest.json"
+
       # The Claude Code mod reads the same agent-view core as the app. It does not ship in the
       # plugin yet, so CI type-checks and builds it. `npm test` in claude-mod needs Claude Code
       # (`claude plugin test`), so it runs locally, not here.
@@ -365,6 +378,16 @@ jobs:
           compression-level: 0
           retention-days: 30
 
+      - name: Upload Claude Desktop extension
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.desktop.outputs.extension_name }}
+          path: ${{ steps.desktop.outputs.extension }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
   # The app is an example of fallow, so CI runs the fallow action on it in its default mode:
   # all analyses, scoped to the changed files on a pull request, with annotations.
   fallow:
@@ -419,24 +442,28 @@ jobs:
             exit 1
           fi
 
-      - name: Build tagged OpenAI submission archive
+      - name: Build tagged release assets
         id: package
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           archive=$(python3 scripts/plugin_release.py package \
             --expected-version "${RELEASE_TAG#v}")
+          extension=$(python3 scripts/plugin_release.py package-desktop \
+            --expected-version "${RELEASE_TAG#v}")
           echo "archive=$archive" >> "$GITHUB_OUTPUT"
-          echo "archive_file=$(basename "$archive")" >> "$GITHUB_OUTPUT"
+          echo "extension=$extension" >> "$GITHUB_OUTPUT"
 
-      - name: Publish immutable-by-convention release asset
+      - name: Publish immutable-by-convention release assets
         env:
           ARCHIVE: ${{ steps.package.outputs.archive }}
-          ARCHIVE_FILE: ${{ steps.package.outputs.archive_file }}
+          EXTENSION: ${{ steps.package.outputs.extension }}
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          archive_label="$ARCHIVE#OpenAI skills-only submission ZIP"
+          extension_label="$EXTENSION#Claude Desktop extension of the Fallow app"
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             release_args=()
             if [ "$(python3 scripts/plugin_release.py \
@@ -444,7 +471,8 @@ jobs:
               release_args+=(--prerelease)
             fi
             gh release create "$RELEASE_TAG" \
-              "$ARCHIVE#OpenAI skills-only submission ZIP" \
+              "$archive_label" \
+              "$extension_label" \
               --verify-tag \
               --title "$RELEASE_TAG" \
               --generate-notes \
@@ -452,18 +480,22 @@ jobs:
             exit 0
           fi
 
-          if gh release view "$RELEASE_TAG" --json assets \
-            --jq '.assets[].name' | grep -Fxq "$ARCHIVE_FILE"; then
-            existing_dir=$(mktemp -d)
-            gh release download "$RELEASE_TAG" \
-              --pattern "$ARCHIVE_FILE" \
-              --dir "$existing_dir"
-            cmp "$ARCHIVE" "$existing_dir/$ARCHIVE_FILE" || {
-              echo "::error::Existing release asset differs from the tagged source"
-              exit 1
-            }
-            echo "Release asset already exists and is byte-identical."
-          else
-            gh release upload "$RELEASE_TAG" \
-              "$ARCHIVE#OpenAI skills-only submission ZIP"
-          fi
+          # A workflow retry compares each existing asset byte for byte and never replaces it.
+          publish() {
+            local asset="$1" label="$2" name
+            name=$(basename "$asset")
+            if gh release view "$RELEASE_TAG" --json assets \
+              --jq '.assets[].name' | grep -Fxq "$name"; then
+              existing_dir=$(mktemp -d)
+              gh release download "$RELEASE_TAG" --pattern "$name" --dir "$existing_dir"
+              cmp "$asset" "$existing_dir/$name" || {
+                echo "::error::Existing release asset $name differs from the tagged source"
+                exit 1
+              }
+              echo "Release asset $name already exists and is byte-identical."
+            else
+              gh release upload "$RELEASE_TAG" "$label"
+            fi
+          }
+          publish "$ARCHIVE" "$archive_label"
+          publish "$EXTENSION" "$extension_label"

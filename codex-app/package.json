@@ -9,7 +9,8 @@
     "node": ">=20"
   },
   "config": {
-    "fallowForTests": "3.31.0"
+    "fallowForTests": "3.31.0",
+    "mcpbForChecks": "2.1.2"
   },
   "scripts": {
     "build": "node scripts/build.mjs",

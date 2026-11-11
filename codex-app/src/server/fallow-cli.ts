@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { access, constants } from "node:fs/promises";
+import { access, constants, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, isAbsolute, join, relative } from "node:path";
 import type { FallowProblem } from "../../../agent-view/src/contracts.ts";
@@ -33,7 +33,7 @@ interface Executable {
   command: string;
   prefix: readonly string[];
   label: string;
-  /** npx runs outside the project, so a repository `.npmrc` cannot change what it installs. */
+  /** npx runs in a new empty folder, so a repository `.npmrc` cannot change what it installs. */
   runsOutsideProject: boolean;
 }
 
@@ -42,8 +42,14 @@ const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
 const IS_WINDOWS = process.platform === "win32";
 const BIN_NAMES = IS_WINDOWS ? ["fallow.exe", "fallow.cmd", "fallow"] : ["fallow"];
 const INSTALL_FIX = "npm install --global fallow";
-/** The fallow major version that this plugin is built and tested against. */
-const NPX_PACKAGE = "fallow@3";
+/**
+ * The exact fallow release that the npx source runs. A range would let a new release run without
+ * review, and the Claude plugin directory refuses an unpinned launcher.
+ */
+export const FALLOW_NPX_VERSION = "3.42.0";
+const NPX_PACKAGE = `fallow@${FALLOW_NPX_VERSION}`;
+/** An absolute path to a fallow executable that the user chose, for hosts with a short PATH. */
+const BIN_OVERRIDE = "FALLOW_BIN";
 
 const isExecutable = async (path: string): Promise<boolean> => {
   try {
@@ -82,15 +88,31 @@ const findProjectBinary = async (root: string): Promise<string | null> => {
 
 /**
  * A fallow on PATH that the user installed. PATH entries that are relative, or that point into
- * the project (a tool such as direnv can add `node_modules/.bin`), do not count.
+ * the project (a tool such as direnv can add `node_modules/.bin`), do not count. A candidate that
+ * resolves into the project through a symbolic link does not count either.
  */
-const findUserBinary = (root: string): Promise<string | null> =>
-  firstExecutable(
-    (process.env["PATH"] ?? "")
+const findUserBinary = async (root: string): Promise<string | null> => {
+  const project = await realpath(root).catch(() => root);
+  const candidates = [
+    ...overrideBinary(root),
+    ...(process.env["PATH"] ?? "")
       .split(delimiter)
       .filter((entry) => isAbsolute(entry) && !isInside(root, entry))
       .flatMap((entry) => BIN_NAMES.map((name) => join(entry, name))),
-  );
+  ];
+  for (const candidate of candidates) {
+    if (!(await isExecutable(candidate))) continue;
+    const target = await realpath(candidate).catch(() => candidate);
+    if (!isInside(project, target)) return candidate;
+  }
+  return null;
+};
+
+/** `FALLOW_BIN` counts only as an absolute path outside the project, like a PATH entry. */
+const overrideBinary = (root: string): string[] => {
+  const path = process.env[BIN_OVERRIDE] ?? "";
+  return isAbsolute(path) && !isInside(root, path) ? [path] : [];
+};
 
 const NPX: Executable = {
   command: IS_WINDOWS ? "npx.cmd" : "npx",
@@ -101,8 +123,9 @@ const NPX: Executable = {
 
 /**
  * Finds the fallow binary for a project. Code that the opened repository controls (its own
- * `node_modules/.bin/fallow`, or an npx install that its `.npmrc` could redirect) runs only inside
- * the Codex sandbox. Outside it, only a fallow on the user's PATH runs.
+ * `node_modules/.bin/fallow`) runs only inside the Codex sandbox. Outside it, fallow runs from the
+ * user's PATH or `FALLOW_BIN`, or from npx when the user set the source to npx. npx starts in a
+ * new empty folder, so a project `.npmrc` or `node_modules` cannot change what runs.
  */
 export const resolveFallow = async (
   root: string,
@@ -111,9 +134,11 @@ export const resolveFallow = async (
 ): Promise<Executable | null> => {
   const user = async (): Promise<Executable | null> => {
     const found = await findUserBinary(root);
-    return found === null ? null : { command: found, prefix: [], label: "fallow on PATH", runsOutsideProject: false };
+    if (found === null) return null;
+    const label = overrideBinary(root).includes(found) ? "fallow from FALLOW_BIN" : "fallow on PATH";
+    return { command: found, prefix: [], label, runsOutsideProject: false };
   };
-  if (!sandboxed) return user();
+  if (!sandboxed) return source === "npx" ? NPX : user();
   if (source === "npx") return NPX;
   if (source === "project" || source === "auto") {
     const local = await findProjectBinary(root);
@@ -153,7 +178,7 @@ const notFound = (source: FallowSource, sandboxed: boolean): FallowProblem => ({
   code: "fallow_not_found",
   title: "Fallow is not installed",
   detail: !sandboxed
-    ? "No fallow binary is on PATH. Outside the Codex sandbox of a thread, the app only runs a fallow that you installed, never one that the project ships. Install fallow, then try again."
+    ? `No fallow binary is on PATH. Outside the Codex sandbox of a thread, the app runs only a fallow that you chose, never one that the project ships. Install fallow, or set the Fallow binary setting to npx to download fallow ${FALLOW_NPX_VERSION}. Then try again.`
     : source === "project"
       ? "The settings say to use the project copy of fallow, but node_modules/.bin has no fallow binary."
       : "No fallow binary was found in the project or on PATH.",
@@ -271,9 +296,27 @@ const fallowArguments = (request: RunRequest, executable: Executable): string[] 
   ...(executable.runsOutsideProject ? ["--root", request.root] : []),
 ];
 
-const executionFor = (request: RunRequest, executable: Executable): Execution => {
+/**
+ * Runs `task` in the folder that the executable needs. npx gets a new empty folder for each run:
+ * npm reads `.npmrc` and runs a matching `node_modules/fallow` from its working folder, so neither
+ * the project folder nor the shared temporary folder is safe.
+ */
+const inWorkdir = async <T>(
+  executable: Executable,
+  root: string,
+  task: (cwd: string) => Promise<T>,
+): Promise<T> => {
+  if (!executable.runsOutsideProject) return task(root);
+  const folder = await mkdtemp(join(tmpdir(), "fallow-npx-"));
+  try {
+    return await task(folder);
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
+};
+
+const executionFor = (request: RunRequest, executable: Executable, cwd: string): Execution => {
   const args = fallowArguments(request, executable);
-  const cwd = executable.runsOutsideProject ? tmpdir() : request.root;
   const sandbox = request.sandbox;
   if (sandbox === null) return { command: executable.command, args, cwd, sandbox };
   return {
@@ -418,7 +461,11 @@ export const runFallow = async (request: RunRequest): Promise<RunResult> => {
   const executable = await resolveFallow(request.root, request.source, request.sandbox !== null);
   if (executable === null) return { ok: false, problem: notFound(request.source, request.sandbox !== null) };
 
-  const execution = executionFor(request, executable);
+  return inWorkdir(executable, request.root, (cwd) => runIn(request, executable, cwd));
+};
+
+const runIn = async (request: RunRequest, executable: Executable, cwd: string): Promise<RunResult> => {
+  const execution = executionFor(request, executable, cwd);
   const display = `fallow ${request.args.join(" ")}`;
   if (unsafeCommand(execution)) return { ok: false, problem: unsafePathProblem() };
 
@@ -449,14 +496,11 @@ export const fallowVersion = async (
 > => {
   const executable = await resolveFallow(root, source, false);
   if (executable === null) return { ok: false, problem: notFound(source, false) };
-  const result = await run(
-    executable.command,
-    [...executable.prefix, "--version"],
-    root,
-    60_000,
-    undefined,
+  const result = await inWorkdir(executable, root, (cwd) =>
+    run(executable.command, [...executable.prefix, "--version"], cwd, 60_000, undefined),
   );
-  const version = result.stdout.trim().replace(/^fallow\s+/, "");
+  // A signed release prints a second `verified:` line after the version.
+  const version = (result.stdout.trim().split("\n")[0] ?? "").replace(/^fallow\s+/, "").trim();
   if (result.exitCode !== 0 || version.length === 0)
     return { ok: false, problem: notFound(source, false) };
   return {
