@@ -1,7 +1,7 @@
 # Plugin releases
 
 Fallow uses one explicit semantic version across its Claude marketplace entry,
-Claude manifest, and Codex manifest. Keep those versions synchronized so the
+Claude manifest, Codex manifest, and Cursor manifest. Keep those versions synchronized so the
 same source commit identifies the same public plugin release everywhere.
 Claude's `plugin.json` remains the runtime authority. The marketplace copy is
 retained as matching directory metadata and is checked against that authority.

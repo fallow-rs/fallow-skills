@@ -46,6 +46,31 @@ send them to Codex with one click. The app runs the fallow CLI on your machine,
 inside the Codex sandbox of the thread when one is available. See
 [codex-app/README.md](codex-app/README.md) for every extension it uses.
 
+### Cursor
+
+The Cursor plugin manifest is at `fallow/.cursor-plugin/plugin.json`. The
+plugin adds the Fallow skills and the fallow MCP server
+(`npx --yes --prefix ${userHome} --package fallow@3 fallow-mcp`). The
+`--prefix` flag makes npx resolve fallow from your home folder, so a
+`fallow-mcp` in the `node_modules` of the opened project does not run. The
+Claude Code commit gate and the statusline command are not in the Cursor
+plugin.
+
+To install the plugin locally:
+
+```bash
+git clone https://github.com/fallow-rs/fallow-skills.git
+mkdir -p ~/.cursor/plugins/local
+cp -R fallow-skills/fallow ~/.cursor/plugins/local/fallow
+```
+
+Then run **Developer: Reload Window** in Cursor, and open **Customize** to see
+the skills. Cursor skips a symlink to a folder outside
+`~/.cursor/plugins/local`, so copy the folder. A team on a Teams or Enterprise
+plan can also add this repository as a team marketplace: open
+**Dashboard > Plugins & MCPs**, select **Add Marketplace**, and import the
+repository URL. Cursor reads `.cursor-plugin/marketplace.json` at the root.
+
 ### Fallow Impact statusline
 
 Claude Code users can add the compact Fallow Impact segment to their statusline:
