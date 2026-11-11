@@ -87,18 +87,19 @@ const findProjectBinary = async (root: string): Promise<string | null> => {
 };
 
 /**
- * A fallow on PATH that the user installed. PATH entries that are relative, or that point into
+ * A command on PATH that the user installed. PATH entries that are relative, or that point into
  * the project (a tool such as direnv can add `node_modules/.bin`), do not count. A candidate that
  * resolves into the project through a symbolic link does not count either.
  */
-const findUserBinary = async (root: string): Promise<string | null> => {
+const findUserCommand = async (
+  root: string,
+  names: readonly string[],
+  chosen: readonly string[] = [],
+): Promise<string | null> => {
   const project = await realpath(root).catch(() => root);
   const candidates = [
-    ...overrideBinary(root),
-    ...(process.env["PATH"] ?? "")
-      .split(delimiter)
-      .filter((entry) => isAbsolute(entry) && !isInside(root, entry))
-      .flatMap((entry) => BIN_NAMES.map((name) => join(entry, name))),
+    ...chosen,
+    ...userPathEntries(root).flatMap((entry) => names.map((name) => join(entry, name))),
   ];
   for (const candidate of candidates) {
     if (!(await isExecutable(candidate))) continue;
@@ -108,11 +109,22 @@ const findUserBinary = async (root: string): Promise<string | null> => {
   return null;
 };
 
+/** The absolute PATH entries outside the project, for the lookup and for the PATH of the child. */
+const userPathEntries = (root: string): string[] =>
+  (process.env["PATH"] ?? "")
+    .split(delimiter)
+    .filter((entry) => isAbsolute(entry) && !isInside(root, entry));
+
+const findUserBinary = (root: string): Promise<string | null> =>
+  findUserCommand(root, BIN_NAMES, overrideBinary(root));
+
 /** `FALLOW_BIN` counts only as an absolute path outside the project, like a PATH entry. */
 const overrideBinary = (root: string): string[] => {
   const path = process.env[BIN_OVERRIDE] ?? "";
   return isAbsolute(path) && !isInside(root, path) ? [path] : [];
 };
+
+const NPX_NAMES = IS_WINDOWS ? ["npx.cmd", "npx"] : ["npx"];
 
 const NPX: Executable = {
   command: IS_WINDOWS ? "npx.cmd" : "npx",
@@ -138,7 +150,7 @@ export const resolveFallow = async (
     const label = overrideBinary(root).includes(found) ? "fallow from FALLOW_BIN" : "fallow on PATH";
     return { command: found, prefix: [], label, runsOutsideProject: false };
   };
-  if (!sandboxed) return source === "npx" ? NPX : user();
+  if (!sandboxed) return source === "npx" ? userNpx(root) : user();
   if (source === "npx") return NPX;
   if (source === "project" || source === "auto") {
     const local = await findProjectBinary(root);
@@ -146,6 +158,12 @@ export const resolveFallow = async (
     if (source === "project") return null;
   }
   return (await user()) ?? (source === "auto" ? NPX : null);
+};
+
+/** Outside the sandbox, npx must come from the user's PATH too, never from a project folder. */
+const userNpx = async (root: string): Promise<Executable | null> => {
+  const command = await findUserCommand(root, NPX_NAMES);
+  return command === null ? null : { ...NPX, command };
 };
 
 /**
@@ -160,9 +178,12 @@ const ENV_ALLOWLIST =
 /** A name that can hold a credential never passes, even when a prefix above would allow it. */
 const ENV_SECRET = /TOKEN|SECRET|PASSWORD|PASSWD|AUTH|CREDENTIAL|_KEY$|APIKEY/i;
 
-const childEnvironment = (): NodeJS.ProcessEnv => ({
+/** PATH keeps only the user's absolute entries, so npx and fallow never find a project binary. */
+const childEnvironment = (root: string): NodeJS.ProcessEnv => ({
   ...Object.fromEntries(
-    Object.entries(process.env).filter(([name]) => ENV_ALLOWLIST.test(name) && !ENV_SECRET.test(name)),
+    Object.entries(process.env)
+      .filter(([name]) => ENV_ALLOWLIST.test(name) && !ENV_SECRET.test(name))
+      .map(([name, value]) => [name, /^path$/i.test(name) ? userPathEntries(root).join(delimiter) : value]),
   ),
   NO_COLOR: "1",
   FORCE_COLOR: "0",
@@ -201,13 +222,14 @@ const run = (
   command: string,
   args: readonly string[],
   cwd: string,
+  root: string,
   timeoutMs: number,
   signal: AbortSignal | undefined,
 ): Promise<Spawned> =>
   new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd,
-      env: childEnvironment(),
+      env: childEnvironment(root),
       stdio: ["ignore", "pipe", "pipe"],
       shell: IS_WINDOWS && command.endsWith(".cmd"),
       windowsHide: true,
@@ -474,6 +496,7 @@ const runIn = async (request: RunRequest, executable: Executable, cwd: string): 
     execution.command,
     execution.args,
     execution.cwd,
+    request.root,
     requestTimeout(request),
     request.signal,
   );
@@ -497,7 +520,7 @@ export const fallowVersion = async (
   const executable = await resolveFallow(root, source, false);
   if (executable === null) return { ok: false, problem: notFound(source, false) };
   const result = await inWorkdir(executable, root, (cwd) =>
-    run(executable.command, [...executable.prefix, "--version"], cwd, 60_000, undefined),
+    run(executable.command, [...executable.prefix, "--version"], cwd, root, 60_000, undefined),
   );
   // A signed release prints a second `verified:` line after the version.
   const version = (result.stdout.trim().split("\n")[0] ?? "").replace(/^fallow\s+/, "").trim();

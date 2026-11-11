@@ -169,6 +169,31 @@ describe("runFallow", { skip: IS_WINDOWS ? "uses POSIX shell scripts as fake bin
     }
   });
 
+  it("never runs a project npx outside the sandbox, and keeps project folders off the child PATH", async () => {
+    const root = projectWithFallow(`echo '{"kind":"combined"}'`);
+    const projectBin = join(root, "node_modules", ".bin");
+    writeFileSync(join(projectBin, "npx"), `#!/bin/sh\nprintf '{"kind":"combined","from":"project"}'\n`);
+    chmodSync(join(projectBin, "npx"), 0o755);
+    const userBin = mkdtempSync(join(tmpdir(), "fallow-user-npx-"));
+    writeFileSync(
+      join(userBin, "npx"),
+      `#!/bin/sh\nprintf '{"kind":"combined","from":"user","path":"%s"}' "$PATH"\n`,
+    );
+    chmodSync(join(userBin, "npx"), 0o755);
+    const path = process.env["PATH"];
+    process.env["PATH"] = [projectBin, userBin, "/usr/bin", "/bin"].join(delimiter);
+    try {
+      const executable = await resolveFallow(root, "npx", false);
+      assert.equal(executable?.command, join(userBin, "npx"));
+      const run = await runFallow({ root, args: ["--format", "json"], source: "npx", sandbox: null });
+      assert.ok(run.ok);
+      assert.equal(run.json["from"], "user");
+      assert.ok(!String(run.json["path"]).includes(root), `child PATH: ${String(run.json["path"])}`);
+    } finally {
+      process.env["PATH"] = path;
+    }
+  });
+
   it("ignores a FALLOW_BIN that links into the project", async () => {
     const root = projectWithFallow(`echo '{"kind":"combined"}'`);
     const outside = mkdtempSync(join(tmpdir(), "fallow-link-"));
