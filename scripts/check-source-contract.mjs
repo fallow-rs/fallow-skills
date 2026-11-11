@@ -103,8 +103,31 @@ export const stripUnsupportedMetadata = (content) => {
   return lines.join("\n");
 };
 
-const expectedContent = (path, content, transforms) =>
-  transforms[path] === undefined ? content : stripUnsupportedMetadata(content);
+/**
+ * A download-and-run form of the fallow package without a version. The vendor
+ * step of fallow (`scripts/vendor-skills.mjs`) pins each one in the skills of
+ * `npm/fallow/skills` to the version of the npm package that ships the skill,
+ * because the Claude plugin directory refuses skill text that runs an unpinned
+ * package. `--no` and `--no-install` forms run an installed copy and download
+ * nothing. The comparison ignores the pinned version, so a release does not
+ * make the copy drift.
+ */
+const LAUNCHER = /\b(npx(?: --yes| -y)?|pnpm dlx|bunx|yarn dlx) fallow(?![@\w./-])/gu;
+const PINNED_LAUNCHER = /\b(npx(?: --yes| -y)?|pnpm dlx|bunx|yarn dlx) fallow@\d+\.\d+\.\d+(?![\w.-])/gu;
+const PINNED_SOURCE_ROOT = "npm/fallow/skills/";
+
+const hasUnpinnedLauncher = (content) => {
+  LAUNCHER.lastIndex = 0;
+  return LAUNCHER.test(content);
+};
+
+const unpinLaunchers = (content) => content.replace(PINNED_LAUNCHER, "$1 fallow");
+
+const matchesSource = (path, source, target, skill) => {
+  const expected = skill.transforms[path] === undefined ? source : stripUnsupportedMetadata(source);
+  if (!skill.sourceRoot.startsWith(PINNED_SOURCE_ROOT)) return expected === target;
+  return !hasUnpinnedLauncher(target) && unpinLaunchers(target) === unpinLaunchers(expected);
+};
 
 const isPlainObject = (value) =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -227,7 +250,7 @@ const validateSkill = async (repositoryRoot, sourceDir, skill) => {
   for (const path of sourceFiles) {
     const source = await readFile(join(sourceRoot, path), "utf8");
     const target = await readFile(join(targetRoot, path), "utf8");
-    if (expectedContent(path, source, skill.transforms) !== target) {
+    if (!matchesSource(path, source, target, skill)) {
       throw new Error(`${skill.name}: public skill content drift: ${path}`);
     }
   }

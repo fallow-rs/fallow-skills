@@ -36,7 +36,7 @@ Fallow must be installed. If not available, install it:
 
 ```bash
 npm install -g fallow      # prebuilt binaries (fastest, recommended)
-npx fallow dead-code       # run without installing
+npx fallow@3.42.0 dead-code       # run without installing
 cargo install fallow-cli   # build from source
 ```
 

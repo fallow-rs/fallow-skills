@@ -43,7 +43,7 @@ Replace `<version>` with the installed Fallow version. When the runners cannot r
 Run the CLI directly after the dependencies are installed:
 
 ```bash
-npx fallow audit --base origin/main --format json --quiet
+npx fallow@3.42.0 audit --base origin/main --format json --quiet
 ```
 
 Use the runner of the detected package manager, for example `pnpm exec fallow`.

@@ -36368,7 +36368,7 @@ var NPX_NAMES = IS_WINDOWS ? ["npx.cmd", "npx"] : ["npx"];
 var NPX = {
   command: IS_WINDOWS ? "npx.cmd" : "npx",
   prefix: ["--yes", "--package", NPX_PACKAGE, "--", "fallow"],
-  label: "npx fallow",
+  label: `fallow ${FALLOW_NPX_VERSION} through npx`,
   runsOutsideProject: true
 };
 var resolveFallow = async (root, source, sandboxed) => {
