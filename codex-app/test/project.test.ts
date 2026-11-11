@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import { isWithin, locate } from "../src/server/app-tools.ts";
 import {
   detectProjectRoot,
+  firstLocalFolder,
   resolveProject,
   sandboxFromMeta,
   threadCwdFromCodexSessions,
@@ -128,6 +129,96 @@ describe("project roots", () => {
       "packages/web",
     );
     assert.equal(resolved?.project.root, join(project, "packages", "web"));
+  });
+
+  it("uses the first client root when Codex sends no working directory", async () => {
+    const project = scratch();
+    writeFileSync(join(project, "package.json"), JSON.stringify({ name: "shop" }));
+    const store = createStateStore(join(scratch(), "state.json"));
+    const fromRoot = async (): Promise<string | null> => project;
+    const resolved = await resolveProject(store, {}, undefined, undefined, fromRoot);
+    assert.equal(resolved?.project.root, project);
+    assert.equal(resolved?.source, "client");
+  });
+
+  it("prefers the project of a Codex thread over a client root", async () => {
+    const project = scratch();
+    const store = createStateStore(join(scratch(), "state.json"));
+    await store.rememberThread(THREAD, project);
+    const fromRoot = async (): Promise<string | null> => scratch();
+    const resolved = await resolveProject(store, { threadId: THREAD }, undefined, undefined, fromRoot);
+    assert.equal(resolved?.project.root, project);
+  });
+
+  it("keeps the folder policy for a path argument inside the client root", async () => {
+    const project = scratch();
+    mkdirSync(join(project, "packages", "web"), { recursive: true });
+    const store = createStateStore(join(scratch(), "state.json"));
+    const fromRoot = async (): Promise<string | null> => project;
+    const knownOnly = async (): Promise<boolean> => false;
+    assert.equal(await resolveProject(store, {}, join(project, "packages", "web"), knownOnly, fromRoot), null);
+  });
+
+  it("does not fall back to the client root after it refuses a path argument", async () => {
+    const project = scratch();
+    const outside = scratch();
+    const store = createStateStore(join(scratch(), "state.json"));
+    const fromRoot = async (): Promise<string | null> => project;
+    const knownOnly = async (): Promise<boolean> => false;
+    assert.equal(await resolveProject(store, {}, outside, knownOnly, fromRoot), null);
+  });
+
+  it("takes the first client root that is a local folder", async () => {
+    const project = scratch();
+    const file = join(project, "package.json");
+    writeFileSync(file, "{}");
+    const roots = ["https://example.com/repo", pathToFileURL(file).href, join(project, "missing"), pathToFileURL(project).href];
+    assert.equal(await firstLocalFolder(roots), project);
+    assert.equal(await firstLocalFolder(roots.slice(0, 3)), null);
+  });
+
+  it("resolves a relative path argument against the client root, not the last project", async () => {
+    const older = scratch();
+    const project = scratch();
+    const store = createStateStore(join(scratch(), "state.json"));
+    await store.touchRecent({ root: older, name: "older", lastOpenedAt: new Date().toISOString(), grade: null, score: null });
+    const fromRoot = async (): Promise<string | null> => project;
+    const any = async (): Promise<boolean> => true;
+    const resolved = await resolveProject(store, {}, ".", any, fromRoot);
+    assert.equal(resolved?.project.root, project);
+  });
+
+  it("does not widen a client root to a parent project", async () => {
+    const parent = scratch();
+    writeFileSync(join(parent, "package.json"), "{}");
+    const granted = join(parent, "docs");
+    mkdirSync(granted);
+    const store = createStateStore(join(scratch(), "state.json"));
+    const fromRoot = async (): Promise<string | null> => granted;
+    const resolved = await resolveProject(store, {}, undefined, undefined, fromRoot);
+    assert.equal(resolved?.project.root, granted);
+  });
+
+  it("never stores a client root as the project of a thread", async () => {
+    const project = scratch();
+    const store = createStateStore(join(scratch(), "state.json"));
+    const fromRoot = async (): Promise<string | null> => project;
+    await resolveProject(store, { threadId: THREAD }, undefined, undefined, fromRoot);
+    assert.equal(await store.threadRoot(THREAD), null);
+  });
+
+  it("prefers the Codex working directory over a client root", async () => {
+    const codex = scratch();
+    const store = createStateStore(join(scratch(), "state.json"));
+    const fromRoot = async (): Promise<string | null> => scratch();
+    const resolved = await resolveProject(
+      store,
+      { "codex/sandbox-state-meta": { sandboxCwd: pathToFileURL(codex).href } },
+      undefined,
+      undefined,
+      fromRoot,
+    );
+    assert.equal(resolved?.project.root, codex);
   });
 
   it("returns null when nothing names a project", async () => {

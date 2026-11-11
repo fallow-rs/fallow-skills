@@ -170,7 +170,7 @@ jobs:
               names = bundle.namelist()
               assert ".codex-plugin/plugin.json" in names
               assert ".claude-plugin/plugin.json" not in names
-              assert not any(name.startswith(("bin/", "commands/", "hooks/", "evals/")) for name in names)
+              assert not any(name.startswith(("bin/", "scripts/", "commands/", "hooks/", "evals/")) for name in names)
               assert ".mcp.json" not in names
               assert not any(name.startswith(("codex-app/", "skills/fallow-codex-onboarding/")) for name in names)
               packaged = json.loads(bundle.read(".codex-plugin/plugin.json"))

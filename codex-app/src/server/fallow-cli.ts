@@ -153,7 +153,7 @@ const notFound = (source: FallowSource, sandboxed: boolean): FallowProblem => ({
   code: "fallow_not_found",
   title: "Fallow is not installed",
   detail: !sandboxed
-    ? "No fallow binary is on PATH. Outside the Codex sandbox of a thread, the app only runs a fallow that you installed, never one that the project ships. Install fallow, or ask Codex about code health in a thread."
+    ? "No fallow binary is on PATH. Outside the Codex sandbox of a thread, the app only runs a fallow that you installed, never one that the project ships. Install fallow, then try again."
     : source === "project"
       ? "The settings say to use the project copy of fallow, but node_modules/.bin has no fallow binary."
       : "No fallow binary was found in the project or on PATH.",

@@ -4,7 +4,7 @@ import { createMentions, type OpenAIMentionItem } from "@openai/mcp-extensions/s
 import { CATEGORY_TITLES } from "../../../agent-view/src/categories.ts";
 import type { Finding, ProjectRef } from "../../../agent-view/src/contracts.ts";
 import type { Analysis } from "./analysis.ts";
-import { appFacing, type Extra, type ServerContext } from "./context.ts";
+import { appFacing, clientRoot, type Extra, type ServerContext } from "./context.ts";
 import { categoryThumbnail } from "./icons.ts";
 import { describeProject, resolveProject, sandboxFor } from "./project.ts";
 import { findingMarkdown, reportText } from "../../../agent-view/src/summary.ts";
@@ -135,7 +135,13 @@ export const registerMentions = (context: ServerContext): void => {
   const { server } = context;
 
   createMentions(appFacing(server)).setHandler(async ({ query }, extra) => {
-    const resolved = await resolveProject(context.store, extra.mcpReq._meta, undefined);
+    const resolved = await resolveProject(
+      context.store,
+      extra.mcpReq._meta,
+      undefined,
+      undefined,
+      () => clientRoot(context),
+    );
     if (resolved === null) return { items: [] };
     const findings = await projectFindings(context, resolved.project, extra, MENTION_WAIT_MS);
     if (findings === null) return { items: [] };

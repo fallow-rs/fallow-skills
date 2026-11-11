@@ -372,7 +372,7 @@ const FindingActions = ({
           )
         }
       >
-        Fix with Codex
+        {host.fixLabel}
       </Button>
     ) : null}
     {host.canAttach ? (

@@ -30,13 +30,18 @@ JavaScript.
   thread, @Fallow mentions, a `.fallowrc.json` editor with an impact preview, a
   `.sarif` viewer, a branch audit, a cleanup form, and native settings. Its
   source is in [`codex-app/`](../codex-app/README.md) at the repository root.
+- Fallow app (Claude): the same server, which `.claude-plugin/plugin.json` also
+  starts. Claude hosts that render MCP Apps show the dashboard inline, in the
+  side panel or full screen, and **Fix with Claude** sends the selected findings
+  to the conversation. The Codex-only parts (sidebar, thread tab, mentions,
+  file handlers, forms and settings) are not shown there.
 - `fallow-codex-onboarding`: the setup skill that Codex runs after install.
 
 Codex receives the skills, their referenced assets and the Fallow app. Codex
 also loads the commit gate from `hooks/hooks.json` after you trust it. Claude
-Code also discovers the optional statusline command; it does not load the
-Fallow app, which only `.codex-plugin/plugin.json` declares. `fallow agent
-install`, which the `fallow-setup` skill runs, registers the separate fallow MCP
+Code also discovers the optional statusline command and starts the Fallow app.
+Outside Codex, the app analyzes the first folder root that the client sends.
+`fallow agent install`, which the `fallow-setup` skill runs, registers the separate fallow MCP
 server for each project. Fallow does not require a remote MCP server.
 
 The OpenAI plugin directory takes skills-only plugins, so its ZIP leaves out the

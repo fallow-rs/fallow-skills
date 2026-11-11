@@ -291,7 +291,37 @@ describe(
       assert.equal(rejected.isError, true);
     });
 
-    it("tells the model when Codex declines a form without showing it", { skip: hasFallow ? false : "fallow is not installed" }, async () => {
+    it("analyzes the client root when a host other than Codex sends roots", NEEDS_FALLOW, async () => {
+      const host = new Client({ name: "roots-host", version: "1.0.0" }, { capabilities: { roots: {} } });
+      host.setRequestHandler("roots/list", async () => ({
+        roots: [{ uri: pathToFileURL(project).href, name: "e2e-shop" }],
+      }));
+      await host.connect(
+        new StdioClientTransport({
+          command: process.execPath,
+          args: [server.pathname],
+          cwd: plugin.pathname,
+          env: { ...process.env, FALLOW_CODEX_APP_STATE: join(project, ".state-roots.json") } as Record<string, string>,
+          stderr: "inherit",
+        }),
+      );
+      try {
+        const result = (await host.callTool({ name: "fallow_analyze", arguments: {} })) as CallToolResult;
+        const payload = view(result);
+        assert.equal(payload.view, "dashboard");
+        if (payload.view !== "dashboard") return;
+        assert.equal(payload.report.project.root, project);
+        const outside = (await host.callTool({
+          name: "fallow_analyze",
+          arguments: { path: tmpdir() },
+        })) as CallToolResult;
+        assert.equal(view(outside).view, "picker");
+      } finally {
+        await host.close();
+      }
+    });
+
+    it("tells the model when Codex declines a form without showing it",{ skip: hasFallow ? false : "fallow is not installed" }, async () => {
       const declining = new Client(
         { name: "full-access-host", version: "1.0.0" },
         { capabilities: { extensions: { "openai/elicitation": { form: {} } } } as never },
