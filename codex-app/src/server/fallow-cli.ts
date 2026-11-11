@@ -125,14 +125,17 @@ const inNodeModules = (path: string): boolean => path.split(/[\\/]/).includes("n
  */
 const userPathEntries = async (root: string): Promise<string[]> => {
   const project = await realpath(root).catch(() => root);
-  const entries: string[] = [];
-  for (const entry of (process.env["PATH"] ?? "").split(delimiter)) {
-    if (!isAbsolute(entry) || inNodeModules(entry) || insideProject(root, entry)) continue;
-    const target = await realpath(entry).catch(() => entry);
-    if (inNodeModules(target) || insideProject(project, target)) continue;
-    entries.push(entry);
-  }
-  return entries;
+  const entries = (process.env["PATH"] ?? "").split(delimiter);
+  const kept = await Promise.all(entries.map((entry) => isUserEntry(root, project, entry)));
+  return entries.filter((_, index) => kept[index]);
+};
+
+const projectControlled = (project: string, path: string): boolean =>
+  inNodeModules(path) || insideProject(project, path);
+
+const isUserEntry = async (root: string, project: string, entry: string): Promise<boolean> => {
+  if (!isAbsolute(entry) || projectControlled(root, entry)) return false;
+  return !projectControlled(project, await realpath(entry).catch(() => entry));
 };
 
 const findUserBinary = (root: string): Promise<string | null> =>
@@ -164,20 +167,47 @@ export const resolveFallow = async (
   source: FallowSource,
   sandboxed: boolean,
 ): Promise<Executable | null> => {
-  const user = async (): Promise<Executable | null> => {
-    const found = await findUserBinary(root);
-    if (found === null) return null;
-    const label = overrideBinary(root).includes(found) ? "fallow from FALLOW_BIN" : "fallow on PATH";
-    return { command: found, prefix: [], label, runsOutsideProject: false };
-  };
-  if (!sandboxed) return source === "npx" ? userNpx(root) : user();
-  if (source === "npx") return NPX;
-  if (source === "project" || source === "auto") {
-    const local = await findProjectBinary(root);
-    if (local !== null) return { command: local, prefix: [], label: "project fallow", runsOutsideProject: false };
-    if (source === "project") return null;
+  const order = (sandboxed ? SANDBOXED_ORDER : UNSANDBOXED_ORDER)[source];
+  for (const step of order) {
+    const found = await FINDERS[step](root);
+    if (found !== null) return found;
   }
-  return (await user()) ?? (source === "auto" ? NPX : null);
+  return null;
+};
+
+type Finder = "project" | "user" | "npx" | "userNpx";
+
+/** The lookup order for each source. Outside the sandbox, no step reaches a project binary. */
+const SANDBOXED_ORDER: Record<FallowSource, readonly Finder[]> = {
+  auto: ["project", "user", "npx"],
+  project: ["project"],
+  path: ["user"],
+  npx: ["npx"],
+};
+const UNSANDBOXED_ORDER: Record<FallowSource, readonly Finder[]> = {
+  auto: ["user"],
+  project: ["user"],
+  path: ["user"],
+  npx: ["userNpx"],
+};
+
+const userFallow = async (root: string): Promise<Executable | null> => {
+  const found = await findUserBinary(root);
+  if (found === null) return null;
+  const label = overrideBinary(root).includes(found) ? "fallow from FALLOW_BIN" : "fallow on PATH";
+  return { command: found, prefix: [], label, runsOutsideProject: false };
+};
+
+const projectFallow = async (root: string): Promise<Executable | null> => {
+  const local = await findProjectBinary(root);
+  return local === null ? null : { command: local, prefix: [], label: "project fallow", runsOutsideProject: false };
+};
+
+const FINDERS: Record<Finder, (root: string) => Promise<Executable | null>> = {
+  project: projectFallow,
+  user: userFallow,
+  npx: () => Promise.resolve(NPX),
+  userNpx: (root) => userNpx(root),
 };
 
 /** Outside the sandbox, npx must come from the user's PATH too, never from a project folder. */
@@ -546,14 +576,15 @@ export const fallowVersion = async (
   const result = await inWorkdir(executable, root, (cwd) =>
     run(executable.command, [...executable.prefix, "--version"], cwd, env, 60_000, undefined),
   );
-  // A signed release prints a second `verified:` line after the version.
-  const version = (result.stdout.trim().split("\n")[0] ?? "").replace(/^fallow\s+/, "").trim();
+  const version = versionLine(result.stdout);
   if (result.exitCode !== 0 || version.length === 0)
     return { ok: false, problem: notFound(source, false) };
-  return {
-    ok: true,
-    version,
-    binary:
-      executable.prefix.length > 0 ? `npx ${executable.prefix.join(" ")}` : executable.command,
-  };
+  return { ok: true, version, binary: binaryText(executable) };
 };
+
+/** A signed release prints a second `verified:` line after the version, so only the first counts. */
+const versionLine = (stdout: string): string =>
+  (stdout.trim().split("\n")[0] ?? "").replace(/^fallow\s+/, "").trim();
+
+const binaryText = (executable: Executable): string =>
+  executable.prefix.length > 0 ? `npx ${executable.prefix.join(" ")}` : executable.command;

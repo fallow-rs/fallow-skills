@@ -46,11 +46,6 @@ const PENDING_LABELS: Record<string, string> = {
 /** Shown while the tool call runs. The host already sent the tool name, so say what is going on. */
 const Boot = (): JSX.Element => {
   const label = PENDING_LABELS[host.context()?.toolInfo?.tool.name ?? ""];
-  const [note, setNote] = useState<string | null>(null);
-  useEffect(() => {
-    const timer = setTimeout(() => setNote(bootNote(BOOT_NOTE_AFTER_MS)), BOOT_NOTE_AFTER_MS);
-    return () => clearTimeout(timer);
-  }, []);
   return (
     <div class="f-loading f-boot" role="status" aria-busy="true">
       <FallowMark size={24} />
@@ -60,9 +55,19 @@ const Boot = (): JSX.Element => {
           <div class="f-progress" />
         </>
       )}
-      {note === null ? null : <p class="f-subtle">{note}</p>}
+      <BootNote />
     </div>
   );
+};
+
+/** Appears only when the host has not sent a result after `BOOT_NOTE_AFTER_MS`. */
+const BootNote = (): JSX.Element | null => {
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => setNote(bootNote(BOOT_NOTE_AFTER_MS)), BOOT_NOTE_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  return note === null ? null : <p class="f-subtle">{note}</p>;
 };
 
 const Root = (): JSX.Element => {

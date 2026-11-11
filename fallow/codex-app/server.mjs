@@ -36350,14 +36350,14 @@ var insideProject = (project, path) => isInside(foldCase(project), foldCase(path
 var inNodeModules = (path) => path.split(/[\\/]/).includes("node_modules");
 var userPathEntries = async (root) => {
   const project = await realpath(root).catch(() => root);
-  const entries = [];
-  for (const entry of (process.env["PATH"] ?? "").split(delimiter)) {
-    if (!isAbsolute(entry) || inNodeModules(entry) || insideProject(root, entry)) continue;
-    const target = await realpath(entry).catch(() => entry);
-    if (inNodeModules(target) || insideProject(project, target)) continue;
-    entries.push(entry);
-  }
-  return entries;
+  const entries = (process.env["PATH"] ?? "").split(delimiter);
+  const kept = await Promise.all(entries.map((entry) => isUserEntry(root, project, entry)));
+  return entries.filter((_, index) => kept[index]);
+};
+var projectControlled = (project, path) => inNodeModules(path) || insideProject(project, path);
+var isUserEntry = async (root, project, entry) => {
+  if (!isAbsolute(entry) || projectControlled(root, entry)) return false;
+  return !projectControlled(project, await realpath(entry).catch(() => entry));
 };
 var findUserBinary = (root) => findUserCommand(root, BIN_NAMES, overrideBinary(root));
 var overrideBinary = (root) => {
@@ -36372,20 +36372,40 @@ var NPX = {
   runsOutsideProject: true
 };
 var resolveFallow = async (root, source, sandboxed) => {
-  const user = async () => {
-    const found = await findUserBinary(root);
-    if (found === null) return null;
-    const label = overrideBinary(root).includes(found) ? "fallow from FALLOW_BIN" : "fallow on PATH";
-    return { command: found, prefix: [], label, runsOutsideProject: false };
-  };
-  if (!sandboxed) return source === "npx" ? userNpx(root) : user();
-  if (source === "npx") return NPX;
-  if (source === "project" || source === "auto") {
-    const local = await findProjectBinary(root);
-    if (local !== null) return { command: local, prefix: [], label: "project fallow", runsOutsideProject: false };
-    if (source === "project") return null;
+  const order = (sandboxed ? SANDBOXED_ORDER : UNSANDBOXED_ORDER)[source];
+  for (const step of order) {
+    const found = await FINDERS[step](root);
+    if (found !== null) return found;
   }
-  return await user() ?? (source === "auto" ? NPX : null);
+  return null;
+};
+var SANDBOXED_ORDER = {
+  auto: ["project", "user", "npx"],
+  project: ["project"],
+  path: ["user"],
+  npx: ["npx"]
+};
+var UNSANDBOXED_ORDER = {
+  auto: ["user"],
+  project: ["user"],
+  path: ["user"],
+  npx: ["userNpx"]
+};
+var userFallow = async (root) => {
+  const found = await findUserBinary(root);
+  if (found === null) return null;
+  const label = overrideBinary(root).includes(found) ? "fallow from FALLOW_BIN" : "fallow on PATH";
+  return { command: found, prefix: [], label, runsOutsideProject: false };
+};
+var projectFallow = async (root) => {
+  const local = await findProjectBinary(root);
+  return local === null ? null : { command: local, prefix: [], label: "project fallow", runsOutsideProject: false };
+};
+var FINDERS = {
+  project: projectFallow,
+  user: userFallow,
+  npx: () => Promise.resolve(NPX),
+  userNpx: (root) => userNpx(root)
 };
 var userNpx = async (root) => {
   const command = await findUserCommand(root, NPX_NAMES);
@@ -36624,15 +36644,13 @@ var fallowVersion = async (root, source) => {
     root,
     (cwd) => run(executable.command, [...executable.prefix, "--version"], cwd, env, 6e4, void 0)
   );
-  const version3 = (result.stdout.trim().split("\n")[0] ?? "").replace(/^fallow\s+/, "").trim();
+  const version3 = versionLine(result.stdout);
   if (result.exitCode !== 0 || version3.length === 0)
     return { ok: false, problem: notFound(source, false) };
-  return {
-    ok: true,
-    version: version3,
-    binary: executable.prefix.length > 0 ? `npx ${executable.prefix.join(" ")}` : executable.command
-  };
+  return { ok: true, version: version3, binary: binaryText(executable) };
 };
+var versionLine = (stdout) => (stdout.trim().split("\n")[0] ?? "").replace(/^fallow\s+/, "").trim();
+var binaryText = (executable) => executable.prefix.length > 0 ? `npx ${executable.prefix.join(" ")}` : executable.command;
 
 // src/server/state.ts
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
