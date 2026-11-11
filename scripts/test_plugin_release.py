@@ -11,6 +11,8 @@ from plugin_release import (
     ReleaseError,
     build_archive,
     build_desktop_extension,
+    build_directory_bundle,
+    check_directory_bundle,
     check_newer_version,
     check_versions,
     compare_versions,
@@ -125,6 +127,47 @@ class PluginReleaseTest(unittest.TestCase):
         self.assertEqual(config["args"], ["${__dirname}/server/server.mjs"])
         self.assertEqual(config["env"]["FALLOW_BIN"], "${user_config.fallow_bin}")
         self.assertFalse(manifest["user_config"]["fallow_bin"]["required"])
+
+    def test_directory_bundle_holds_only_files_that_the_directory_accepts(self):
+        self._write("LICENSE", "MIT License\n")
+        self._write("fallow/skills/fallow/agents/openai.yaml", "interface: {}\n")
+        self._write("fallow/skills/fallow/references/ci.md", "run: npx fallow@1.2.3 audit\n")
+        self._write("fallow/skills/fallow-codex-onboarding/SKILL.md", "---\nname: onboarding\n---\n")
+        self._write("fallow/hooks/hooks.json", "{}\n")
+        self._write("fallow/codex-app/server.mjs", "// server\n")
+        manifest = self.root / "fallow/.claude-plugin/plugin.json"
+        manifest.write_text(
+            json.dumps({"name": "fallow", "version": "1.2.3", "mcpServers": {"fallow-app": {}}}),
+            encoding="utf-8",
+        )
+        output = Path("claude-directory/fallow")
+        self.assertEqual(check_directory_bundle(self.root, output), ["missing bundle"])
+        with self.assertRaisesRegex(ReleaseError, "cannot hold skills/fallow/hooks/run.sh"):
+            build_directory_bundle(self.root, output)
+        (self.root / "fallow/skills/fallow/hooks/run.sh").unlink()
+        build_directory_bundle(self.root, output)
+        bundle = self.root / output
+        files = sorted(
+            path.relative_to(bundle).as_posix() for path in bundle.rglob("*") if path.is_file()
+        )
+        self.assertEqual(
+            files,
+            [
+                ".claude-plugin/plugin.json",
+                "LICENSE",
+                "README.md",
+                "assets/icon.png",
+                "skills/fallow/SKILL.md",
+                "skills/fallow/references/ci.md",
+            ],
+        )
+        packaged = json.loads((bundle / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))
+        self.assertNotIn("mcpServers", packaged)
+        self.assertEqual(packaged["version"], "1.2.3")
+        self.assertGreaterEqual(len((bundle / "README.md").read_text(encoding="utf-8").split()), 40)
+        self.assertEqual(check_directory_bundle(self.root, output), [])
+        (bundle / "skills/fallow/SKILL.md").write_text("edited\n", encoding="utf-8")
+        self.assertEqual(check_directory_bundle(self.root, output), ["changed skills/fallow/SKILL.md"])
 
     def test_desktop_extension_needs_the_built_app(self):
         with self.assertRaisesRegex(ReleaseError, "npm run build"):

@@ -205,6 +205,11 @@ jobs:
       - name: Test plugin release tooling
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
 
+      # The Claude plugin directory lists claude-directory/fallow: the skills of the plugin
+      # without hooks, scripts or the app, which it accepts only from Verified organizations.
+      - name: Check the Claude directory bundle
+        run: python3 scripts/plugin_release.py directory-bundle --check
+
       - name: Build and inspect OpenAI submission archive
         id: package
         env:
