@@ -136,7 +136,7 @@ host.connect().catch((error: unknown) => {
     view: "problem",
     problem: {
       code: "connect_failed",
-      title: "The app could not connect to Codex",
+      title: "The app could not connect to its host",
       detail: error instanceof Error ? error.message : String(error),
       fix: null,
     },

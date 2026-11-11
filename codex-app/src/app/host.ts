@@ -10,6 +10,7 @@ import { OpenAIExtensions } from "@openai/mcp-extensions/app";
 import type { Finding, ProjectRef } from "../../../agent-view/src/contracts.ts";
 import type { ViewPayload } from "../shared/contracts.ts";
 import { VIEW_META_KEY } from "../shared/view-meta.ts";
+import { assistantName, findingText, location, plainMessage, projectText } from "./chat.ts";
 
 /** Composer block `_meta` key that ties an attachment back to its finding. The model does not see `_meta`. */
 const FINDING_META_KEY = "fallow/findingId";
@@ -22,13 +23,10 @@ export type TextBlock = {
   _meta?: Record<string, unknown>;
 };
 
-const location = (finding: Finding): string =>
-  finding.line === null ? finding.path : `${finding.path}:${finding.line}`;
-
 /** One removable composer chip per finding, labeled with its symbol or file. */
 const findingBlock = (finding: Finding): TextBlock => ({
   type: "text",
-  text: `Fallow finding ${finding.id} (${finding.rule}, ${finding.level}) at ${location(finding)}: ${finding.message.replace(/`/g, "")}${finding.verify === null ? "" : ` Verify with: ${finding.verify}`}`,
+  text: findingText(finding),
   _meta: {
     "openai/title": `${finding.title}: ${finding.symbol ?? location(finding)}`,
     [FINDING_META_KEY]: finding.id,
@@ -38,7 +36,7 @@ const findingBlock = (finding: Finding): TextBlock => ({
 /** Hidden context for the model: where the project lives and how to treat the findings. */
 const backgroundBlock = (project: ProjectRef): TextBlock => ({
   type: "text",
-  text: `The attached Fallow findings belong to ${project.name} at ${project.root}. Verify each one with its command before you change code. Prefer a fix over a suppression.`,
+  text: projectText(project),
   annotations: { audience: ["assistant"] },
 });
 
@@ -153,7 +151,7 @@ export class Host {
         view: "problem",
         problem: {
           code: "call_failed",
-          title: "Codex could not reach Fallow",
+          title: "The app could not reach Fallow",
           detail: error instanceof Error ? error.message : String(error),
           fix: null,
         },
@@ -175,8 +173,19 @@ export class Host {
     return this.openai.modelContext !== undefined;
   }
 
+  /** True when the host takes a message: the OpenAI extension, or the standard `ui/message`. */
   get canMessage(): boolean {
-    return this.openai.message !== undefined;
+    return this.openai.message !== undefined || this.app.getHostCapabilities()?.message !== undefined;
+  }
+
+  /** The assistant of the host, or null when the host is not known. */
+  get assistant(): "Codex" | "Claude" | null {
+    return assistantName(this.app.getHostVersion()?.name, this.openai.message !== undefined);
+  }
+
+  /** The label of the button that sends findings to the assistant of the host. */
+  get fixLabel(): string {
+    return this.assistant === null ? "Send to chat" : `Fix with ${this.assistant}`;
   }
 
   get canOpenFiles(): boolean {
@@ -184,7 +193,8 @@ export class Host {
   }
 
   get canStartNewThread(): boolean {
-    return this.canMessage && this.context()?.platform === "desktop";
+    // Only the OpenAI message extension can target a new thread.
+    return this.openai.message !== undefined && this.context()?.platform === "desktop";
   }
 
   /**
@@ -228,10 +238,18 @@ export class Host {
     findings: Finding[],
     project: ProjectRef | null,
     target: "active" | "new" = "active",
-  ): Promise<void> {
+  ): Promise<boolean> {
     const message = this.openai.message;
-    if (message === undefined) return;
-    await message.send({
+    if (message === undefined) {
+      if (this.app.getHostCapabilities()?.message === undefined) return false;
+      const result = await this.app.sendMessage({
+        role: "user",
+        content: [{ type: "text", text: plainMessage(text, findings, project) }],
+      });
+      // A host that refuses the message keeps the selection, so the user can send it again.
+      return result.isError !== true;
+    }
+    const result = await message.send({
       role: "user",
       content: [
         { type: "text", text },
@@ -240,6 +258,7 @@ export class Host {
       ],
       ...(target === "new" ? { _meta: { "openai/message": { target: "new" } } } : {}),
     });
+    return result.isError !== true;
   }
 
   async openFile(path: string): Promise<boolean> {

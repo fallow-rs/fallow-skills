@@ -1,6 +1,6 @@
 import { isAbsolute, resolve } from "node:path";
 import type { McpServer } from "@modelcontextprotocol/server";
-import { withoutSandboxMeta } from "./project.ts";
+import { isDirectory, toLocalPath, withoutSandboxMeta } from "./project.ts";
 import type { CallToolResult, ServerContext as RequestContext } from "@modelcontextprotocol/server";
 import type { FallowProblem, ProjectRef } from "../../../agent-view/src/contracts.ts";
 import type { ViewPayload } from "../shared/contracts.ts";
@@ -85,3 +85,23 @@ export const isKnownRoot = async (
   return (await context.store.recents()).some((recent) => recent.root === normalized);
 };
 
+const ROOTS_TIMEOUT_MS = 2000;
+
+/**
+ * The first local folder root of the MCP client, for hosts other than Codex. The host sends its roots
+ * itself, so the app iframe cannot forge them. Returns null when the client declares no roots.
+ */
+export const clientRoot = async (context: ServerContext): Promise<string | null> => {
+  const client = context.server.server;
+  if (client.getClientCapabilities()?.roots === undefined) return null;
+  try {
+    const { roots } = await client.listRoots(undefined, { timeout: ROOTS_TIMEOUT_MS });
+    for (const root of roots) {
+      const local = toLocalPath(root.uri);
+      if (local !== null && (await isDirectory(local))) return local;
+    }
+  } catch {
+    // A client that fails the request is treated as a client without roots.
+  }
+  return null;
+};

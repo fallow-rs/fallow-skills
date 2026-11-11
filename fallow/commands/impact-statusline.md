@@ -22,9 +22,9 @@ Impact on the user's behalf.
 Command forms:
 
 ```text
-node "${CLAUDE_PLUGIN_ROOT}/bin/fallow-impact-statusline.mjs" inspect --scope user --root "${CLAUDE_PROJECT_DIR}"
-node "${CLAUDE_PLUGIN_ROOT}/bin/fallow-impact-statusline.mjs" install --scope user --root "${CLAUDE_PROJECT_DIR}" --mode compose --confirm
-node "${CLAUDE_PLUGIN_ROOT}/bin/fallow-impact-statusline.mjs" remove --scope user --root "${CLAUDE_PROJECT_DIR}" --confirm
+node "${CLAUDE_PLUGIN_ROOT}/scripts/fallow-impact-statusline.mjs" inspect --scope user --root "${CLAUDE_PROJECT_DIR}"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/fallow-impact-statusline.mjs" install --scope user --root "${CLAUDE_PROJECT_DIR}" --mode compose --confirm
+node "${CLAUDE_PLUGIN_ROOT}/scripts/fallow-impact-statusline.mjs" remove --scope user --root "${CLAUDE_PROJECT_DIR}" --confirm
 ```
 
 ## Status

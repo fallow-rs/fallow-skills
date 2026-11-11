@@ -666,16 +666,16 @@ const SelectionBar = ({
           <Button
             variant="primary"
             icon="sparkle"
-            onClick={() => void host.send(instruction, findings, project).then(onClear)}
+            onClick={() => void host.send(instruction, findings, project).then((sent) => sent && onClear())}
           >
-            Fix with Codex
+            {host.fixLabel}
           </Button>
         ) : null}
         {host.canStartNewThread ? (
           <Button
             icon="newChat"
             title="Start a new chat with these findings"
-            onClick={() => void host.send(instruction, findings, project, "new").then(onClear)}
+            onClick={() => void host.send(instruction, findings, project, "new").then((sent) => sent && onClear())}
           >
             New chat
           </Button>
