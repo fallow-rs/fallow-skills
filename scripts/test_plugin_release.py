@@ -46,6 +46,10 @@ class PluginReleaseTest(unittest.TestCase):
                 },
             },
         )
+        self._write_json(
+            "fallow/.cursor-plugin/plugin.json",
+            {"name": "fallow", "version": "1.2.3", "skills": "./skills/"},
+        )
         self._write("fallow/skills/fallow/SKILL.md", "---\nname: fallow\n---\n")
         self._write("fallow/skills/fallow/hooks/run.sh", "#!/bin/sh\nexit 0\n", 0o755)
         self._write("fallow/assets/icon.png", "png")
@@ -197,6 +201,22 @@ class PluginReleaseTest(unittest.TestCase):
         with self.assertRaisesRegex(ReleaseError, "not synchronized"):
             set_version(self.root, "2.0.0")
 
+    def test_cursor_manifest_version_is_synchronized(self):
+        manifest_path = self.root / "fallow/.cursor-plugin/plugin.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["version"] = "9.9.9"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        with self.assertRaisesRegex(ReleaseError, "not synchronized"):
+            check_versions(self.root)
+
+    def test_set_version_updates_the_cursor_manifest(self):
+        set_version(self.root, "2.0.0")
+
+        manifest_path = self.root / "fallow/.cursor-plugin/plugin.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        self.assertEqual(manifest["version"], "2.0.0")
+
     def test_semver_validation_and_precedence(self):
         invalid = ("01.2.3", "1.2.3-01", "1.2.3-alpha.01", "1.2.3-alpha_1")
         for version in invalid:
@@ -233,6 +253,7 @@ class PluginReleaseTest(unittest.TestCase):
                 ".claude-plugin/marketplace.json",
                 "fallow/.claude-plugin/plugin.json",
                 "fallow/.codex-plugin/plugin.json",
+                "fallow/.cursor-plugin/plugin.json",
             )
         }
         replacements = 0

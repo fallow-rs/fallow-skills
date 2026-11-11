@@ -28,6 +28,7 @@ VERSION_FILES = (
     Path(".claude-plugin/marketplace.json"),
     Path("fallow/.claude-plugin/plugin.json"),
     Path("fallow/.codex-plugin/plugin.json"),
+    Path("fallow/.cursor-plugin/plugin.json"),
 )
 UNSUPPORTED_FILES = {".app.json", ".mcp.json"}
 
@@ -112,7 +113,8 @@ def _manifest_versions(repo_root: Path) -> tuple[str, ...]:
 
     claude = _load_json(repo_root / VERSION_FILES[1])
     codex = _load_json(repo_root / VERSION_FILES[2])
-    if claude.get("name") != "fallow" or codex.get("name") != "fallow":
+    cursor = _load_json(repo_root / VERSION_FILES[3])
+    if any(manifest.get("name") != "fallow" for manifest in (claude, codex, cursor)):
         raise ReleaseError("Plugin manifests must keep the stable name 'fallow'")
 
     return tuple(
@@ -122,6 +124,7 @@ def _manifest_versions(repo_root: Path) -> tuple[str, ...]:
             plugin_entry.get("version"),
             claude.get("version"),
             codex.get("version"),
+            cursor.get("version"),
         )
     )
 

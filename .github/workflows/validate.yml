@@ -141,6 +141,60 @@ jobs:
                   assert field in config_text, f"Missing {field} in {openai_config}"
           PY
 
+      # Checks the fields of the Cursor plugin schema (cursor/plugins, schemas/plugin.schema.json)
+      # and the marketplace schema that this plugin uses.
+      - name: Validate Cursor plugin
+        run: |
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          root = Path("fallow")
+          name_pattern = re.compile(r"^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$")
+
+          marketplace = json.loads(Path(".cursor-plugin/marketplace.json").read_text())
+          assert set(marketplace) <= {"name", "owner", "metadata", "plugins"}
+          assert marketplace["name"] == "fallow-skills"
+          assert marketplace["owner"]["name"]
+          assert len(marketplace["plugins"]) == 1
+          entry = marketplace["plugins"][0]
+          assert set(entry) <= {"name", "source", "description", "minClientVersions"}
+          assert entry["name"] == "fallow" and entry["source"] == "fallow"
+
+          manifest = json.loads((root / ".cursor-plugin/plugin.json").read_text())
+          allowed = {
+              "name", "displayName", "description", "version", "minClientVersions", "author",
+              "publisher", "homepage", "repository", "license", "logo", "keywords", "category",
+              "tags", "commands", "agents", "skills", "rules", "hooks", "variables", "mcpServers",
+          }
+          unknown = set(manifest) - allowed
+          assert not unknown, f"Unknown Cursor manifest fields: {sorted(unknown)}"
+          assert name_pattern.fullmatch(manifest["name"]) and manifest["name"] == entry["name"]
+          assert set(manifest["author"]) <= {"name", "email"}
+          claude = json.loads((root / ".claude-plugin/plugin.json").read_text())
+          for field in ("name", "displayName", "version", "description", "license"):
+              assert manifest[field] == claude[field], f"Cursor {field} differs from Claude"
+
+          # Cursor resolves each path from the plugin root and refuses `..` and absolute paths.
+          for field in ("logo", "skills"):
+              value = manifest[field]
+              assert not value.startswith("/") and ".." not in Path(value).parts, field
+          assert (root / manifest["logo"]).is_file()
+          assert manifest["skills"] == "./skills/"
+          assert any((root / "skills").glob("*/SKILL.md"))
+
+          # The commands/ folder and hooks/hooks.json are for Claude Code. An explicit field stops
+          # the Cursor folder discovery of each one.
+          assert manifest["commands"] == []
+          assert manifest["hooks"] == {"version": 1, "hooks": {}}
+
+          # The fallow MCP server, from the fallow npm package. Cursor reads no root mcp.json here.
+          server = manifest["mcpServers"]["fallow"]
+          assert server == {"command": "npx", "args": ["--yes", "--package", "fallow", "fallow-mcp"]}
+          assert not (root / "mcp.json").exists()
+          PY
+
       - name: Test plugin release tooling
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
 
@@ -200,7 +254,7 @@ jobs:
             exit 0
           fi
           if git diff --quiet "$BASE_SHA" "$GITHUB_SHA" -- \
-            fallow .claude-plugin/marketplace.json; then
+            fallow .claude-plugin/marketplace.json .cursor-plugin/marketplace.json; then
             echo "No public plugin content changed."
             exit 0
           fi

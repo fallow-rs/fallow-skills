@@ -1,0 +1,37 @@
+{
+  "name": "fallow",
+  "displayName": "Fallow Code Analysis",
+  "version": "1.4.112",
+  "description": "Local-first codebase intelligence and Impact summaries for TypeScript and JavaScript using fallow",
+  "author": {
+    "name": "Bart Waardenburg",
+    "email": "bart@fallow.tools"
+  },
+  "homepage": "https://fallow.tools",
+  "repository": "https://github.com/fallow-rs/fallow-skills",
+  "license": "MIT",
+  "logo": "assets/icon.png",
+  "keywords": [
+    "fallow",
+    "dead-code",
+    "duplication",
+    "complexity",
+    "circular-dependencies",
+    "static-analysis",
+    "javascript",
+    "typescript"
+  ],
+  "category": "developer-tools",
+  "skills": "./skills/",
+  "commands": [],
+  "hooks": {
+    "version": 1,
+    "hooks": {}
+  },
+  "mcpServers": {
+    "fallow": {
+      "command": "npx",
+      "args": ["--yes", "--package", "fallow", "fallow-mcp"]
+    }
+  }
+}
