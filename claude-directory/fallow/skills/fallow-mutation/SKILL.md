@@ -31,20 +31,19 @@ To add tests, do the loop below. To remove, merge or refactor tests, read
 2. Use `--format json --quiet` and parse stdout as JSON. Exit code 0 means
    that the run finished, also with survivors. Exit code 1 means a score
    below `--min-score`. Exit code 2 means invalid input or an execution
-   error, and stdout then holds a JSON error with a `message`. When the
-   message is `unexpected argument`, the installed fallow is older than the
-   flag: tell the user to update fallow.
+   error, and stdout then holds a JSON error with a `message`. Read
+   [references/run-control.md](references/run-control.md) for each exit
+   code 2 and for each run that is `partial`, slow or stopped.
 3. Keep each report and the verdict document out of the tracked tree, and
    do not commit them. Each run saves its report to
    `.fallow/mutation/last-report.json`. Use `.fallow/` when
    `.fallow/.gitignore` exists after the plan of step 1, else the system
-   temp directory. A `>`
-   redirect or a `-o` path in another project directory makes the worktree
-   dirty, and a run then exits 2.
+   temp directory. A `>` redirect or a `-o` path in another project
+   directory makes the worktree dirty, and a run then exits 2.
 4. Start a run in the foreground and wait for the result. Do not end your
-   turn while a run is in progress. Setup and retries come on top of
-   `--time-budget`, so use a budget some minutes shorter than the longest
-   command timeout that you have, and continue with `--resume`.
+   turn while a run is in progress. When another run or another agent uses
+   the same machine, pass `--concurrency 2`. Do not start two runs in one
+   project at the same time.
 5. Do not pass `--allow-side-effects`. Fallow skips the mutants in a
    function that writes to a file system, a process, a network or a
    database, because such a mutant can remove the guard of a real write.
@@ -69,7 +68,7 @@ these conditions:
 | `counts.planned` is 0 and the change is a signature or a parameter | Add `--function-scope`. |
 | `counts.planned` is 0 for another reason | Replace `--base` with the changed files as paths: `fallow mutation src/cart.ts`. A path mutates each line of the file. |
 | The change is in one package of a monorepo | Run from the root with `--base`. A package directory as a path mutates the whole package, and `--workspace` exits 2. |
-| `counts.planned` is in the hundreds | Add `--max-mutants <N>` or `--time-budget 5m`. |
+| `counts.planned` is in the hundreds | Add `--max-mutants <N>` or `--time-budget 5m`, and read [references/run-control.md](references/run-control.md). |
 
 Done when: you know the test runner, the number of planned mutants, and
 the limits of the run.
@@ -85,27 +84,14 @@ the user. When the change is not committed, pass `--allow-dirty`, and then
 repeat this step in place of step 5: a recheck refuses an uncommitted
 change to a source file.
 
-| Situation | Flag |
-| --- | --- |
-| Another run or another agent uses the same machine | `--concurrency 2` (the default is half the logical cores). Do not start two runs in one project at the same time: they share one saved report. |
-| The runner does not start in time on a slow or busy host | `--setup-timeout 5m` |
-| The run stopped, or a limit ended it | `--resume` with the same scope flags continues it. Leave out or raise the limit that ended it. |
-| You want the survivors without those that do not type-check | `--typecheck`. On `FALLOW_MUTATION_TYPECHECK_UNAVAILABLE`, run without it. |
-
 Read these fields before the survivors:
 
-- An error with the code `FALLOW_MUTATION_RUNNER_FAILED` or
-  `FALLOW_MUTATION_RUNNER_UNSUPPORTED`. Stop and give the user the
-  `message`. Do not install or upgrade a runner.
 - `completion.status`. Only `complete` makes an empty survivor list
   conclusive. A `partial` run lists its `reasons`.
 - `baseline_failures`. A test that fails on the original code decides no
   mutant. Fix that test first, then run again.
-- `errors`. The entry `test-files-not-discovered` means that a test file did
-  not run. Select its Vitest config with `--runner-config <path>`.
-- Many `no_coverage` mutants in code that has tests. Those tests did not
-  run: compare the `test_files` of the plan with the test files of the
-  project, and look for a second runner config.
+- `errors`, and `no_coverage` mutants in code that has tests. Both can mean
+  that a test file did not run.
 
 Done when: the run is `complete`, or you can name each reason why it is
 `partial`.
@@ -128,16 +114,11 @@ mutant. Both run no code. Put each mutant in one class:
 | Dead code | No caller can reach the mutated branch | Report it. Do not write a test for it. |
 | Defect | The mutant gives the behavior that the docs, the names or the user specify, and the original does not | Report it with an input that shows the difference. Add the failing test and fix the code only when the user agrees. |
 
-An `equivalence_hint` on a mutant is advisory: read the code before you
-record a verdict. A verdict takes the mutant out of the score, so record
-one only for a mutant that is equivalent. Pass `--verdicts <path>` to each
-later run and recheck:
-
-```json
-{ "schema_version": "1", "verdicts": [
-  { "review_key": "<mutant_id>", "verdict": "equivalent", "note": "At 0 percent the formula also returns the full amount." }
-] }
-```
+A verdict takes the mutant out of the score, so record one only for a
+mutant that is equivalent. An `equivalence_hint` on a mutant is advisory:
+read the code first. [references/run-control.md](references/run-control.md)
+has the shape of the verdict document. Pass `--verdicts <path>` to each
+later run and recheck.
 
 Done when: each open mutant has a class.
 
@@ -170,21 +151,17 @@ mutants that were killed before, so do step 2 again after a change to a
 source file or to a test that existed before. Go back to step 3 with the
 mutants that are still open.
 
-The `summary` of a recheck does not give the score of the full scope. For
-that score, do step 2 again when `tasks` lists no test gap.
-
-Done when: `tasks` lists no test gap. Report `summary.score` (a fraction
-from 0 to 1) before and after, and each mutant that you left open with its
-class and its reason.
+Done when: `tasks` lists no test gap. Then do step 2 again, because the
+`summary` of a recheck does not give the score of the full scope. Report
+`summary.score` before and after, and each mutant that you left open with
+its class and its reason.
 
 ## Other surfaces
 
-- `--min-score <0-100>` (a percentage) exits 1 when the score is lower. Add
-  it only when the user asks for a gate. The score counts only the mutants
-  that ran, so read `summary.coverage` and `completion` with it.
 - The fallow MCP server has `mutation_plan`, `mutation_inspect` and
   `mutation_tasks`. They run no test. Only the CLI starts a run.
-- `fallow health --mutation-report <path>` shows the score of each complex
-  function from a saved report. It runs no test.
+- `--min-score` gates a score, and `fallow health --mutation-report` shows
+  it per function. Read
+  [references/run-control.md](references/run-control.md) before you add one.
 - `fallow mutation --help` has each flag. Read it before you use a flag
-  that this file does not name.
+  that these files do not name.
