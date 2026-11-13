@@ -11,6 +11,7 @@ request, and to set up code-quality tooling and a CI gate.
 - `fallow`: static analysis, changed-code risk, cleanup, architecture, styling,
   runtime evidence and Impact summaries.
 - `fallow-review`: graph-grounded review of changed code.
+- `fallow-mutation`: improves the tests of a change with mutation testing.
 - `fallow-setup`: sets up code-quality tooling, the agent integration and a CI
   gate for a project.
 - `fallow-cloud-setup`: connects an app to Fallow Cloud runtime coverage.

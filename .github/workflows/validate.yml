@@ -129,7 +129,7 @@ jobs:
           vendored = {Path(skill["targetRoot"]).name for skill in lock["skills"]}
           present = {path.parent.name for path in (root / "skills").glob("*/SKILL.md")}
           assert vendored <= present, f"Missing vendored skills: {sorted(vendored - present)}"
-          assert {"fallow", "fallow-review"} <= present
+          assert {"fallow", "fallow-review", "fallow-mutation"} <= present
           for skill in sorted(present):
               skill_root = root / "skills" / skill
               frontmatter = (skill_root / "SKILL.md").read_text().split("---", 2)[1]
