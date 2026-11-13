@@ -16,7 +16,7 @@ that does not load the plugin cannot pass by doing nothing.
 | Group | Tag | Cases | Pass condition |
 | --- | --- | --- | --- |
 | Setup activation | `trigger`, `setup` | `setup-trigger-*` | Claude selects `fallow-setup`. |
-| Routing | `trigger`, `routing` | `route-review-pr`, `route-audit-pr`, `route-dead-code-architecture` | Claude selects `fallow-review` for a review, `fallow` for an audit or an analysis, and never `fallow-setup`. |
+| Routing | `trigger`, `routing` | `route-review-pr`, `route-audit-pr`, `route-dead-code-architecture`, `route-improve-tests` | Claude selects `fallow-review` for a review, `fallow` for an audit or an analysis, `fallow-mutation` for better tests of a change, and never `fallow-setup`. |
 | Negative | `trigger`, `negative` | `negative-*` | Claude does not select `fallow-setup`. |
 | Setup outcome | `outcome`, `setup` | `setup-typescript-project` | The setup run on the fixture meets every outcome grader. |
 

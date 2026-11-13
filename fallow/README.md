@@ -23,6 +23,7 @@ In an earlier version, add the marketplace first:
 - `fallow`: static analysis, changed-code risk, cleanup, architecture, styling,
   runtime evidence, and local Impact summaries.
 - `fallow-review`: graph-grounded review of changed code and structural risk.
+- `fallow-mutation`: improves the tests of a change with `fallow mutation`, which reports the code changes that no test detects.
 - `fallow-cloud-setup`: connects an app to Fallow Cloud runtime coverage, with one commit SHA for the beacon, the inventory, the source maps, and the deployment registration.
 - `fallow-setup`: sets up code-quality tooling for a JavaScript or TypeScript project and adds Fallow, the agent integration, and a CI gate.
 - `cargo-fallow`: runs `cargo fallow` on a Rust workspace and acts on its findings. The skill is not in the OpenAI directory listing.
