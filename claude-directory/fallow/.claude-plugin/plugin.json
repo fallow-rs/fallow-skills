@@ -2,7 +2,7 @@
   "name": "fallow",
   "displayName": "Fallow Code Analysis",
   "description": "Local-first codebase intelligence and Impact summaries for TypeScript and JavaScript using fallow",
-  "version": "1.4.129",
+  "version": "1.4.130",
   "author": {
     "name": "Bart Waardenburg",
     "email": "bart@fallow.tools"
