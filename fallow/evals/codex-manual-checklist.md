@@ -31,6 +31,7 @@ result agrees with the expected skill.
 | Configure an Oxlint rule. | none | `fallow-setup` | |
 | Why did Oxfmt wrap this line? | none | `fallow-setup` | |
 | This test fails. Fix the function. (with a failing assertion and the code) | none | `fallow-mutation`, `fallow-setup` | |
+| Write one Vitest unit test for this function. (with the code) | none | `fallow-mutation`, `fallow-setup` | |
 
 ## Setup outcome run
 
