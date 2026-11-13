@@ -37,7 +37,8 @@ To add tests, do the loop below. To remove, merge or refactor tests, read
 3. Keep each report and the verdict document out of the tracked tree, and
    do not commit them. Each run saves its report to
    `.fallow/mutation/last-report.json`. Use `.fallow/` when
-   `.fallow/.gitignore` exists, else the system temp directory. A `>`
+   `.fallow/.gitignore` exists after the plan of step 1, else the system
+   temp directory. A `>`
    redirect or a `-o` path in another project directory makes the worktree
    dirty, and a run then exits 2.
 4. Start a run in the foreground and wait for the result. Do not end your
