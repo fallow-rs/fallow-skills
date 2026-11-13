@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build a repository with a feature branch, so "this PR" names a real diff:
+# Build a repository with a feature branch, so "this change" names a real diff:
 # main holds the TypeScript fixture, and feat/discount adds a module and
 # changes the entry point.
 case_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

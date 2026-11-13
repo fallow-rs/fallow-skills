@@ -15,10 +15,14 @@ Repeat the flag for each target. Only the mutants that a target covers run,
 so this mode is the fast one. Read `kill_matrix.targets` and
 `kill_matrix.tests`:
 
+- When a target selects no test, the command exits 2 with
+  `FALLOW_MUTATION_TARGET_UNMATCHED`. Copy the test id from `covering_tests`
+  of `fallow mutation inspect`.
 - A target with `status: "incomplete"` gives no evidence. Read its
-  `reasons`. `unmatched-target` means that the id selects no test.
-- A test with kills and an empty `unique_kills` is a candidate: other tests
-  detect each mutant that it detects.
+  `reasons`.
+- A test with kills, an empty `unique_kills` and an empty
+  `target_only_kills` is a candidate: tests outside the targets detect each
+  mutant that it detects.
 - `target_only_kills` lists the kills that only other targets share. Keep
   one of the targets that share a kill.
 - A test without kills is not proof of a test without assertions.
@@ -53,18 +57,19 @@ whole project. It is exclusive with `--kill-matrix-for`.
 ## Prove that a change kept the protection: `--compare`
 
 ```bash
-fallow mutation src/cart.ts --format json --quiet -o .fallow/before.json
+test -f .fallow/.gitignore && before=.fallow/before.json || before="${TMPDIR:-/tmp}/before.json"
+fallow mutation src/cart.ts --format json --quiet -o "$before"
 # change, move or remove tests, then commit
-fallow mutation src/cart.ts --compare .fallow/before.json --format json --quiet
+fallow mutation src/cart.ts --compare "$before" --format json --quiet
 ```
 
 - Use the same paths for the two runs. Fallow matches the mutants by
   `mutant_id`, and an id stays the same until its function changes.
 - The saved report and the run must both be `complete`. Otherwise the
   command exits 2 with `FALLOW_MUTATION_COMPARE_INCOMPLETE`.
-- Read `compare.regressed`. A regressed mutant was detected before and is
-  not detected now. `compare.mutants[].previous_killing_tests` names the
-  test that detected it. The exit code does not change on a regression.
-- Keep the saved report in `.fallow/`, which git ignores. In another
-  project directory, the file makes the worktree dirty and the second run
-  exits 2.
+- `compare.regressed` is the number of mutants that were detected before
+  and are not detected now. Each one is in `compare.mutants[]` with
+  `change: "regressed"`, and `previous_killing_tests` names the test that
+  detected it. The exit code does not change on a regression.
+- A saved report in a tracked project directory makes the worktree dirty,
+  and the second run then exits 2.
