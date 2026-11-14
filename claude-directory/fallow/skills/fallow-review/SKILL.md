@@ -228,5 +228,6 @@ The guarantee: the human cannot anchor a note to a signal or region fallow did n
 
 ## Notes
 
+- An older fallow can reject an argument from this skill. On exit code 2 with `unexpected argument` or `invalid value` in the message, run `fallow --version` and tell the user to update fallow. Continue without that argument when the review permits. Do not try other spellings.
 - `review` is an alias for `audit --brief`; `--format` is orthogonal to the brief.
 - See the `fallow` skill for whole-project analysis, and its `references/cli-reference.md` for the full flag list.
