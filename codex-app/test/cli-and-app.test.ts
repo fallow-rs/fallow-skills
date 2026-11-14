@@ -255,12 +255,12 @@ describe("runFallow", { skip: IS_WINDOWS ? "uses POSIX shell scripts as fake bin
 
   it("reads only the version line of a signed release", async () => {
     const root = projectWithFallow("exit 0");
-    const signed = projectWithFallow(`printf 'fallow 3.42.0\\nverified: yes (sentinel); fallow 3.42.0 signed\\n'`);
+    const signed = projectWithFallow(`printf 'fallow 3.43.0\\nverified: yes (sentinel); fallow 3.43.0 signed\\n'`);
     process.env["FALLOW_BIN"] = join(signed, "node_modules", ".bin", "fallow");
     try {
       const result = await fallowVersion(root, "auto");
       assert.ok(result.ok);
-      assert.equal(result.version, "3.42.0");
+      assert.equal(result.version, "3.43.0");
     } finally {
       delete process.env["FALLOW_BIN"];
     }

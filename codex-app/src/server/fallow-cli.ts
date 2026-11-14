@@ -46,7 +46,7 @@ const INSTALL_FIX = "npm install --global fallow";
  * The exact fallow release that the npx source runs. A range would let a new release run without
  * review, and the Claude plugin directory refuses an unpinned launcher.
  */
-export const FALLOW_NPX_VERSION = "3.42.0";
+export const FALLOW_NPX_VERSION = "3.43.0";
 const NPX_PACKAGE = `fallow@${FALLOW_NPX_VERSION}`;
 /** An absolute path to a fallow executable that the user chose, for hosts with a short PATH. */
 const BIN_OVERRIDE = "FALLOW_BIN";

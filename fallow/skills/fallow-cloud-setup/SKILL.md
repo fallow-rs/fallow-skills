@@ -34,8 +34,8 @@ Fallow Cloud joins production runtime coverage to the code only when five things
 
 ## Sequence
 
-1. **Check the flag.** Run `npx fallow@3.42.0 coverage setup --help`. When it does not list `--cloud`, use [Manual setup](references/manual-setup.md) instead of steps 2 to 9. It has the same five steps.
-2. **Get the plan.** Run `npx fallow@3.42.0 coverage setup --cloud --json` at the repository root. When `cloud.project_id` is null, ask the user for the Fallow Cloud project id (`owner/repo`) and run the command again with `--project-id <owner/repo>`, so no snippet keeps the `OWNER/REPO` placeholder. When the command exits 2 and prints no JSON, read the error on stderr: an input such as the project id, `--git-sha`, or `--api-endpoint` is not valid.
+1. **Check the flag.** Run `npx fallow@3.43.0 coverage setup --help`. When it does not list `--cloud`, use [Manual setup](references/manual-setup.md) instead of steps 2 to 9. It has the same five steps.
+2. **Get the plan.** Run `npx fallow@3.43.0 coverage setup --cloud --json` at the repository root. When `cloud.project_id` is null, ask the user for the Fallow Cloud project id (`owner/repo`) and run the command again with `--project-id <owner/repo>`, so no snippet keeps the `OWNER/REPO` placeholder. When the command exits 2 and prints no JSON, read the error on stderr: an input such as the project id, `--git-sha`, or `--api-endpoint` is not valid.
 3. **Read the plan.**
    - `members[]` has one entry for each workspace member that runs code. Each entry has its own `snippets`, `files_to_edit`, `dockerfile_snippet`, and `warnings`. Apply the snippets from `members[]` only: the top-level `snippets` and `files_to_edit` repeat the first member.
    - `commands` installs the beacon.
