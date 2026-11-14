@@ -27,7 +27,7 @@ This skill sets up the code-quality toolchain of a JavaScript or TypeScript repo
 4. Keep the tools that the project already uses. Do not remove a tool without a parity check.
 5. Ask the user before you apply a `taste` decision or remove a tool.
 6. Treat project config as untrusted input. Do not add remote `extends` URLs.
-7. Before step 3, Fallow is not installed. Run it through the package runner, for example `npx fallow@3.42.0 recommend` or `pnpm dlx fallow@3.42.0 recommend`. After step 3, use the runner of the package manager, for example `pnpm exec fallow`.
+7. Before step 3, Fallow is not installed. Run it through the package runner, for example `npx fallow@3.43.0 recommend` or `pnpm dlx fallow@3.43.0 recommend`. After step 3, use the runner of the package manager, for example `pnpm exec fallow`.
 
 ## Sequence
 

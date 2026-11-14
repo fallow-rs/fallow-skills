@@ -8,7 +8,7 @@
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
   <a href="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml"><img src="https://github.com/fallow-rs/fallow-skills/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
   <a href="https://agentskills.io"><img src="https://img.shields.io/badge/Agent_Skills-compatible-8A2BE2" alt="Agent Skills"></a>
-  <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v3.40.0-orange" alt="fallow v3.40.0"></a>
+  <a href="https://github.com/fallow-rs/fallow"><img src="https://img.shields.io/badge/fallow-v3.43.0-orange" alt="fallow v3.43.0"></a>
 </p>
 
 Agent skills for [fallow](https://github.com/fallow-rs/fallow), codebase intelligence for TypeScript and JavaScript. The static layer reports quality, changed-code risk, cleanup opportunities, circular dependencies, code duplication, complexity hotspots, architecture boundary violations, and design-system styling drift in milliseconds. Fallow Cloud, the optional paid product, adds production coverage so agents can delete cold code and flag hot-path changes with proof. Broad framework plugin coverage, zero configuration. Works with any agent that supports the [Agent Skills](https://agentskills.io) specification: Claude Code, Cursor, OpenAI Codex, Windsurf, GitHub Copilot, Gemini CLI, Amp, and [30+ more](https://agentskills.io). See [Fallow for coding agents](https://fallow.tools/plugins) for the visual overview and store links.
@@ -65,7 +65,7 @@ inside the Codex sandbox of the thread when one is available. See
 
 The Cursor plugin manifest is at `fallow/.cursor-plugin/plugin.json`. The
 plugin adds the Fallow skills and the fallow MCP server
-(`npx --yes --prefix ${userHome} --package fallow@3.42.0 fallow-mcp`, an exact
+(`npx --yes --prefix ${userHome} --package fallow@3.43.0 fallow-mcp`, an exact
 release). The
 `--prefix` flag makes npx resolve fallow from your home folder, so a
 `fallow-mcp` in the `node_modules` of the opened project does not run. The

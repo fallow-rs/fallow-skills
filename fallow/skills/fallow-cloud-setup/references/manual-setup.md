@@ -65,8 +65,8 @@ Add these steps to the GitHub Actions job that builds and deploys. Show them to 
   env:
     FALLOW_API_KEY: ${{ secrets.FALLOW_API_KEY }}
   run: |
-    npx --yes fallow@3.42.0 coverage upload-inventory --project-id=OWNER/REPO --git-sha="$GITHUB_SHA"
-    npx --yes fallow@3.42.0 coverage upload-source-maps --dir=dist --repo=OWNER/REPO --git-sha="$GITHUB_SHA"
+    npx --yes fallow@3.43.0 coverage upload-inventory --project-id=OWNER/REPO --git-sha="$GITHUB_SHA"
+    npx --yes fallow@3.43.0 coverage upload-source-maps --dir=dist --repo=OWNER/REPO --git-sha="$GITHUB_SHA"
 # After the deploy step:
 - name: Register the deployment with Fallow Cloud
   env:

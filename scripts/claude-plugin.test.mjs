@@ -53,8 +53,8 @@ test("the launcher guard catches each form that can download fallow", () => {
     assert.equal(unpinnedLaunchers(form).length, 1, form);
   }
   for (const form of [
-    "npx fallow@3.42.0 audit", "npx --no-install fallow", "npx --no fallow-mcp",
-    "npx -p fallow@3.42.0 fallow-mcp", "node fallow.js", "npx fallow-mcp@3.42.0",
+    "npx fallow@3.43.0 audit", "npx --no-install fallow", "npx --no fallow-mcp",
+    "npx -p fallow@3.43.0 fallow-mcp", "node fallow.js", "npx fallow-mcp@3.43.0",
   ]) {
     assert.deepEqual(unpinnedLaunchers(form), [], form);
   }
