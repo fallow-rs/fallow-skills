@@ -1,7 +1,7 @@
 {
   "name": "fallow",
   "displayName": "Fallow Code Analysis",
-  "version": "1.4.110",
+  "version": "1.4.134",
   "description": "Local-first codebase intelligence and Impact summaries for TypeScript and JavaScript using fallow",
   "author": {
     "name": "Bart Waardenburg",
@@ -18,5 +18,13 @@
     "static-analysis",
     "javascript",
     "typescript"
-  ]
+  ],
+  "mcpServers": {
+    "fallow-app": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/codex-app/server.mjs"
+      ]
+    }
+  }
 }

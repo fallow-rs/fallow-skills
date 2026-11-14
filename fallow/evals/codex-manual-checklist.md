@@ -24,11 +24,14 @@ result agrees with the expected skill.
 | Replace Knip and dependency-cruiser. | `fallow-setup` | | |
 | Review this PR. | `fallow-review` | `fallow-setup` | |
 | Audit this PR. | `fallow` | `fallow-setup` | |
+| Improve the tests of this change. | `fallow-mutation` | `fallow-setup` | |
 | Find dead code and architecture problems. | `fallow` | `fallow-setup` | |
 | Format this file. | none | `fallow-setup` | |
 | Fix this TS2345 error. | none | `fallow-setup` | |
 | Configure an Oxlint rule. | none | `fallow-setup` | |
 | Why did Oxfmt wrap this line? | none | `fallow-setup` | |
+| This test fails. Fix the function. (with a failing assertion and the code) | none | `fallow-mutation`, `fallow-setup` | |
+| Write one Vitest unit test for this function. (with the code) | none | `fallow-mutation`, `fallow-setup` | |
 
 ## Setup outcome run
 

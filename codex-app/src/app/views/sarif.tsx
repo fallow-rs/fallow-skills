@@ -144,7 +144,7 @@ export const SarifViewer = ({ host, file }: { host: Host; file: FileRef }): JSX.
           </div>
         </div>
         <div class="f-topbar-actions">
-          {host.canMessage && selected.size > 0 ? (
+          {host.openai.message !== undefined && selected.size > 0 ? (
             <Button
               size="sm"
               variant="primary"

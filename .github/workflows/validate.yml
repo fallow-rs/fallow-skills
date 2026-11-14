@@ -129,7 +129,7 @@ jobs:
           vendored = {Path(skill["targetRoot"]).name for skill in lock["skills"]}
           present = {path.parent.name for path in (root / "skills").glob("*/SKILL.md")}
           assert vendored <= present, f"Missing vendored skills: {sorted(vendored - present)}"
-          assert {"fallow", "fallow-review"} <= present
+          assert {"fallow", "fallow-review", "fallow-mutation"} <= present
           for skill in sorted(present):
               skill_root = root / "skills" / skill
               frontmatter = (skill_root / "SKILL.md").read_text().split("---", 2)[1]
@@ -141,8 +141,74 @@ jobs:
                   assert field in config_text, f"Missing {field} in {openai_config}"
           PY
 
+      # Checks the fields of the Cursor plugin schema (cursor/plugins, schemas/plugin.schema.json)
+      # and the marketplace schema that this plugin uses.
+      - name: Validate Cursor plugin
+        run: |
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          root = Path("fallow")
+          name_pattern = re.compile(r"^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$")
+
+          marketplace = json.loads(Path(".cursor-plugin/marketplace.json").read_text())
+          assert set(marketplace) <= {"name", "owner", "metadata", "plugins"}
+          assert marketplace["name"] == "fallow-skills"
+          assert marketplace["owner"]["name"]
+          assert len(marketplace["plugins"]) == 1
+          entry = marketplace["plugins"][0]
+          assert set(entry) <= {"name", "source", "description", "minClientVersions"}
+          assert entry["name"] == "fallow" and entry["source"] == "fallow"
+
+          manifest = json.loads((root / ".cursor-plugin/plugin.json").read_text())
+          allowed = {
+              "name", "displayName", "description", "version", "minClientVersions", "author",
+              "publisher", "homepage", "repository", "license", "logo", "keywords", "category",
+              "tags", "commands", "agents", "skills", "rules", "hooks", "variables", "mcpServers",
+          }
+          unknown = set(manifest) - allowed
+          assert not unknown, f"Unknown Cursor manifest fields: {sorted(unknown)}"
+          assert name_pattern.fullmatch(manifest["name"]) and manifest["name"] == entry["name"]
+          assert set(manifest["author"]) <= {"name", "email"}
+          claude = json.loads((root / ".claude-plugin/plugin.json").read_text())
+          for field in ("name", "displayName", "version", "description", "license"):
+              assert manifest[field] == claude[field], f"Cursor {field} differs from Claude"
+
+          # Cursor resolves each path from the plugin root and refuses `..` and absolute paths.
+          for field in ("logo", "skills"):
+              value = manifest[field]
+              assert not value.startswith("/") and ".." not in Path(value).parts, field
+          assert (root / manifest["logo"]).is_file()
+          assert manifest["skills"] == "./skills/"
+          assert any((root / "skills").glob("*/SKILL.md"))
+
+          # The commands/ folder and hooks/hooks.json are for Claude Code. An explicit field stops
+          # the Cursor folder discovery of each one.
+          assert manifest["commands"] == []
+          assert manifest["hooks"] == {"version": 1, "hooks": {}}
+
+          # The fallow MCP server, from the fallow npm package. Cursor reads no root mcp.json here.
+          # Cursor starts the server in the opened project. Without --prefix, npx runs a
+          # fallow-mcp from the node_modules of that project, so an untrusted project could
+          # run its own code. The exact pin stops a new release from loading unasked. Keep it
+          # equal to FALLOW_NPX_VERSION in codex-app/src/server/fallow-cli.ts.
+          server = manifest["mcpServers"]["fallow"]
+          assert server == {
+              "command": "npx",
+              "args": ["--yes", "--prefix", "${userHome}", "--package", "fallow@3.43.0", "fallow-mcp"],
+          }
+          assert not (root / "mcp.json").exists()
+          PY
+
       - name: Test plugin release tooling
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
+
+      # The Claude plugin directory lists claude-directory/fallow: the skills of the plugin
+      # without hooks, scripts or the app, which it accepts only from Verified organizations.
+      - name: Check the Claude directory bundle
+        run: python3 scripts/plugin_release.py directory-bundle --check
 
       - name: Build and inspect OpenAI submission archive
         id: package
@@ -170,7 +236,7 @@ jobs:
               names = bundle.namelist()
               assert ".codex-plugin/plugin.json" in names
               assert ".claude-plugin/plugin.json" not in names
-              assert not any(name.startswith(("bin/", "commands/", "hooks/", "evals/")) for name in names)
+              assert not any(name.startswith(("bin/", "scripts/", "commands/", "hooks/", "evals/")) for name in names)
               assert ".mcp.json" not in names
               assert not any(name.startswith(("codex-app/", "skills/fallow-codex-onboarding/")) for name in names)
               packaged = json.loads(bundle.read(".codex-plugin/plugin.json"))
@@ -200,7 +266,7 @@ jobs:
             exit 0
           fi
           if git diff --quiet "$BASE_SHA" "$GITHUB_SHA" -- \
-            fallow .claude-plugin/marketplace.json; then
+            fallow .claude-plugin/marketplace.json .cursor-plugin/marketplace.json; then
             echo "No public plugin content changed."
             exit 0
           fi
@@ -245,6 +311,19 @@ jobs:
       - name: Test the Fallow app
         working-directory: codex-app
         run: npm test
+
+      # The release attaches this bundle for people who install the app in Claude Desktop by hand.
+      - name: Build and validate the Claude Desktop extension
+        id: desktop
+        run: |
+          extension=$(python3 scripts/plugin_release.py package-desktop)
+          echo "extension=$extension" >> "$GITHUB_OUTPUT"
+          echo "extension_name=$(basename "$extension" .mcpb)" >> "$GITHUB_OUTPUT"
+          unpacked=$(mktemp -d)
+          python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' \
+            "$extension" "$unpacked"
+          npx --yes "@anthropic-ai/mcpb@$(node -p 'require("./codex-app/package.json").config.mcpbForChecks')" \
+            validate "$unpacked/manifest.json"
 
       # The Claude Code mod reads the same agent-view core as the app. It does not ship in the
       # plugin yet, so CI type-checks and builds it. `npm test` in claude-mod needs Claude Code
@@ -305,6 +384,16 @@ jobs:
           compression-level: 0
           retention-days: 30
 
+      - name: Upload Claude Desktop extension
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.desktop.outputs.extension_name }}
+          path: ${{ steps.desktop.outputs.extension }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
   # The app is an example of fallow, so CI runs the fallow action on it in its default mode:
   # all analyses, scoped to the changed files on a pull request, with annotations.
   fallow:
@@ -331,7 +420,7 @@ jobs:
       # A new finding fails the job, and so does a fixed finding that is still in the baseline.
       # Update it with: npx fallow@3.33.1 health --root codex-app --save-baseline codex-app/health-baseline.json
       # Duplication fails above 0.1%, because 0 means no limit.
-      - uses: fallow-rs/fallow@85fa32733e951df85966842f2bb6a3f2720a940c # v3.37.0
+      - uses: fallow-rs/fallow@a6956af63dd896d6106a7d28361585e0ff1c250b # v3.39.0
         with:
           version: 3.33.1
           root: codex-app
@@ -359,24 +448,28 @@ jobs:
             exit 1
           fi
 
-      - name: Build tagged OpenAI submission archive
+      - name: Build tagged release assets
         id: package
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           archive=$(python3 scripts/plugin_release.py package \
             --expected-version "${RELEASE_TAG#v}")
+          extension=$(python3 scripts/plugin_release.py package-desktop \
+            --expected-version "${RELEASE_TAG#v}")
           echo "archive=$archive" >> "$GITHUB_OUTPUT"
-          echo "archive_file=$(basename "$archive")" >> "$GITHUB_OUTPUT"
+          echo "extension=$extension" >> "$GITHUB_OUTPUT"
 
-      - name: Publish immutable-by-convention release asset
+      - name: Publish immutable-by-convention release assets
         env:
           ARCHIVE: ${{ steps.package.outputs.archive }}
-          ARCHIVE_FILE: ${{ steps.package.outputs.archive_file }}
+          EXTENSION: ${{ steps.package.outputs.extension }}
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          archive_label="$ARCHIVE#OpenAI skills-only submission ZIP"
+          extension_label="$EXTENSION#Claude Desktop extension of the Fallow app"
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             release_args=()
             if [ "$(python3 scripts/plugin_release.py \
@@ -384,7 +477,8 @@ jobs:
               release_args+=(--prerelease)
             fi
             gh release create "$RELEASE_TAG" \
-              "$ARCHIVE#OpenAI skills-only submission ZIP" \
+              "$archive_label" \
+              "$extension_label" \
               --verify-tag \
               --title "$RELEASE_TAG" \
               --generate-notes \
@@ -392,18 +486,22 @@ jobs:
             exit 0
           fi
 
-          if gh release view "$RELEASE_TAG" --json assets \
-            --jq '.assets[].name' | grep -Fxq "$ARCHIVE_FILE"; then
-            existing_dir=$(mktemp -d)
-            gh release download "$RELEASE_TAG" \
-              --pattern "$ARCHIVE_FILE" \
-              --dir "$existing_dir"
-            cmp "$ARCHIVE" "$existing_dir/$ARCHIVE_FILE" || {
-              echo "::error::Existing release asset differs from the tagged source"
-              exit 1
-            }
-            echo "Release asset already exists and is byte-identical."
-          else
-            gh release upload "$RELEASE_TAG" \
-              "$ARCHIVE#OpenAI skills-only submission ZIP"
-          fi
+          # A workflow retry compares each existing asset byte for byte and never replaces it.
+          publish() {
+            local asset="$1" label="$2" name
+            name=$(basename "$asset")
+            if gh release view "$RELEASE_TAG" --json assets \
+              --jq '.assets[].name' | grep -Fxq "$name"; then
+              existing_dir=$(mktemp -d)
+              gh release download "$RELEASE_TAG" --pattern "$name" --dir "$existing_dir"
+              cmp "$asset" "$existing_dir/$name" || {
+                echo "::error::Existing release asset $name differs from the tagged source"
+                exit 1
+              }
+              echo "Release asset $name already exists and is byte-identical."
+            else
+              gh release upload "$RELEASE_TAG" "$label"
+            fi
+          }
+          publish "$ARCHIVE" "$archive_label"
+          publish "$EXTENSION" "$extension_label"

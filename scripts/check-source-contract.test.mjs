@@ -198,6 +198,21 @@ test("rejects skill entries that share or nest a target root", async (t) => {
   await assert.rejects(validate(input), /overlap/u);
 });
 
+test("expects each download-and-run form of fallow pinned to the source package version", async (t) => {
+  const input = await fixture(t);
+  await write(input.sourceDir, "npm/fallow/package.json", JSON.stringify({ name: "fallow", version: "3.43.0" }));
+  await write(input.sourceDir, "npm/fallow/skills/fallow/references/guide.md", "Run `npx fallow audit`.\n");
+  await write(input.repositoryRoot, "fallow/skills/fallow/references/guide.md", "Run `npx fallow audit`.\n");
+  await assert.rejects(validate(input), /public skill content drift: references\/guide\.md/u);
+
+  await write(input.repositoryRoot, "fallow/skills/fallow/references/guide.md", "Run `npx fallow@3.43.0 audit`.\n");
+  await validate(input);
+
+  // A release raises the source version before the next sync. The pinned copy must not drift.
+  await write(input.sourceDir, "npm/fallow/package.json", JSON.stringify({ name: "fallow", version: "3.43.0" }));
+  await validate(input);
+});
+
 test("rejects an unsupported transform", async (t) => {
   const input = await fixture(t);
   const lock = lockFor(RELEASED);

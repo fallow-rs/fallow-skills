@@ -5,6 +5,7 @@ import type { JSX } from "preact";
 import { render } from "preact";
 import { useEffect, useReducer, useState } from "preact/hooks";
 import type { ViewPayload } from "../shared/contracts.ts";
+import { BOOT_NOTE_AFTER_MS, bootNote } from "./boot.ts";
 import { FallowMark } from "./components/ui.tsx";
 import { Host } from "./host.ts";
 import { AuditView } from "./views/audit.tsx";
@@ -54,8 +55,19 @@ const Boot = (): JSX.Element => {
           <div class="f-progress" />
         </>
       )}
+      <BootNote />
     </div>
   );
+};
+
+/** Appears only when the host has not sent a result after `BOOT_NOTE_AFTER_MS`. */
+const BootNote = (): JSX.Element | null => {
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => setNote(bootNote(BOOT_NOTE_AFTER_MS)), BOOT_NOTE_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  return note === null ? null : <p class="f-subtle">{note}</p>;
 };
 
 const Root = (): JSX.Element => {
@@ -136,7 +148,7 @@ host.connect().catch((error: unknown) => {
     view: "problem",
     problem: {
       code: "connect_failed",
-      title: "The app could not connect to Codex",
+      title: "The app could not connect to its host",
       detail: error instanceof Error ? error.message : String(error),
       fix: null,
     },

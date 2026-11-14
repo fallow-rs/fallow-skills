@@ -22,11 +22,11 @@ import {
   parseFallowVersion,
   pathsFor,
   projectKey,
-} from "../fallow/bin/fallow-impact-statusline.mjs";
+} from "../fallow/scripts/fallow-impact-statusline.mjs";
 
 const HELPER = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../fallow/bin/fallow-impact-statusline.mjs",
+  "../fallow/scripts/fallow-impact-statusline.mjs",
 );
 const FULL_LINE =
   "fallow impact  7 issues in last full scan · 5 fewer than prior · 4.9k cleared while tracking";
@@ -216,7 +216,7 @@ test("replace setup installs a stable runtime and renders a compact plain line",
   const settings = readSettings(current);
   assert.equal(settings.statusLine.type, "command");
   assert.ok(settings.statusLine.command.includes("fallow-impact-statusline/user/statusline.mjs"));
-  assert.ok(!settings.statusLine.command.includes("/fallow/bin/"));
+  assert.ok(!settings.statusLine.command.includes("/fallow/scripts/"));
 
   assertRendered(
     renderStatusline(current, { COLUMNS: "80" }),

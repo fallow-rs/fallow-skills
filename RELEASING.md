@@ -1,7 +1,7 @@
 # Plugin releases
 
 Fallow uses one explicit semantic version across its Claude marketplace entry,
-Claude manifest, and Codex manifest. Keep those versions synchronized so the
+Claude manifest, Codex manifest, and Cursor manifest. Keep those versions synchronized so the
 same source commit identifies the same public plugin release everywhere.
 Claude's `plugin.json` remains the runtime authority. The marketplace copy is
 retained as matching directory metadata and is checked against that authority.
@@ -54,6 +54,52 @@ claude plugin update fallow@fallow-skills
 See Anthropic's
 [marketplace versioning documentation](https://code.claude.com/docs/en/plugin-marketplaces)
 for the cache and update rules.
+
+### Claude plugin directory
+
+The directory lists `claude-directory/fallow` as a plugin bundle. That folder
+holds the skills of the plugin, a manifest without `mcpServers`, the icon, the
+license and a directory README. The directory accepts hooks, scripts, local MCP
+servers and files other than Markdown, text, JSON, YAML and images only from
+Verified organizations, and Anthropic grants that label during review, so the
+commit gate, the statusline command and the Fallow app stay on the marketplace
+install. `python3 scripts/plugin_release.py directory-bundle` rebuilds the
+folder, CI fails when it is out of date, and the skill sync of fallow rebuilds
+it after each sync.
+
+The listing follows `main`, so a merged version bump is a new directory
+version. The directory does not take `.mcpb` desktop extensions either, so the
+Fallow app reaches Claude only through the marketplace install.
+
+To submit or to check the listing:
+
+1. Run `claude plugin validate ./claude-directory/fallow` from the repository root.
+2. Open the [developer portal](https://claude.ai/directory/manage) in the Fallow
+   organization, select **Submit new**, then **Plugin bundle**.
+3. Enter `fallow-rs/fallow-skills` as the repository and `claude-directory/fallow`
+   as the plugin path. Select **Validate**, and fix each finding that blocks.
+4. Answer the data handling questions from the privacy section of
+   `fallow/README.md`. The plugin reads no personal data, keeps no data, and
+   sends data only when the user runs a Fallow Cloud command.
+5. Select **Submit for review**, and keep the GitHub push webhook.
+
+A reviewer reads the first version before it goes live.
+
+### Claude Desktop extension
+
+Each tag release also attaches `fallow-app-<version>.mcpb`, which
+`plugin_release.py package-desktop` builds from the committed app bundle. It is
+for people who install the app by hand in Claude Desktop. Users install a new
+version by hand, so the README points to the release page, not a fixed file.
+Desktop chat calls the extension through a bridge and shows the result as text.
+It loads the dashboard view but does not send it the result, so the view shows a
+note after 20 seconds.
+
+### Pinned npx release
+
+`FALLOW_NPX_VERSION` in `codex-app/src/server/fallow-cli.ts` is the exact fallow
+release that the `npx` source downloads. The directory refuses an unpinned
+launcher. Raise it to a tested fallow release, then rebuild the app.
 
 ## OpenAI
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fallow Mutation"
+  short_description: "Test the tests of TypeScript and JavaScript code"
+  default_prompt: "Use $fallow-mutation to improve the tests of this change: find the mutants that no test detects and write behavior tests for the real gaps."

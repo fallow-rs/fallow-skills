@@ -28,6 +28,7 @@ VERSION_FILES = (
     Path(".claude-plugin/marketplace.json"),
     Path("fallow/.claude-plugin/plugin.json"),
     Path("fallow/.codex-plugin/plugin.json"),
+    Path("fallow/.cursor-plugin/plugin.json"),
 )
 UNSUPPORTED_FILES = {".app.json", ".mcp.json"}
 
@@ -112,7 +113,8 @@ def _manifest_versions(repo_root: Path) -> tuple[str, ...]:
 
     claude = _load_json(repo_root / VERSION_FILES[1])
     codex = _load_json(repo_root / VERSION_FILES[2])
-    if claude.get("name") != "fallow" or codex.get("name") != "fallow":
+    cursor = _load_json(repo_root / VERSION_FILES[3])
+    if any(manifest.get("name") != "fallow" for manifest in (claude, codex, cursor)):
         raise ReleaseError("Plugin manifests must keep the stable name 'fallow'")
 
     return tuple(
@@ -122,6 +124,7 @@ def _manifest_versions(repo_root: Path) -> tuple[str, ...]:
             plugin_entry.get("version"),
             claude.get("version"),
             codex.get("version"),
+            cursor.get("version"),
         )
     )
 
@@ -405,33 +408,51 @@ def build_archive(
             f"Codex manifest version {manifest_version} differs from {synchronized_version}"
         )
     members = _archive_members(plugin_root, files)
+    archive = (
+        _output_directory(repo_root, output_dir)
+        / f"fallow-plugin-{synchronized_version}-openai.zip"
+    )
 
+    entries = [
+        (
+            name,
+            manifest_bytes if path == manifest_path else path.read_bytes(),
+            bool(path.stat().st_mode & stat.S_IXUSR),
+        )
+        for path, name in members
+    ]
+    return _write_zip(archive, entries)
+
+
+def _output_directory(repo_root: Path, output_dir: Path) -> Path:
     if not output_dir.is_absolute():
         output_dir = repo_root / output_dir
     try:
-        output_dir.resolve().relative_to(plugin_root.resolve(strict=True))
+        output_dir.resolve().relative_to((repo_root / PLUGIN_ROOT).resolve(strict=True))
     except ValueError:
         pass
     else:
         raise ReleaseError("Output directory must be outside the plugin root")
     output_dir.mkdir(parents=True, exist_ok=True)
-    archive = output_dir / f"fallow-plugin-{synchronized_version}-openai.zip"
+    return output_dir
 
+
+def _write_zip(archive: Path, entries: list[tuple[str, bytes, bool]]) -> Path:
+    """Write a deterministic ZIP: fixed times, sorted input, and only the executable bit kept."""
     with tempfile.NamedTemporaryFile(
-        dir=output_dir,
+        dir=archive.parent,
         prefix=f".{archive.name}.",
         delete=False,
     ) as handle:
         temporary = Path(handle.name)
     try:
         with ZipFile(temporary, "w") as bundle:
-            for path, name in members:
-                mode = 0o755 if path.stat().st_mode & stat.S_IXUSR else 0o644
+            for name, contents, executable in entries:
+                mode = 0o755 if executable else 0o644
                 info = ZipInfo(name, FIXED_ZIP_TIME)
                 info.compress_type = ZIP_DEFLATED
                 info.create_system = 3
                 info.external_attr = (stat.S_IFREG | mode) << 16
-                contents = manifest_bytes if path == manifest_path else path.read_bytes()
                 bundle.writestr(info, contents, compresslevel=9)
         if temporary.stat().st_size > ARCHIVE_LIMIT:
             raise ReleaseError("Compressed archive exceeds the 100 MB upload limit")
@@ -439,6 +460,203 @@ def build_archive(
     finally:
         temporary.unlink(missing_ok=True)
     return archive.resolve()
+
+
+DIRECTORY_BUNDLE = Path("claude-directory/fallow")
+DIRECTORY_MANIFEST_KEYS = (
+    "name",
+    "displayName",
+    "description",
+    "version",
+    "author",
+    "homepage",
+    "repository",
+    "license",
+    "keywords",
+)
+DIRECTORY_SKILL_EXCLUDES = {"fallow-codex-onboarding"}
+DIRECTORY_FILE_TYPES = {".md", ".json", ".yaml", ".yml", ".txt", ".png"}
+DIRECTORY_README = """# Fallow Code Analysis
+
+Fallow gives Claude codebase intelligence for TypeScript and JavaScript
+projects. The skills teach Claude to find unused files, exports and
+dependencies, duplicated code, complex functions, circular dependencies and
+architecture boundary violations, to review a change before a commit or a pull
+request, and to set up code-quality tooling and a CI gate.
+
+## What the plugin contains
+
+- `fallow`: static analysis, changed-code risk, cleanup, architecture, styling,
+  runtime evidence and Impact summaries.
+- `fallow-review`: graph-grounded review of changed code.
+- `fallow-mutation`: improves the tests of a change with mutation testing.
+- `fallow-setup`: sets up code-quality tooling, the agent integration and a CI
+  gate for a project.
+- `fallow-cloud-setup`: connects an app to Fallow Cloud runtime coverage.
+- `cargo-fallow`: runs `cargo fallow` on a Rust workspace.
+
+This listing holds only skills. The plugin runs no hooks, scripts or servers of
+its own.
+
+## What runs, and what leaves your machine
+
+Claude runs the fallow command-line tool in your project. When fallow is not
+installed, the skills run an exact fallow release with npx, which downloads
+that release from your npm registry. The analysis runs on your machine, and
+product telemetry is off unless you turn it on. Fallow Cloud commands send data
+only after you ask for them and set up a Fallow Cloud account.
+
+## The full plugin
+
+The plugin in the fallow-rs/fallow-skills marketplace adds the interactive
+Fallow dashboard, a commit gate and a statusline command:
+
+```text
+/plugin install fallow --marketplace fallow-rs/fallow-skills
+```
+
+See the [Fallow privacy policy](https://fallow.tools/privacy) and the
+[plugin documentation](https://fallow.tools/plugins). The plugin is MIT
+licensed.
+"""
+
+
+def _directory_bundle_files(repo_root: Path) -> dict[str, bytes]:
+    """The files of the skills-only bundle that the Claude plugin directory lists."""
+    plugin_root = repo_root / PLUGIN_ROOT
+    version = check_versions(repo_root)
+    manifest = _load_json(plugin_root / ".claude-plugin/plugin.json")
+    listed = {key: manifest[key] for key in DIRECTORY_MANIFEST_KEYS if key in manifest}
+    listed["version"] = version
+    files = {
+        ".claude-plugin/plugin.json": json.dumps(listed, indent=2).encode() + b"\n",
+        "LICENSE": (repo_root / "LICENSE").read_bytes(),
+        "README.md": DIRECTORY_README.encode(),
+        "assets/icon.png": (plugin_root / "assets/icon.png").read_bytes(),
+    }
+    for skill in sorted((plugin_root / "skills").iterdir()):
+        if not skill.is_dir() or skill.name in DIRECTORY_SKILL_EXCLUDES:
+            continue
+        for path in sorted(skill.rglob("*")):
+            relative = path.relative_to(plugin_root)
+            if not path.is_file() or "agents" in relative.parts:
+                continue
+            if path.is_symlink() or path.suffix not in DIRECTORY_FILE_TYPES:
+                raise ReleaseError(f"The directory bundle cannot hold {relative.as_posix()}")
+            files[relative.as_posix()] = path.read_bytes()
+    return files
+
+
+def build_directory_bundle(repo_root: Path, output: Path = DIRECTORY_BUNDLE) -> Path:
+    """Write the skills-only directory bundle, replacing any earlier copy."""
+    target = output if output.is_absolute() else repo_root / output
+    files = _directory_bundle_files(repo_root)
+    if target.exists():
+        for path in sorted(target.rglob("*"), reverse=True):
+            path.unlink() if path.is_file() or path.is_symlink() else path.rmdir()
+    for name, contents in files.items():
+        destination = target / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(contents)
+    return target.resolve()
+
+
+def check_directory_bundle(repo_root: Path, output: Path = DIRECTORY_BUNDLE) -> list[str]:
+    """Return each difference between the committed bundle and a fresh build."""
+    target = output if output.is_absolute() else repo_root / output
+    if not target.is_dir():
+        return ["missing bundle"]
+    expected = _directory_bundle_files(repo_root)
+    actual = {
+        path.relative_to(target).as_posix(): path.read_bytes()
+        for path in target.rglob("*")
+        if path.is_file()
+    }
+    problems = [f"missing {name}" for name in sorted(expected.keys() - actual.keys())]
+    problems += [f"extra {name}" for name in sorted(actual.keys() - expected.keys())]
+    problems += [
+        f"changed {name}"
+        for name in sorted(expected.keys() & actual.keys())
+        if expected[name] != actual[name]
+    ]
+    return problems
+
+
+def _desktop_manifest(version: str) -> dict[str, object]:
+    """The MCPB manifest of the Fallow app as a Claude Desktop extension."""
+    return {
+        "manifest_version": "0.3",
+        "name": "fallow-app",
+        "display_name": "Fallow Code Analysis",
+        "version": version,
+        "description": "Fallow's code health dashboard for TypeScript and JavaScript projects.",
+        "long_description": (
+            "Runs fallow on your machine and shows the results as an interactive dashboard: "
+            "dead code, unused dependencies, duplication, complexity, circular dependencies "
+            "and architecture boundaries. Fallow must be installed on your PATH, chosen below, "
+            "or downloaded with npx when you set the Fallow binary setting to npx. "
+            "Your code stays on your machine."
+        ),
+        "author": {"name": "Bart Waardenburg", "email": "bart@fallow.tools", "url": "https://fallow.tools"},
+        "homepage": "https://fallow.tools",
+        "repository": {"type": "git", "url": "https://github.com/fallow-rs/fallow-skills"},
+        "support": "https://github.com/fallow-rs/fallow-skills/issues",
+        "license": "MIT",
+        "icon": "icon.png",
+        "keywords": ["fallow", "dead-code", "duplication", "complexity", "typescript", "javascript"],
+        "server": {
+            "type": "node",
+            "entry_point": "server/server.mjs",
+            "mcp_config": {
+                "command": "node",
+                "args": ["${__dirname}/server/server.mjs"],
+                "env": {"FALLOW_BIN": "${user_config.fallow_bin}"},
+            },
+        },
+        "user_config": {
+            "fallow_bin": {
+                "type": "file",
+                "title": "Fallow executable",
+                "description": (
+                    "Optional. Choose the fallow binary when Claude cannot find it on your PATH, "
+                    "for example a global npm install in a version manager folder."
+                ),
+                "required": False,
+            }
+        },
+        "compatibility": {
+            "platforms": ["darwin", "win32", "linux"],
+            "runtimes": {"node": ">=20.0.0"},
+        },
+    }
+
+
+def build_desktop_extension(
+    repo_root: Path,
+    output_dir: Path,
+    expected_version: str | None = None,
+) -> Path:
+    """Build and return a deterministic `.mcpb` of the Fallow app for Claude Desktop."""
+    version = check_versions(repo_root, expected_version)
+    plugin_root = repo_root / PLUGIN_ROOT
+    built = {name: plugin_root / "codex-app" / name for name in ("app.html", "server.mjs")}
+    missing = [name for name, path in built.items() if not path.is_file()]
+    if missing:
+        raise ReleaseError(
+            f"Missing app build output {', '.join(missing)}: run `npm run build` in codex-app"
+        )
+    manifest = json.dumps(_desktop_manifest(version), indent=2).encode() + b"\n"
+    # The server reads its version from `../.codex-plugin/plugin.json`, as in the plugin folder.
+    server_version = json.dumps({"name": "fallow", "version": version}, indent=2).encode() + b"\n"
+    entries = [
+        (".codex-plugin/plugin.json", server_version, False),
+        ("icon.png", (plugin_root / "assets/icon.png").read_bytes(), False),
+        ("manifest.json", manifest, False),
+        ("server/app.html", built["app.html"].read_bytes(), False),
+        ("server/server.mjs", built["server.mjs"].read_bytes(), False),
+    ]
+    archive = _output_directory(repo_root, output_dir) / f"fallow-app-{version}.mcpb"
+    return _write_zip(archive, entries)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -466,6 +684,18 @@ def _parser() -> argparse.ArgumentParser:
     package = commands.add_parser("package", help="build the OpenAI submission ZIP")
     package.add_argument("--expected-version")
     package.add_argument("--output-dir", type=Path, default=Path("dist-submissions"))
+
+    desktop = commands.add_parser(
+        "package-desktop", help="build the Claude Desktop extension (.mcpb) of the Fallow app"
+    )
+    desktop.add_argument("--expected-version")
+    desktop.add_argument("--output-dir", type=Path, default=Path("dist-submissions"))
+
+    directory = commands.add_parser(
+        "directory-bundle",
+        help="write or check the skills-only bundle that the Claude plugin directory lists",
+    )
+    directory.add_argument("--check", action="store_true")
     return parser
 
 
@@ -481,6 +711,19 @@ def main() -> int:
         elif args.command == "set-version":
             set_version(REPO_ROOT, args.version)
             print(args.version)
+        elif args.command == "directory-bundle" and args.check:
+            problems = check_directory_bundle(REPO_ROOT)
+            if problems:
+                raise ReleaseError(
+                    "claude-directory/fallow is out of date ("
+                    + ", ".join(problems)
+                    + "). Run: python3 scripts/plugin_release.py directory-bundle"
+                )
+            print("claude-directory/fallow matches the plugin")
+        elif args.command == "directory-bundle":
+            print(build_directory_bundle(REPO_ROOT))
+        elif args.command == "package-desktop":
+            print(build_desktop_extension(REPO_ROOT, args.output_dir, args.expected_version))
         else:
             print(build_archive(REPO_ROOT, args.output_dir, args.expected_version))
     except ReleaseError as error:

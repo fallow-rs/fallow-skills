@@ -92,14 +92,14 @@ Parse the JSON to list reported files and exports. This command does not disting
 
 ```yaml
 - name: Dead code check
-  run: npx fallow dead-code --fail-on-issues --quiet
+  run: npx fallow@3.43.0 dead-code --fail-on-issues --quiet
 ```
 
 ### GitHub Actions: With SARIF Upload
 
 ```yaml
 - name: Fallow analysis
-  run: npx fallow dead-code --ci > fallow.sarif
+  run: npx fallow@3.43.0 dead-code --ci > fallow.sarif
   continue-on-error: true  # --ci sets --fail-on-issues; continue to upload SARIF even if issues found
 
 - name: Upload SARIF
@@ -188,14 +188,14 @@ Annotations appear as inline warnings on the PR diff. They work with all command
 
 ```yaml
 - name: Check for new dead code
-  run: npx fallow dead-code --format json --quiet --changed-since ${{ github.event.pull_request.base.sha }} --fail-on-issues
+  run: npx fallow@3.43.0 dead-code --format json --quiet --changed-since ${{ github.event.pull_request.base.sha }} --fail-on-issues
 ```
 
 ### GitHub Actions: Duplication Gate
 
 ```yaml
 - name: Duplication check
-  run: npx fallow dupes --format json --quiet --threshold 5 --mode mild
+  run: npx fallow@3.43.0 dupes --format json --quiet --threshold 5 --mode mild
 ```
 
 Fails if overall duplication exceeds 5%.
@@ -204,7 +204,7 @@ Fails if overall duplication exceeds 5%.
 
 ```yaml
 - name: Check duplication in changed files
-  run: npx fallow dupes --format json --quiet --changed-since ${{ github.event.pull_request.base.sha }}
+  run: npx fallow@3.43.0 dupes --format json --quiet --changed-since ${{ github.event.pull_request.base.sha }}
 ```
 
 Only reports duplication in files modified by the PR.
@@ -303,7 +303,7 @@ Computes the health score and compares against saved snapshots. The MR comment i
 fallow:
   image: node:20-slim
   script:
-    - npx fallow dead-code --fail-on-issues --quiet --format json > fallow-results.json
+    - npx fallow@3.43.0 dead-code --fail-on-issues --quiet --format json > fallow-results.json
   artifacts:
     paths:
       - fallow-results.json

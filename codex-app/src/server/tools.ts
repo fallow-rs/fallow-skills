@@ -7,10 +7,10 @@ import {
 import { z } from "zod";
 import type { Finding, ProjectRef, Report } from "../../../agent-view/src/contracts.ts";
 import type { Analysis } from "./analysis.ts";
-import { appFacing, isKnownRoot, problemResult, READ_ONLY, viewResult, type Extra, type ServerContext } from "./context.ts";
+import { appFacing, clientRoot, isKnownRoot, problemResult, READ_ONLY, viewResult, type Extra, type ServerContext } from "./context.ts";
 import { fallowVersion } from "./fallow-cli.ts";
 import { AUDIT_ICON, SIDEBAR_ICON } from "./icons.ts";
-import { resolveProject, sandboxFor, sandboxFromMeta } from "./project.ts";
+import { resolveProject, sandboxFor, sandboxFromMeta, type ResolvedProject } from "./project.ts";
 import { BASE_REF_PATTERN } from "./state.ts";
 import { auditSummary, auditText, findingMarkdown, reportSummary, reportText } from "../../../agent-view/src/summary.ts";
 
@@ -53,6 +53,17 @@ export const rootPolicy =
   async (root: string): Promise<boolean> =>
     trusted === true || (await isKnownRoot(context, root));
 
+/** Resolves the project of a tool call under the folder policy, with the client root as a fallback. */
+const resolveCallProject = (
+  context: ServerContext,
+  extra: Extra,
+  root: string | undefined,
+  trusted: boolean | undefined,
+): Promise<ResolvedProject | null> =>
+  resolveProject(context.store, extra.mcpReq._meta, root, rootPolicy(context, trusted), () =>
+    clientRoot(context),
+  );
+
 export const pickerResult = async (
   context: ServerContext,
   reason: string,
@@ -94,7 +105,7 @@ export const openDashboard = async (
   extra: Extra,
   options: DashboardOptions,
 ): Promise<CallToolResult> => {
-  const resolved = await resolveProject(context.store, extra.mcpReq._meta, options.root, rootPolicy(context, options.trusted));
+  const resolved = await resolveCallProject(context, extra, options.root, options.trusted);
   if (resolved === null)
     return pickerResult(context, "Fallow does not know which project to analyze yet.");
   const { project } = resolved;
@@ -136,7 +147,7 @@ export const openAudit = async (
   extra: Extra,
   options: { root?: string | undefined; base?: string | undefined; trusted?: boolean },
 ): Promise<CallToolResult> => {
-  const resolved = await resolveProject(context.store, extra.mcpReq._meta, options.root, rootPolicy(context, options.trusted));
+  const resolved = await resolveCallProject(context, extra, options.root, options.trusted);
   if (resolved === null)
     return pickerResult(context, "Fallow does not know which project to audit yet.");
   const settings = await context.store.settings();
@@ -162,7 +173,7 @@ const findFinding = async (
   id: string,
   root: string | undefined,
 ): Promise<{ project: ProjectRef; finding: Finding } | null> => {
-  const resolved = await resolveProject(context.store, extra.mcpReq._meta, root, rootPolicy(context, false));
+  const resolved = await resolveCallProject(context, extra, root, false);
   if (resolved === null) return null;
   const cached = context.analyzer.latest(resolved.project.root);
   const findings =
@@ -369,7 +380,13 @@ export const registerTools = (context: ServerContext): void => {
       annotations: READ_ONLY,
     },
     async (_args, extra) => {
-      const resolved = await resolveProject(context.store, extra.mcpReq._meta, undefined);
+      const resolved = await resolveProject(
+        context.store,
+        extra.mcpReq._meta,
+        undefined,
+        undefined,
+        () => clientRoot(context),
+      );
       const settings = await context.store.settings();
       const root = resolved?.project.root ?? process.cwd();
       const version = await fallowVersion(root, settings.source);

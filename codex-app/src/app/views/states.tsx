@@ -90,7 +90,9 @@ export const Picker = ({
         </section>
       ) : null}
       <p class="f-footnote">
-        Tip: open a project folder in a Codex thread, then open Code Health beside the chat.
+        {host.assistant === "Codex"
+          ? "Tip: open a project folder in a Codex thread, then open Code Health beside the chat."
+          : "Tip: start the chat in a project folder, then ask about its code health."}
       </p>
     </div>
   );
@@ -214,7 +216,7 @@ export const ProblemView = ({
               )
             }
           >
-            Ask Codex to fix it
+            {host.askLabel}
           </Button>
         ) : null}
       </div>

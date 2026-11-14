@@ -64,6 +64,16 @@ Two Codex host features matter as much as the extensions:
   maps it to a project from an earlier model call in that thread, or from the
   first line of the Codex session log of the thread.
 
+Other MCP hosts send no sandbox state. When the client declares the `roots`
+capability and no thread names a project, the server uses the first local
+folder root as the project. A client root is only a fallback: it does not
+change which folder arguments the server accepts.
+
+A host without the OpenAI message extension gets the standard `ui/message`
+instead. The app then sends one text block of at most 8,000 characters, the
+limit of Claude, and hides **New chat**. The button names the assistant of the
+host: **Fix with Codex**, **Fix with Claude**, or **Send to chat**.
+
 Codex gives the model the `structuredContent` of a tool result and drops
 `content` when both exist. So `structuredContent` holds a compact summary for
 the model (score, totals, the top findings with verify commands), and the full
@@ -132,10 +142,12 @@ the committed files differ.
 The threat model: you open a repository you do not trust, its content can steer the model, and
 the app iframe runs inside the Codex host.
 
-- **Which fallow runs.** Code that the repository controls runs only inside the Codex sandbox of
-  the thread: its own `node_modules/.bin/fallow`, or `npx` (pinned to `fallow@3`, run from a temp
-  folder with `--root`, so a repository `.npmrc` cannot redirect the install). Outside the sandbox
-  the app runs only a fallow on your PATH, and skips PATH entries inside the project.
+- **Which fallow runs.** Code that the repository controls, such as its own
+  `node_modules/.bin/fallow`, runs only inside the Codex sandbox of the thread. Outside the sandbox
+  the app runs a fallow on your PATH or in `FALLOW_BIN`, or, when you set the source to `npx`, the
+  exact release in `FALLOW_NPX_VERSION`. npx starts in a new empty folder with `--root`, so a
+  repository `.npmrc` or `node_modules` cannot change what runs. PATH entries inside the project
+  or inside any `node_modules` folder do not count.
 - **Whose sandbox state counts.** Only the model-only tools (`fallow_analyze`, `fallow_audit`,
   `fallow_plan_cleanup`) read `codex/sandbox-state-meta` from the call, and only when
   `codexExecutable` is an absolute path to `codex`. Every tool that the app iframe can call goes
