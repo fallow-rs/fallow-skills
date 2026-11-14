@@ -37,7 +37,7 @@ Read `code`, `message` and `help` of the JSON error. Some errors have no
 | `FALLOW_MUTATION_NON_TEST_CHANGE`, `FALLOW_MUTATION_SOURCE_CHANGED` | A recheck found a change to a file that is not a test file. Run without `--recheck`, and with `--allow-dirty` when the change is not committed. |
 | `FALLOW_MUTATION_NOTHING_TO_RECHECK` | The saved report has no open mutant. Do the last run of step 2. |
 | `FALLOW_MUTATION_RESUME_MISMATCH` | The journal comes from a run with other inputs. Run without `--resume`. |
-| The message has `unexpected argument` | The installed fallow is older than the flag. Tell the user to update fallow. Continue without the flag when the loop permits. |
+| The message has `unexpected argument` or `invalid value` | The installed fallow is older than this skill. Run `fallow --version` and tell the user to update fallow. Continue without that argument when the loop permits. Do not try other spellings. |
 | The message says that `--output-file` is outside the project root | Use a path in `.fallow/` or in the system temp directory. |
 
 ## A run that is not conclusive
