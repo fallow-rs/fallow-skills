@@ -532,7 +532,7 @@ Human output groups paths under "Shared with your team (commit these)" and "Loca
 {
   "kind": "agent-install",
   "schema_version": 1,
-  "fallow_version": "3.43.0",
+  "fallow_version": "3.43.1",
   "root": "/abs/path",
   "mode": "install",
   "dry_run": false,
@@ -744,7 +744,7 @@ fallow health --format json --quiet --trend
 {
   "kind": "health",
   "schema_version": 7,
-  "version": "3.43.0",
+  "version": "3.43.1",
   "elapsed_ms": 32,
   "summary": {
     "files_analyzed": 482,
@@ -1221,7 +1221,7 @@ fallow audit \
 {
   "kind": "audit",
   "schema_version": 7,
-  "version": "3.43.0",
+  "version": "3.43.1",
   "command": "audit",
   "verdict": "fail",
   "changed_files_count": 12,
@@ -1309,7 +1309,7 @@ fallow flags --format json --quiet --workspace my-package
 ```json
 {
   "schema_version": 7,
-  "version": "3.43.0",
+  "version": "3.43.1",
   "elapsed_ms": 116,
   "feature_flags": [],
   "total_flags": 0
@@ -1410,7 +1410,7 @@ fallow security --gate newly-reachable --changed-since origin/main
 {
   "kind": "security",
   "schema_version": "4",
-  "version": "3.43.0",
+  "version": "3.43.1",
   "elapsed_ms": 42,
   "config": {
     "rules": {
@@ -1439,7 +1439,7 @@ fallow security --gate newly-reachable --changed-since origin/main
 {
   "kind": "security",
   "schema_version": "4",
-  "version": "3.43.0",
+  "version": "3.43.1",
   "elapsed_ms": 42,
   "config": {
     "rules": {
@@ -2320,7 +2320,7 @@ The HTTP layer mirrors the bash `gh_api_retry` / `curl_retry` helpers: `FALLOW_A
 
 - **GitHub Actions**: `uses: fallow-rs/fallow@v3` - supports SARIF upload to Code Scanning, inline PR annotations (`annotations: true`), PR comments, all commands. `fail-on-issues` counts dead-code findings only when their rule is `error`, the same as the CLI exit code. An audit that compared no changed file (no pull request base) prints a `::warning::`. Annotations use workflow commands (no Advanced Security required); limit with `max-annotations` (default 50). Set `score: true` to compute health score and enable the health delta header in PR comments
 - **GitLab CI**: include `ci/gitlab-ci.yml` template and extend `.fallow` - generates Code Quality reports via `--format codeclimate` / `--format gitlab-codequality` (inline MR annotations), rich MR comments, code review comments, all commands. Use `fallow ci-template gitlab --vendor` when runners cannot reach `raw.githubusercontent.com`; commit the generated `ci/` and `action/` files and use GitLab's local include syntax. Variables use `FALLOW_` prefix (e.g., `FALLOW_COMMAND`, `FALLOW_FAIL_ON_ISSUES`). Set `FALLOW_SCORE: "true"` to compute health score; `FALLOW_TREND: "true"` to compare against saved snapshots
-- **Any CI**: `npx fallow@3.43.0 --ci` - equivalent to `--format sarif --fail-on-issues --quiet`
+- **Any CI**: `npx fallow@3.43.1 --ci` - equivalent to `--format sarif --fail-on-issues --quiet`
 
 ### GitLab CI Variables
 
@@ -2353,7 +2353,7 @@ The HTTP layer mirrors the bash `gh_api_retry` / `curl_retry` helpers: `FALLOW_A
 {
   "kind": "dead-code",
   "schema_version": 7,
-  "version": "3.43.0",
+  "version": "3.43.1",
   "elapsed_ms": 45,
   "total_issues": 12,
   "entry_points": {
@@ -2513,7 +2513,7 @@ When `--baseline` is used in combined output, the JSON includes a `baseline_delt
 {
   "kind": "dupes",
   "schema_version": 7,
-  "version": "3.43.0",
+  "version": "3.43.1",
   "elapsed_ms": 82,
   "total_clones": 15,
   "total_lines_duplicated": 230,
@@ -2557,11 +2557,11 @@ When running `fallow` with no subcommand (all analyses), the JSON output combine
 {
   "kind": "combined",
   "schema_version": 7,
-  "version": "3.43.0",
+  "version": "3.43.1",
   "elapsed_ms": 159,
   "check": {
     "schema_version": 7,
-    "version": "3.43.0",
+    "version": "3.43.1",
     "elapsed_ms": 45,
     "total_issues": 12,
     "unused_files": [],
