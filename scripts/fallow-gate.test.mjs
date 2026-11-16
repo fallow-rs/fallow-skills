@@ -131,6 +131,7 @@ test("a missing fallow binary allows the commit with a clear notice", { skip }, 
   const result = runGate(fixture, "git commit -m 'change'");
   assert.equal(result.status, 0);
   assert.match(result.stderr, /fallow binary is not installed/);
+  assert.match(result.stderr, /tried node_modules\/\.bin, PATH, yarn and npx --no-install/);
   assert.match(result.stderr, /continues without a fallow audit/);
 });
 

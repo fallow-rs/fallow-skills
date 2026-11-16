@@ -595,8 +595,9 @@ audit_here() {
   # version and in packaging. A real installed Git hook keeps its caller's PATH
   # and does not add node_modules/.bin, so `command -v` cannot see a
   # project-local install. The arms below cover the layouts that a
-  # project-local install can take. Keep them in step with the Lefthook job
-  # `fallow init --hooks` prints: the two must resolve the same installs.
+  # project-local install can take. The hooks of `fallow init --hooks` and
+  # `fallow agent install` still check PATH first; fallow-rs/fallow#4628
+  # tracks the change to this order there.
   if [ -x ./node_modules/.bin/fallow ]; then
     runner=(./node_modules/.bin/fallow)
     runner_desc="./node_modules/.bin/fallow"
@@ -613,7 +614,7 @@ audit_here() {
     runner_desc="npx --no-install fallow"
   else
     {
-      echo "fallow plugin gate: the fallow binary is not installed (tried PATH, node_modules/.bin, yarn and npx --no-install)."
+      echo "fallow plugin gate: the fallow binary is not installed (tried node_modules/.bin, PATH, yarn and npx --no-install)."
       echo "fallow plugin gate: the commit or push continues without a fallow audit."
       echo "fallow plugin gate: install fallow (npm install -D fallow) to turn the gate on, or set FALLOW_PLUGIN_GATE=off to hide this notice."
     } >&2

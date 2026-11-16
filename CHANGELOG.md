@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- The plugin commit gate runs the project-local `./node_modules/.bin/fallow` before a `fallow` on `PATH`. Before, a global install, for example a Homebrew bottle without the `fallow-type-aware` sidecar, won over the version that the project pins. The gate then blocked a commit on findings that the pinned version does not report.
+
 ## [1.4.46] - 2026-10-24
 
 ### Fixed
