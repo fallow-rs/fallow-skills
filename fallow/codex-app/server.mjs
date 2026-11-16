@@ -36299,7 +36299,7 @@ var MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
 var IS_WINDOWS = process.platform === "win32";
 var BIN_NAMES = IS_WINDOWS ? ["fallow.exe", "fallow.cmd", "fallow"] : ["fallow"];
 var INSTALL_FIX = "npm install --global fallow";
-var FALLOW_NPX_VERSION = "3.43.1";
+var FALLOW_NPX_VERSION = "3.43.2";
 var NPX_PACKAGE = `fallow@${FALLOW_NPX_VERSION}`;
 var BIN_OVERRIDE = "FALLOW_BIN";
 var isExecutable = async (path) => {
