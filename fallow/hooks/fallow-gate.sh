@@ -589,17 +589,20 @@ trap cleanup EXIT
 audit_here() {
   local runner_desc version_raw version min_version lower status verdict is_error msg err_line
   local -a runner
-  # A real installed Git hook keeps its caller's PATH and does not add
-  # node_modules/.bin, so a project-local install is invisible to `command -v`.
-  # The arms below cover the layouts a project-local install can take, in the
-  # order they are cheapest to probe. Keep them in step with the Lefthook job
+  # The project pins its fallow version in its dependencies, so the
+  # project-local launcher wins over a fallow on PATH. A global install, for
+  # example a Homebrew bottle without the type-aware sidecar, can differ in
+  # version and in packaging. A real installed Git hook keeps its caller's PATH
+  # and does not add node_modules/.bin, so `command -v` cannot see a
+  # project-local install. The arms below cover the layouts that a
+  # project-local install can take. Keep them in step with the Lefthook job
   # `fallow init --hooks` prints: the two must resolve the same installs.
-  if command -v fallow >/dev/null 2>&1; then
-    runner=(fallow)
-    runner_desc="$(command -v fallow)"
-  elif [ -x ./node_modules/.bin/fallow ]; then
+  if [ -x ./node_modules/.bin/fallow ]; then
     runner=(./node_modules/.bin/fallow)
     runner_desc="./node_modules/.bin/fallow"
+  elif command -v fallow >/dev/null 2>&1; then
+    runner=(fallow)
+    runner_desc="$(command -v fallow)"
   elif command -v yarn >/dev/null 2>&1 && YARN_BIN="$(yarn bin fallow 2>/dev/null)" && [ -n "$YARN_BIN" ]; then
     # Yarn Plug'n'Play has no node_modules/.bin at all, so neither the launcher
     # check above nor npx can see the install.
