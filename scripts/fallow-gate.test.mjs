@@ -131,6 +131,7 @@ test("a missing fallow binary allows the commit with a clear notice", { skip }, 
   const result = runGate(fixture, "git commit -m 'change'");
   assert.equal(result.status, 0);
   assert.match(result.stderr, /fallow binary is not installed/);
+  assert.match(result.stderr, /tried node_modules\/\.bin, PATH, yarn and npx --no-install/);
   assert.match(result.stderr, /continues without a fallow audit/);
 });
 
@@ -785,4 +786,40 @@ test("FALLOW_PLUGIN_GATE=off turns the gate off", { skip }, () => {
   const result = runGate(fixture, "git commit -m 'change'", { FALLOW_PLUGIN_GATE: "off" });
   assert.equal(result.status, 0);
   assert.deepEqual(auditCalls(fixture), []);
+});
+
+// Writes a fake project-local fallow launcher that returns the given verdict.
+const writeLocalFallow = (fixture, verdict) => {
+  const binDir = join(fixture.project, "node_modules", ".bin");
+  mkdirSync(binDir, { recursive: true });
+  const local = join(binDir, "fallow");
+  writeFileSync(
+    local,
+    [
+      "#!/usr/bin/env bash",
+      `echo "local $* @ $PWD" >> '${fixture.calls}'`,
+      'if [ "${1:-}" = "--version" ]; then echo "fallow 9.9.8"; exit 0; fi',
+      `echo '${JSON.stringify({ verdict })}'`,
+      `exit ${verdict === "fail" ? 1 : 0}`,
+      "",
+    ].join("\n"),
+  );
+  chmodSync(local, 0o755);
+};
+
+test("the project-local fallow wins over a fallow on PATH", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  writeLocalFallow(fixture, "fail");
+  const result = runGate(fixture, "git commit -m 'change'");
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /blocked by fallow 9\.9\.8 at \.\/node_modules\/\.bin\/fallow/);
+  assert.deepEqual(auditCalls(fixture), []);
+});
+
+test("a fallow on PATH runs when the project has no local install", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail", summary: {} }, fallowExit: 1 });
+  const result = runGate(fixture, "git commit -m 'change'");
+  assert.equal(result.status, 2);
+  assert.ok(result.stderr.includes(`blocked by fallow 9.9.9 at ${join(fixture.bin, "fallow")} in `), result.stderr);
+  assert.equal(auditCalls(fixture).length, 1);
 });
