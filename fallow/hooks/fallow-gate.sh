@@ -596,8 +596,7 @@ audit_here() {
   # and does not add node_modules/.bin, so `command -v` cannot see a
   # project-local install. The arms below cover the layouts that a
   # project-local install can take. The hooks of `fallow init --hooks` and
-  # `fallow agent install` still check PATH first; fallow-rs/fallow#4628
-  # tracks the change to this order there.
+  # `fallow agent install` use the same order.
   if [ -x ./node_modules/.bin/fallow ]; then
     runner=(./node_modules/.bin/fallow)
     runner_desc="./node_modules/.bin/fallow"
