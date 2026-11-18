@@ -1,6 +1,6 @@
 {
   "name": "fallow",
-  "version": "1.4.151",
+  "version": "1.4.152",
   "description": "Local-first codebase intelligence for TypeScript and JavaScript using fallow",
   "author": {
     "name": "Bart Waardenburg",
