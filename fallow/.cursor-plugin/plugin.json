@@ -1,7 +1,7 @@
 {
   "name": "fallow",
   "displayName": "Fallow Code Analysis",
-  "version": "1.4.160",
+  "version": "1.4.161",
   "description": "Local-first codebase intelligence and Impact summaries for TypeScript and JavaScript using fallow",
   "author": {
     "name": "Bart Waardenburg",
@@ -31,7 +31,7 @@
   "mcpServers": {
     "fallow": {
       "command": "npx",
-      "args": ["--yes", "--prefix", "${userHome}", "--package", "fallow@3.44.0", "fallow-mcp"]
+      "args": ["--yes", "--prefix", "${userHome}", "--package", "fallow@3.45.0", "fallow-mcp"]
     }
   }
 }
