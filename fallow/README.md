@@ -38,10 +38,25 @@ In an earlier version, add the marketplace first:
   `.fallowrc.jsonc`, `fallow.toml` or `.fallow.toml` file, or a `fallow`
   dependency in `package.json`. It audits the nearest such directory above
   the session directory. It does nothing when `fallow agent install` already
-  registered its own gate for Claude Code or Codex. A
-  missing fallow binary, a missing jq or a fallow version below 2.85.0 allows
-  the command with a notice. Set `FALLOW_PLUGIN_GATE=off` in the environment
-  of Claude Code to turn it off.
+  registered its own gate for Claude Code or Codex. The gate runs the first
+  `fallow` in an absolute `PATH` entry that has no `node_modules` component
+  and is outside the session tree, the tree of each write target and the
+  tree of each audited directory. It does not run a project-local
+  `node_modules/.bin/fallow`, `yarn exec` or `npx`, and it takes jq, git and
+  the other helpers only from the `PATH` entries that the same rules keep.
+  When the tree of a write target holds the only such `fallow` or `git`,
+  the gate blocks the command and names the target. The hook runs the
+  script with `/bin/bash` when it exists. The gate also skips a
+  version-manager shim, because a shim can run the fallow that the project
+  installs: a `fallow` in a directory named `shims`, in `.volta/bin` or
+  `volta/bin`, in `$VOLTA_HOME/bin`, `$ASDF_DATA_DIR/shims` or
+  `$MISE_DATA_DIR/shims` (before or after links), or a `fallow` that links
+  to `volta-shim`. Install fallow globally outside a version manager, with
+  `npm install -g fallow` or `cargo install fallow-cli`. The global fallow
+  can have another version than the `fallow` that the project pins. A
+  missing fallow, a missing jq or a fallow version below 2.85.0 allows the
+  command with a notice. Set
+  `FALLOW_PLUGIN_GATE=off` in the environment of Claude Code to turn it off.
 
 - Fallow app (Codex desktop): a local MCP server and MCP App in `codex-app/`.
   It adds the Fallow dashboard to the sidebar, a Code Health tab beside each

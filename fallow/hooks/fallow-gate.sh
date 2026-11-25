@@ -24,8 +24,26 @@ set -euo pipefail
 #   target alone when git shows that the push cannot send the session branch.
 # - Codex also loads this hook from the plugin. It defers to a gate that
 #   `fallow agent install` registered for Claude Code or for Codex.
-# - A missing fallow binary, a missing jq or a fallow binary below the version
-#   floor allows the command and prints a clear notice on stderr.
+# - The gate runs the first `fallow` in an absolute PATH entry that has no
+#   node_modules component and is outside the session tree, the tree of each
+#   write target and the tree of each audited directory. The physical path of
+#   that fallow is also outside these trees. It does not run a project-local
+#   launcher, yarn, npx or a version-manager shim (a directory named shims, a
+#   Volta bin directory, the shim directory of VOLTA_HOME, ASDF_DATA_DIR or
+#   MISE_DATA_DIR, or a program named volta-shim), because a shim can run the
+#   fallow that the project installs. The helpers (jq, git, sed and the
+#   others) come only from the PATH entries that the same rules keep. jq
+#   parses the hook input before the gate knows the write targets, and tr
+#   and awk read a command outside the allowlist before the gate finds the
+#   targets. A session or target directory that is `/`, or HOME outside git,
+#   excludes only that directory, so the user tools below HOME stay in use.
+#   A target or audit root that is HOME also excludes only HOME itself.
+# - When the tree of a write target or of an audited directory holds the
+#   only trusted fallow or git, the gate blocks the command (exit 2) before
+#   any audit and names the target. Without that tree the fallow or git is
+#   trusted, so the gate cannot allow the command with no audit.
+# - A missing trusted fallow binary, a missing jq or a fallow binary below the
+#   version floor allows the command and prints a clear notice on stderr.
 #
 # Requires bash and jq. On Windows run via git-bash or WSL.
 # Blocks git commit and git push when fallow audit returns verdict fail.
@@ -42,7 +60,264 @@ if [ "${FALLOW_PLUGIN_GATE:-}" = "off" ]; then
   exit 0
 fi
 
-INPUT="$(cat)"
+# Most Bash commands are not a git commit or push. The prefilter reads the
+# hook input with shell builtins only and exits when the input cannot hold
+# one. It removes the characters that can hide a git word (quotes,
+# backslashes, `$`, parentheses, braces and backticks) and then looks for git
+# followed by commit or push. An input with a JSON \u escape, or an input
+# longer than PREFILTER_MAX bytes, goes to the full check, because the
+# removal is slow on a long input in bash 3.2.
+PREFILTER_MAX=2048
+{ INPUT="$(</dev/stdin)"; } 2>/dev/null || INPUT=""
+prefilter_can_write() {
+  local LC_ALL=C text="$1"
+  [ "${#text}" -le "$PREFILTER_MAX" ] || return 0
+  case "$text" in
+    *'\u'*) return 0 ;;
+  esac
+  text="${text//\\/}"
+  text="${text//\"/}"
+  text="${text//\'/}"
+  text="${text//\$/}"
+  text="${text//\(/}"
+  text="${text//\)/}"
+  text="${text//\`/}"
+  text="${text//\{/}"
+  text="${text//\}/}"
+  case "$text" in
+    *git*commit* | *git*push*) return 0 ;;
+  esac
+  return 1
+}
+if ! prefilter_can_write "$INPUT"; then
+  if [ -n "${FALLOW_GATE_DEBUG:-}" ]; then
+    echo "fallow plugin gate: not a git commit/push, skipping audit." >&2
+  fi
+  exit 0
+fi
+
+# PATH rules. The gate runs a program, a helper such as jq or git or the
+# fallow audit, only from an absolute PATH entry. The entry has no
+# node_modules component, before or after links, and it is not inside an
+# excluded tree: the session tree, the tree of each target of the git write,
+# and the tree of each audited directory. The tree of a directory is the
+# union of its git work tree top and the nearest directory with a .git
+# entry. Path comparisons ignore letter case. These functions use shell
+# builtins and no subshell, so the gate filters PATH before each new tree
+# can run a program. An EXCLUDED entry that starts with `=` excludes only
+# that one directory, not the directories below it.
+#
+# The gate keeps two lists of the trees that it adds. BASE_TREES holds the
+# trees of the process directory and of the session. TARGET_TREES holds the
+# trees of each command target and audit root, and TARGET_LABELS holds the
+# target word or root for each entry. When the target trees remove a fallow
+# or a git that the base trees keep, the gate blocks the command and names
+# the target, because it cannot audit that target.
+EXCLUDED=()
+ORIG_PATH="$PATH"
+BASE_TREES=()
+TARGET_TREES=()
+TARGET_LABELS=()
+
+# Sets RESOLVED to the physical path of directory $1, with every link
+# resolved. Returns 1 when $1 is empty or is not a directory.
+resolve_dir() {
+  local back="$PWD"
+  RESOLVED=""
+  [ -n "$1" ] || return 1
+  CDPATH='' cd -P -- "$1" 2>/dev/null || return 1
+  RESOLVED="$PWD"
+  if ! CDPATH='' cd -- "$back" 2>/dev/null; then
+    echo "fallow plugin gate: cannot return to $back. The command continues without a fallow audit." >&2
+    exit 0
+  fi
+}
+
+# Returns 0 when path $1 has a node_modules component, in any letter case.
+has_node_modules() {
+  local found=1
+  shopt -s nocasematch
+  case "/$1/" in
+    */node_modules/*) found=0 ;;
+  esac
+  shopt -u nocasematch
+  return "$found"
+}
+
+# Returns 0 when path $1 is directory $2 or a path inside it, in any letter
+# case.
+inside_tree() {
+  local dir="${1%/}/" tree="${2%/}/" found=1
+  shopt -s nocasematch
+  case "$dir" in
+    "$tree"*) found=0 ;;
+  esac
+  shopt -u nocasematch
+  return "$found"
+}
+
+# Sets ANCESTOR to the nearest directory at or above $1 that holds a .git
+# entry. Returns 1 and sets ANCESTOR to $1 when no directory does, or when $1
+# is not an absolute path.
+git_ancestor() {
+  local dir="$1"
+  ANCESTOR="$1"
+  case "$dir" in
+    /*) ;;
+    *) return 1 ;;
+  esac
+  while :; do
+    if [ -e "$dir/.git" ]; then
+      ANCESTOR="$dir"
+      return 0
+    fi
+    [ -n "$dir" ] && [ "$dir" != / ] || return 1
+    dir="${dir%/*}"
+    [ -n "$dir" ] || dir=/
+  done
+}
+
+# Returns 0 when paths $1 and $2 name the same directory, in any letter case.
+is_same_dir() {
+  inside_tree "$1" "$2" && inside_tree "$2" "$1"
+}
+
+# Returns 0 when path $1 is excluded: it is inside a tree of EXCLUDED, or it
+# is the directory of an exact entry. A tree of `/` excludes nothing.
+is_excluded() {
+  local tree
+  for tree in ${EXCLUDED[@]+"${EXCLUDED[@]}"}; do
+    case "$tree" in
+      /) ;;
+      =*) ! is_same_dir "$1" "${tree#=}" || return 0 ;;
+      *) ! inside_tree "$1" "$tree" || return 0 ;;
+    esac
+  done
+  return 1
+}
+
+# Sets TREES to the trees of directory $1: the nearest directory with a .git
+# entry, and the git top $2 when the caller knows it. Without a .git entry,
+# the tree is $1 itself when $3 is `self`. A tree that is HOME or `/`, for a
+# directory below it, becomes the directory itself, so a git repository of
+# the home folder keeps the user tools under HOME in use. A tree that is `/`,
+# or HOME without a .git entry, for that same directory, excludes only that
+# one directory. When $4 is not `base` (a command target or an audit root), a
+# tree that is HOME for that same directory also excludes only HOME itself.
+tree_of() {
+  local dir="$1" home="" tree kind="${4:-}"
+  local -a found
+  ! resolve_dir "$dir" || dir="$RESOLVED"
+  found=()
+  if git_ancestor "$dir" || [ "${3:-}" = self ]; then
+    found+=("$ANCESTOR")
+  fi
+  if [ -n "${2:-}" ]; then
+    if resolve_dir "$2"; then found+=("$RESOLVED"); else found+=("$2"); fi
+  fi
+  ! resolve_dir "${HOME:-}" || home="$RESOLVED"
+  TREES=()
+  for tree in ${found[@]+"${found[@]}"}; do
+    if [ "$tree" = / ] || { [ -n "$home" ] && is_same_dir "$tree" "$home"; }; then
+      if ! inside_tree "$tree" "$dir"; then
+        tree="$dir"
+      elif [ "$tree" = / ] || [ "$kind" != base ] || [ ! -e "$home/.git" ]; then
+        tree="=$dir"
+      fi
+    fi
+    TREES+=("$tree")
+  done
+}
+
+# Adds each tree in the arguments to EXCLUDED and sets PATH to the entries
+# that the rules keep. Each kept entry is its resolved directory. When no
+# entry stays, PATH names a directory with no programs, because an empty PATH
+# searches the current directory.
+filter_path() {
+  local entry dir kept=""
+  local -a entries
+  EXCLUDED+=(${1+"$@"})
+  IFS=: read -r -a entries <<<"$PATH"
+  for entry in ${entries[@]+"${entries[@]}"}; do
+    case "$entry" in
+      /*) ;;
+      *) continue ;;
+    esac
+    ! has_node_modules "$entry" || continue
+    resolve_dir "$entry" || continue
+    dir="$RESOLVED"
+    # A colon in the resolved directory would split it into other entries.
+    case "$dir" in
+      *:*) continue ;;
+    esac
+    ! has_node_modules "$dir" || continue
+    ! is_excluded "$dir" || continue
+    kept="${kept:+$kept:}$dir"
+  done
+  PATH="${kept:-/var/empty}"
+}
+
+# Adds TREES to BASE_TREES when $1 is `base`, or to TARGET_TREES with the
+# label $1 for any other non-empty $1.
+record_trees() {
+  local tree
+  [ -n "$1" ] || return 0
+  for tree in ${TREES[@]+"${TREES[@]}"}; do
+    if [ "$1" = base ]; then
+      BASE_TREES+=("$tree")
+    else
+      TARGET_TREES+=("$tree")
+      TARGET_LABELS+=("$1")
+    fi
+  done
+}
+
+# Excludes the trees of directory $1 (relative to START when not absolute),
+# with the git top $2 when the caller knows it. $3 is passed to tree_of. A
+# target outside every git work tree takes no write, so for a target the
+# caller leaves $3 empty. $4 is passed to tree_of and record_trees. A path with `..` after
+# a link names one directory for a logical cd and another for a physical cd,
+# so the gate excludes the trees of both.
+exclude_dir() {
+  local dir="$1" back="$PWD" logical="" mode="${3:-}" kind="${4:-}"
+  case "$dir" in
+    /*) ;;
+    *) dir="$START/$dir" ;;
+  esac
+  if CDPATH='' cd -L -- "$dir" 2>/dev/null; then
+    ! CDPATH='' cd -P -- . 2>/dev/null || logical="$PWD"
+    if ! CDPATH='' cd -- "$back" 2>/dev/null; then
+      echo "fallow plugin gate: cannot return to $back. The command continues without a fallow audit." >&2
+      exit 0
+    fi
+  fi
+  tree_of "$dir" "${2:-}" "$mode" "$kind"
+  record_trees "$kind"
+  filter_path ${TREES[@]+"${TREES[@]}"}
+  if [ -n "$logical" ]; then
+    tree_of "$logical" "" "$mode" "$kind"
+    record_trees "$kind"
+    filter_path ${TREES[@]+"${TREES[@]}"}
+  fi
+}
+
+# Excludes the trees of a location from git_location: the work tree
+# directory on line 3, with the work tree top on line 1. The location is a
+# command target.
+exclude_location() {
+  local top gitdir dir
+  {
+    IFS= read -r top || true
+    IFS= read -r gitdir || true
+    IFS= read -r dir || true
+  } <<<"$1"
+  [ -z "$dir" ] || exclude_dir "$dir" "$top" "" "$dir"
+}
+
+# The hook input is not parsed yet, so the first tree is the one of the
+# process directory.
+START="$PWD"
+exclude_dir "$PWD" "" self base
 
 # The plugin is installed for the user, not for one project, so the gate runs
 # only in a project that chose fallow: a fallow config file, or `fallow` in the
@@ -72,7 +347,22 @@ if [ "$HAVE_JQ" -eq 1 ]; then
   START="$(jq -r '.cwd // empty' <<<"$INPUT" 2>/dev/null || true)"
   CMD="$(jq -r '.tool_input.command // empty' <<<"$INPUT" 2>/dev/null || true)"
 fi
+# A relative cwd is relative to the process directory.
+case "$START" in
+  '' | /*) ;;
+  *) START="$PWD/$START" ;;
+esac
 [ -n "$START" ] && [ -d "$START" ] || START="$PWD"
+# The process directory is already excluded.
+[ "$START" = "$PWD" ] || exclude_dir "$START" "" self base
+# The git that the gate uses when no command target removes it. The lookup
+# runs no program.
+BASE_GIT_DIR=""
+if BASE_GIT="$(command -v git 2>/dev/null)"; then
+  case "$BASE_GIT" in
+    /*) BASE_GIT_DIR="${BASE_GIT%/*}" ;;
+  esac
+fi
 
 # Prints the nearest opted-in directory at or above $1. Without $2 the walk
 # stops at the first .git entry. With $2 it stops after directory $2, the top
@@ -116,9 +406,15 @@ join_path() {
   esac
 }
 
+# Every git call of the gate sets safe.bareRepository=explicit, so git uses a
+# bare repository only when the command names it.
+gate_git() {
+  git -c safe.bareRepository=explicit "$@"
+}
+
 # Prints the physical path of directory $1. Returns 1 when it is not one.
 physical() {
-  (CDPATH='' cd -- "$1" 2>/dev/null && pwd -P)
+  (CDPATH='' cd -P -- "$1" 2>/dev/null && pwd -P)
 }
 
 # Runs git rev-parse in a subshell, from the session directory, after the
@@ -132,9 +428,9 @@ git_rev_parse() (
     cd-P) CDPATH='' cd -P -- "$1" 2>/dev/null || exit 1 ;;
   esac
   if [ "$mode" = -C ]; then
-    git "$@" rev-parse --show-toplevel --absolute-git-dir --show-prefix --path-format=absolute --git-common-dir 2>/dev/null
+    gate_git "$@" rev-parse --show-toplevel --absolute-git-dir --show-prefix --path-format=absolute --git-common-dir 2>/dev/null
   else
-    git rev-parse --show-toplevel --absolute-git-dir --show-prefix --path-format=absolute --git-common-dir 2>/dev/null
+    gate_git rev-parse --show-toplevel --absolute-git-dir --show-prefix --path-format=absolute --git-common-dir 2>/dev/null
   fi
 )
 
@@ -149,10 +445,12 @@ git_location() {
   local mode="$1" out top gitdir prefix common
   shift
   out="$(git_rev_parse "$mode" "$@")" || return 1
-  top="$(printf '%s\n' "$out" | sed -n 1p)"
-  gitdir="$(printf '%s\n' "$out" | sed -n 2p)"
-  prefix="$(printf '%s\n' "$out" | sed -n 3p)"
-  common="$(printf '%s\n' "$out" | sed -n 4p)"
+  {
+    IFS= read -r top || true
+    IFS= read -r gitdir || true
+    IFS= read -r prefix || true
+    IFS= read -r common || true
+  } <<<"$out"
   [ -n "$top" ] && [ -n "$gitdir" ] && [ -n "$common" ] || return 1
   top="$(physical "$top")" || return 1
   gitdir="$(physical "$gitdir")" || return 1
@@ -339,6 +637,30 @@ match_allowlist() {
 # Longest command, in characters, that the allowlist reads.
 ALLOWLIST_MAX=16384
 
+# Sets HOME_FORM to the path that target $1 names when the shell expands its
+# last ~, $HOME or ${HOME} component to HOME, or to the empty string when $1
+# has no such component or HOME is not set. The loose scan joins a -C word to
+# the path of an earlier -C, so the component can follow other components.
+home_form() {
+  local head="$1" tail="" part
+  HOME_FORM=""
+  [ -n "${HOME:-}" ] || return 0
+  while :; do
+    part="${head##*/}"
+    # shellcheck disable=SC2016
+    case "$part" in
+      \~ | '$HOME' | '${HOME}')
+        HOME_FORM="${HOME%/}$tail"
+        HOME_FORM="${HOME_FORM:-/}"
+        return 0
+        ;;
+    esac
+    [ "$head" != "$part" ] || return 0
+    tail="/$part$tail"
+    head="${head%/*}"
+  done
+}
+
 # Quotes, backslashes, substitutions and line continuations can hide a git
 # word (g\it, "com"mit, git -C "$(pwd)" commit). The floor also counts a copy
 # of the command without these characters and with its lines joined.
@@ -347,13 +669,35 @@ FLAT="$(printf '%s' "$CMD" | tr -d '\\"'"'"'$()`{}' | tr '\n' ' ')"
 set -f
 case "$FLAT" in
   *git*commit* | *git*push*)
+    # The allowlist match uses only builtins, so the gate excludes its target
+    # before the loose scan starts awk.
+    if [ "${#CMD}" -le "$ALLOWLIST_MAX" ]; then
+      match_allowlist "$CMD" || ALLOWED_DIR=""
+    fi
+    [ -z "$ALLOWED_DIR" ] || exclude_dir "$ALLOWED_DIR" "" "" "$ALLOWED_DIR"
     if [ "$FLAT" = "$CMD" ]; then
       scan_loose "$CMD"
     else
       scan_loose "$CMD" "$FLAT"
     fi
-    if [ "${#CMD}" -le "$ALLOWLIST_MAX" ]; then
-      match_allowlist "$CMD" || ALLOWED_DIR=""
+    # The gate excludes each target before its first git call. The later
+    # target loop reads the unquoted words.
+    if [ "${#TARGETS[@]}" -gt 0 ]; then
+      for i in "${!TARGETS[@]}"; do
+        target="${TARGETS[$i]}"
+        case "$target" in
+          \'*\' | \"*\") target="${target:1:${#target}-2}" ;;
+        esac
+        TARGETS[i]="$target"
+        exclude_dir "$target" "" "" "$target"
+        # The gate keeps the literal target and adds the HOME form, because
+        # the shell expands ~ in some words and not in others.
+        home_form "$target"
+        if [ -n "$HOME_FORM" ]; then
+          TARGETS+=("$HOME_FORM")
+          exclude_dir "$HOME_FORM" "" "" "$HOME_FORM"
+        fi
+      done
     fi
     ;;
 esac
@@ -365,6 +709,46 @@ if [ "$LOOSE_WRITES" -eq 0 ] && [ -z "$ALLOWED_DIR" ]; then
   fi
   exit 0
 fi
+
+# Returns 0 when the EXCLUDED entry $1 excludes path $2.
+tree_holds() {
+  local -a EXCLUDED
+  EXCLUDED=("$1")
+  is_excluded "$2"
+}
+
+# Sets HOLDER to the label of the first target tree that holds directory $1.
+# Returns 1 when no target tree holds it.
+target_holding() {
+  local i
+  HOLDER=""
+  [ "${#TARGET_TREES[@]}" -gt 0 ] || return 1
+  for i in "${!TARGET_TREES[@]}"; do
+    if tree_holds "${TARGET_TREES[$i]}" "$1"; then
+      HOLDER="${TARGET_LABELS[$i]}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Blocks the command when the target trees removed the only git from PATH
+# and the session or that target opts in. Without git the gate cannot find
+# the trees to audit. When no tree opts in, the gate has nothing to audit.
+require_git() {
+  local dir
+  ! command -v git >/dev/null 2>&1 || return 0
+  [ -n "$BASE_GIT_DIR" ] && target_holding "$BASE_GIT_DIR" || return 0
+  dir="$(join_path "$START" "$HOLDER")"
+  find_root "$START" >/dev/null || find_root "$dir" >/dev/null || return 0
+  {
+    echo "fallow plugin gate: blocked: the only git on PATH is in $BASE_GIT_DIR, inside the tree of the command target $HOLDER."
+    echo "fallow plugin gate: the gate does not run a program from a tree that the command writes to, so it cannot audit this commit or push."
+    echo "fallow plugin gate: install git outside that tree, or set FALLOW_PLUGIN_GATE=off to turn the gate off."
+  } >&2
+  exit 2
+}
+require_git
 
 # Git decides where a write lands. The gate asks git for the work tree top and
 # the git directory of each target, and of the session directory. The session
@@ -382,10 +766,16 @@ SESSION_TOP=""
 SESSION_GITDIR=""
 SESSION_COMMON=""
 if session_location="$(git_location none)"; then
-  SESSION_TOP="$(printf '%s\n' "$session_location" | sed -n 1p)"
-  SESSION_GITDIR="$(printf '%s\n' "$session_location" | sed -n 2p)"
-  SESSION_COMMON="$(printf '%s\n' "$session_location" | sed -n 4p)"
+  {
+    IFS= read -r SESSION_TOP || true
+    IFS= read -r SESSION_GITDIR || true
+    IFS= read -r _ || true
+    IFS= read -r SESSION_COMMON || true
+  } <<<"$session_location"
 fi
+# The session tree is the union of the work tree top of the session
+# directory and the nearest directory with a .git entry.
+exclude_dir "$START" "$SESSION_TOP" self base
 SESSION_ROOT="$(find_root "$START" || true)"
 SESSION_ROOT_PHYSICAL=""
 [ -z "$SESSION_ROOT" ] || SESSION_ROOT_PHYSICAL="$(physical "$SESSION_ROOT" || true)"
@@ -408,12 +798,12 @@ SESSION_ROOT_PHYSICAL=""
 push_spares_session() (
   local target="$1" word src ref head session_ref push_default rc
   local positionals=0 refspecs=0
-  if ! head="$(git -C "$target" rev-parse --symbolic-full-name HEAD 2>/dev/null)"; then
+  if ! head="$(gate_git -C "$target" rev-parse --symbolic-full-name HEAD 2>/dev/null)"; then
     return 1
   fi
   [ -n "$head" ] || return 1
   # Exit 1 means a detached HEAD: no session branch, so no ref can match it.
-  if session_ref="$(git -C "$START" symbolic-ref -q HEAD 2>/dev/null)"; then
+  if session_ref="$(gate_git -C "$START" symbolic-ref -q HEAD 2>/dev/null)"; then
     :
   else
     rc=$?
@@ -435,14 +825,14 @@ push_spares_session() (
     case "$src" in
       '' | -*) return 1 ;;
     esac
-    if ! ref="$(git -C "$target" rev-parse --symbolic-full-name "$src" 2>/dev/null)"; then
+    if ! ref="$(gate_git -C "$target" rev-parse --symbolic-full-name "$src" 2>/dev/null)"; then
       return 1
     fi
     [ -n "$ref" ] && [ "$ref" = "$head" ] && [ "$ref" != "$session_ref" ] || return 1
   done
   if [ "$refspecs" -eq 0 ]; then
     # Exit 1 means that push.default is not set.
-    if push_default="$(git -C "$target" config --get push.default 2>/dev/null)"; then
+    if push_default="$(gate_git -C "$target" config --get push.default 2>/dev/null)"; then
       :
     else
       rc=$?
@@ -454,7 +844,7 @@ push_spares_session() (
       *) return 1 ;;
     esac
     # Exit 1 means that no remote has a push or mirror setting.
-    if git -C "$target" config --get-regexp '^remote\..*\.(push|mirror)$' >/dev/null 2>&1; then
+    if gate_git -C "$target" config --get-regexp '^remote\..*\.(push|mirror)$' >/dev/null 2>&1; then
       return 1
     else
       rc=$?
@@ -471,10 +861,12 @@ push_spares_session() (
 # push ($2 push) that push_spares_session accepts.
 add_target() {
   local top gitdir dir common
-  top="$(printf '%s\n' "$1" | sed -n 1p)"
-  gitdir="$(printf '%s\n' "$1" | sed -n 2p)"
-  dir="$(printf '%s\n' "$1" | sed -n 3p)"
-  common="$(printf '%s\n' "$1" | sed -n 4p)"
+  {
+    IFS= read -r top || true
+    IFS= read -r gitdir || true
+    IFS= read -r dir || true
+    IFS= read -r common || true
+  } <<<"$1"
   STARTS+=("$dir|$top")
   [ -n "$SESSION_TOP" ] || return 1
   [ "$top" != "$SESSION_TOP" ] && [ "$gitdir" != "$SESSION_GITDIR" ] || return 1
@@ -494,12 +886,14 @@ if [ -n "$ALLOWED_DIR" ]; then
   if [ "$ALLOWED_MODE" = cd ]; then
     for mode in cd-L cd-P; do
       if location="$(git_location "$mode" "${ALLOWED_DIRS[0]}")"; then
+        exclude_location "$location"
         add_target "$location" "$ALLOWED_SUBCOMMAND" || target_alone=0
       else
         target_alone=0
       fi
     done
   elif location="$(git_location -C ${ALLOWED_DIRS[@]+"${ALLOWED_DIRS[@]}"})"; then
+    exclude_location "$location"
     add_target "$location" "$ALLOWED_SUBCOMMAND" || target_alone=0
   else
     target_alone=0
@@ -512,15 +906,15 @@ if [ "$AUDIT_SESSION" -eq 1 ]; then
   STARTS+=("$START|")
   if [ "${#TARGETS[@]}" -gt 0 ]; then
     for target in "${TARGETS[@]}"; do
-      case "$target" in
-        \'*\' | \"*\") target="${target:1:${#target}-2}" ;;
-      esac
       if location="$(git_location cd-P "$target")"; then
+        exclude_location "$location"
         add_target "$location" || true
       fi
     done
   fi
 fi
+# The work tree tops of the targets can add trees that hold the git.
+require_git
 
 # ROOTS holds the physical path of each opted-in directory to audit, once.
 ROOTS=()
@@ -584,43 +978,144 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Sets RESOLVED_FILE to the physical path of file $1, after every link.
+# Returns 1 after 40 links or when a link cannot be read.
+resolve_file() {
+  local file="$1" link hops=0
+  while [ -L "$file" ]; do
+    hops=$((hops + 1))
+    [ "$hops" -le 40 ] || return 1
+    link="$(readlink -- "$file" 2>/dev/null)" || return 1
+    case "$link" in
+      /*) file="$link" ;;
+      *) file="${file%/*}/$link" ;;
+    esac
+  done
+  resolve_dir "${file%/*}" || return 1
+  RESOLVED_FILE="${RESOLVED%/}/${file##*/}"
+}
+
+# Returns 0 when directory $1 is a known version-manager shim directory, in
+# any letter case: a directory named shims (this covers mise, asdf and any
+# data directory of them), .volta/bin, volta/bin (the Windows form), or one of
+# VOLTA_HOME/bin, ASDF_DATA_DIR/shims and MISE_DATA_DIR/shims when the
+# variable is set, before or after links. A shim can run the fallow that the
+# project installs. RESOLVED of the caller does not change.
+is_shim_dir() {
+  local dir="${1%/}" shim=1 base sub saved="$RESOLVED"
+  shopt -s nocasematch
+  case "$dir" in
+    */shims | */.volta/bin | */volta/bin) shim=0 ;;
+  esac
+  for base in "VOLTA_HOME|bin" "ASDF_DATA_DIR|shims" "MISE_DATA_DIR|shims"; do
+    [ "$shim" -eq 1 ] || break
+    sub="${base#*|}"
+    base="${base%%|*}"
+    base="${!base:-}"
+    [ -n "$base" ] || continue
+    base="${base%/}/$sub"
+    case "$dir" in
+      "$base") shim=0 ;;
+    esac
+    if [ "$shim" -eq 1 ] && resolve_dir "$base"; then
+      case "$dir" in
+        "$RESOLVED") shim=0 ;;
+      esac
+    fi
+  done
+  shopt -u nocasematch
+  RESOLVED="$saved"
+  return "$shim"
+}
+
+# Returns 0 when file name $1 is volta-shim, in any letter case.
+is_shim_name() {
+  local shim=1
+  shopt -s nocasematch
+  case "$1" in
+    volta-shim | volta-shim.exe) shim=0 ;;
+  esac
+  shopt -u nocasematch
+  return "$shim"
+}
+
+# Sets TRUSTED_FALLOW to the physical path of the first trusted fallow on
+# PATH, and TRUSTED_NAME to its path on PATH. The PATH entry passes the PATH
+# rules. The directory of the physical path of the program is not excluded. It
+# can be inside a node_modules directory, because a global npm install links
+# into lib/node_modules. The gate skips a version-manager shim: an entry, or
+# the directory of the physical path of the program, that is_shim_dir
+# accepts, or a program whose physical name is volta-shim. SKIPPED_SHIM is 1
+# when the gate skipped such a shim. Returns 1 when no entry holds a trusted
+# fallow.
+find_trusted_fallow() {
+  local entry dir
+  local -a entries
+  TRUSTED_FALLOW=""
+  TRUSTED_NAME=""
+  SKIPPED_SHIM=0
+  IFS=: read -r -a entries <<<"$PATH"
+  for entry in ${entries[@]+"${entries[@]}"}; do
+    case "$entry" in
+      /*) ;;
+      *) continue ;;
+    esac
+    ! has_node_modules "$entry" || continue
+    resolve_dir "$entry" || continue
+    dir="$RESOLVED"
+    ! has_node_modules "$dir" || continue
+    [ -f "$dir/fallow" ] && [ -x "$dir/fallow" ] || continue
+    resolve_file "$dir/fallow" || continue
+    ! is_excluded "$dir" || continue
+    ! is_excluded "${RESOLVED_FILE%/*}" || continue
+    if is_shim_dir "$entry" || is_shim_dir "$dir" || is_shim_dir "${RESOLVED_FILE%/*}" || is_shim_name "${RESOLVED_FILE##*/}"; then
+      SKIPPED_SHIM=1
+      continue
+    fi
+    TRUSTED_FALLOW="$RESOLVED_FILE"
+    TRUSTED_NAME="${dir%/}/fallow"
+    return 0
+  done
+  return 1
+}
+
+# Runs find_trusted_fallow on the entries of ORIG_PATH, with only the trees in
+# the arguments excluded. PATH and EXCLUDED of the caller do not change.
+find_fallow_without() {
+  local saved="$PATH" missing=0
+  local -a EXCLUDED
+  EXCLUDED=()
+  PATH="$ORIG_PATH"
+  filter_path ${1+"$@"}
+  find_trusted_fallow || missing=1
+  PATH="$saved"
+  return "$missing"
+}
+
+# Runs the trusted fallow. The program gets its PATH name as argv[0], so a
+# program that reads argv[0] still sees the fallow command.
+run_fallow() {
+  (exec -a "$TRUSTED_NAME" "$TRUSTED_FALLOW" "$@")
+}
+
 # Audits the current directory. Returns 2 when fallow audit returns verdict
 # fail, else 0.
 audit_here() {
   local runner_desc version_raw version min_version lower status verdict is_error msg err_line
-  local -a runner
-  # The project pins its fallow version in its dependencies, so the
-  # project-local launcher wins over a fallow on PATH. A global install, for
-  # example a Homebrew bottle without the type-aware sidecar, can differ in
-  # version and in packaging. A real installed Git hook keeps its caller's PATH
-  # and does not add node_modules/.bin, so `command -v` cannot see a
-  # project-local install. The arms below cover the layouts that a
-  # project-local install can take. The hooks of `fallow init --hooks` and
-  # `fallow agent install` use the same order.
-  if [ -x ./node_modules/.bin/fallow ]; then
-    runner=(./node_modules/.bin/fallow)
-    runner_desc="./node_modules/.bin/fallow"
-  elif command -v fallow >/dev/null 2>&1; then
-    runner=(fallow)
-    runner_desc="$(command -v fallow)"
-  elif command -v yarn >/dev/null 2>&1 && YARN_BIN="$(yarn bin fallow 2>/dev/null)" && [ -n "$YARN_BIN" ]; then
-    # Yarn Plug'n'Play has no node_modules/.bin at all, so neither the launcher
-    # check above nor npx can see the install.
-    runner=(yarn exec fallow --)
-    runner_desc="yarn exec fallow"
-  elif command -v npx >/dev/null 2>&1 && VER_PROBE="$(npx --no-install fallow --version 2>/dev/null || true)" && [[ "$VER_PROBE" == fallow* ]]; then
-    runner=(npx --no-install fallow)
-    runner_desc="npx --no-install fallow"
-  else
+  # The audit runs only the fallow that find_trusted_fallow finds. It never
+  # runs a project-local launcher, yarn or npx.
+  if ! find_trusted_fallow; then
     {
-      echo "fallow plugin gate: the fallow binary is not installed (tried node_modules/.bin, PATH, yarn and npx --no-install)."
+      echo "fallow plugin gate: the fallow binary is not installed (tried each absolute PATH entry outside node_modules, outside the session tree and outside a version-manager shim directory)."
+      [ "$SKIPPED_SHIM" -eq 0 ] || echo "fallow plugin gate: a fallow in a version-manager shim directory is not used, because a shim can run the fallow that the project installs."
       echo "fallow plugin gate: the commit or push continues without a fallow audit."
-      echo "fallow plugin gate: install fallow (npm install -D fallow) to turn the gate on, or set FALLOW_PLUGIN_GATE=off to hide this notice."
+      echo "fallow plugin gate: install fallow globally outside a version manager (npm install -g fallow or cargo install fallow-cli) to turn the gate on, or set FALLOW_PLUGIN_GATE=off to hide this notice."
     } >&2
     return 0
   fi
+  runner_desc="$TRUSTED_FALLOW"
 
-  version_raw="$("${runner[@]}" --version 2>/dev/null || true)"
+  version_raw="$(run_fallow --version 2>/dev/null || true)"
   version="${version_raw#fallow }"
   version="${version%% *}"
 
@@ -631,13 +1126,13 @@ audit_here() {
       {
         echo "fallow plugin gate: $runner_desc is fallow $version, below the required $min_version."
         echo "fallow plugin gate: the commit or push continues without a fallow audit."
-        echo "fallow plugin gate: upgrade fallow (npm install -D fallow@latest or cargo install fallow-cli) to turn the gate on."
+        echo "fallow plugin gate: upgrade fallow (npm install -g fallow@latest or cargo install fallow-cli) to turn the gate on."
       } >&2
       return 0
     fi
   fi
 
-  if "${runner[@]}" audit --format json --quiet --explain --gate-marker agent >"$TMP_JSON" 2>"$TMP_ERR"; then
+  if run_fallow audit --format json --quiet --explain --gate-marker agent >"$TMP_JSON" 2>"$TMP_ERR"; then
     status=0
   else
     status=$?
@@ -673,10 +1168,37 @@ audit_here() {
   return 0
 }
 
+# The gate excludes the trees of every audit root before the first audit, so
+# no tool from the tree of one root runs while the gate audits another root.
+# AUDITS holds the roots that no installed gate covers.
+AUDITS=()
 for root in "${ROOTS[@]}"; do
-  if covered_by_installed_gate "$root"; then
-    continue
+  exclude_dir "$root" "" self "$root"
+  # git already gave the work tree top of the session directory.
+  if [ -n "$SESSION_TOP" ] && [ "$root" = "$SESSION_ROOT_PHYSICAL" ]; then
+    root_top="$SESSION_TOP"
+  else
+    root_top="$(cd "$root" && gate_git rev-parse --show-toplevel 2>/dev/null)" || root_top=""
   fi
+  exclude_dir "$root" "$root_top" self "$root"
+  covered_by_installed_gate "$root" || AUDITS+=("$root")
+done
+[ "${#AUDITS[@]}" -gt 0 ] || exit 0
+require_git
+
+# The trusted fallow with only the base trees excluded. When the trees of the
+# targets and the audit roots remove it, the gate blocks before any audit.
+if ! find_trusted_fallow && find_fallow_without ${BASE_TREES[@]+"${BASE_TREES[@]}"}; then
+  target_holding "${TRUSTED_NAME%/*}" || target_holding "${TRUSTED_FALLOW%/*}" || HOLDER="${AUDITS[0]}"
+  {
+    echo "fallow plugin gate: blocked: the only trusted fallow on PATH is $TRUSTED_NAME, inside the tree of the command target $HOLDER."
+    echo "fallow plugin gate: the gate does not run a program from a tree that the command writes to, so it cannot audit this commit or push."
+    echo "fallow plugin gate: install fallow globally outside that tree (npm install -g fallow or cargo install fallow-cli), or set FALLOW_PLUGIN_GATE=off to turn the gate off."
+  } >&2
+  exit 2
+fi
+
+for root in "${AUDITS[@]}"; do
   if [ -n "${FALLOW_GATE_DEBUG:-}" ]; then
     echo "fallow plugin gate: auditing $root." >&2
   fi
@@ -685,5 +1207,4 @@ for root in "${ROOTS[@]}"; do
     exit 2
   fi
 done
-
 exit 0
