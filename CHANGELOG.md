@@ -6,7 +6,19 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- The plugin commit gate runs the project-local `./node_modules/.bin/fallow` before a `fallow` on `PATH`. Before, a global install, for example a Homebrew bottle without the `fallow-type-aware` sidecar, won over the version that the project pins. The gate then blocked a commit on findings that the pinned version does not report.
+- The plugin commit gate runs the first `fallow` in an absolute `PATH` entry without a `node_modules` component. This rule applies in any letter case, before and after links. The entry and the physical path of that `fallow` are outside the session tree. They are also outside the tree of each write target and of each audited directory.
+- The gate skips empty and relative `PATH` entries. It does not run `./node_modules/.bin/fallow`, `yarn exec fallow` or `npx --no-install fallow`.
+- The gate skips a version-manager shim, because a shim can run the `fallow` that the project installs. A shim is a `fallow` in a directory named `shims`, in `.volta/bin` or in `volta/bin`. It is also a `fallow` in `$VOLTA_HOME/bin`, `$ASDF_DATA_DIR/shims` or `$MISE_DATA_DIR/shims` when the variable is set. These rules apply in any letter case, before and after links. A `fallow` whose physical name is `volta-shim` is also a shim.
+- When no such `fallow` exists, the gate allows the command with a notice. The notice names a global install outside a version manager: `npm install -g fallow` or `cargo install fallow-cli`. When the gate skipped a shim, the notice also says so.
+- The gate can now run a global `fallow` that has another version than the `fallow` that the project pins.
+- The tree of a directory is the union of its git work tree top and the nearest directory with a `.git` entry. When git gives no answer for the session directory, the session tree is the nearest directory with a `.git` entry, or the session directory itself. When a tree is the home folder and the directory is below it, the tree is the directory, so tools under `~/.cargo/bin` stay in use. When the directory is `/`, or is the home folder outside git, the gate excludes only that one directory. When a command target or an audit root is the home folder, the gate excludes only the home folder itself. Path comparisons ignore letter case.
+- The gate takes jq, git and its other helpers only from the `PATH` entries that the same rules keep. It filters `PATH` again before it runs a program for a new tree. It drops an entry whose physical path holds a colon.
+- A command target can hold a `~`, `$HOME` or `${HOME}` component. Then the gate excludes and audits the literal path and also the path below the home folder.
+- A relative `cwd` in the hook input is relative to the directory of the gate process.
+- The tree of a write target or of an audited directory can hold the only `fallow` or `git` that the rules keep without that tree. Then the gate blocks the command (exit 2) before any audit, with a message that names the target.
+- A command that is not a git commit or push exits after a check that uses only shell builtins.
+- The hook command runs the gate with `/bin/bash` when it exists, else with `/usr/bin/env bash`.
+- Every git call of the plugin gate sets `safe.bareRepository=explicit`, so git uses a bare repository only when the command names it.
 
 ## [1.4.46] - 2026-10-24
 

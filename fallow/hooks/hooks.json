@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/fallow-gate.sh"
+            "command": "if [ -x /bin/bash ]; then exec /bin/bash \"${CLAUDE_PLUGIN_ROOT}/hooks/fallow-gate.sh\"; fi; exec /usr/bin/env bash \"${CLAUDE_PLUGIN_ROOT}/hooks/fallow-gate.sh\""
           }
         ]
       }

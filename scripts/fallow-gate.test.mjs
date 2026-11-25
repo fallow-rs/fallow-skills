@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   realpathSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -22,7 +23,7 @@ const hooksConfig = join(pluginRoot, "hooks", "hooks.json");
 
 // Only these tools reach the gate, so a fallow, npx or yarn on the host PATH
 // cannot change the result.
-const HOST_TOOLS = ["bash", "jq", "cat", "tr", "sed", "sort", "head", "mktemp", "rm", "grep", "dirname", "awk", "git"];
+const HOST_TOOLS = ["bash", "jq", "cat", "tr", "sed", "sort", "head", "mktemp", "rm", "grep", "dirname", "awk", "git", "readlink"];
 
 const scratch = realpathSync(mkdtempSync(join(tmpdir(), "fallow-gate-test-")));
 after(() => rmSync(scratch, { recursive: true, force: true }));
@@ -108,7 +109,7 @@ test("hooks.json registers the gate as a PreToolUse Bash hook", () => {
   const [group] = config.hooks.PreToolUse;
   assert.equal(group.matcher, "Bash");
   assert.equal(group.hooks[0].type, "command");
-  assert.match(group.hooks[0].command, /\$\{CLAUDE_PLUGIN_ROOT\}"?\/hooks\/fallow-gate\.sh$/);
+  assert.match(group.hooks[0].command, /\/bin\/bash "\$\{CLAUDE_PLUGIN_ROOT\}\/hooks\/fallow-gate\.sh"/);
 });
 
 test("hooks.json has only the hooks key, because Codex refuses any other key", () => {
@@ -131,7 +132,7 @@ test("a missing fallow binary allows the commit with a clear notice", { skip }, 
   const result = runGate(fixture, "git commit -m 'change'");
   assert.equal(result.status, 0);
   assert.match(result.stderr, /fallow binary is not installed/);
-  assert.match(result.stderr, /tried node_modules\/\.bin, PATH, yarn and npx --no-install/);
+  assert.match(result.stderr, /npm install -g fallow or cargo install fallow-cli/);
   assert.match(result.stderr, /continues without a fallow audit/);
 });
 
@@ -788,32 +789,116 @@ test("FALLOW_PLUGIN_GATE=off turns the gate off", { skip }, () => {
   assert.deepEqual(auditCalls(fixture), []);
 });
 
-// Writes a fake project-local fallow launcher that returns the given verdict.
-const writeLocalFallow = (fixture, verdict) => {
-  const binDir = join(fixture.project, "node_modules", ".bin");
-  mkdirSync(binDir, { recursive: true });
-  const local = join(binDir, "fallow");
+// Writes a fake fallow at `dir/fallow` that logs its calls with the given
+// label and returns the given verdict.
+const writeFakeFallow = (fixture, dir, label, verdict) => {
+  mkdirSync(dir, { recursive: true });
+  const fake = join(dir, "fallow");
   writeFileSync(
-    local,
+    fake,
     [
       "#!/usr/bin/env bash",
-      `echo "local $* @ $PWD" >> '${fixture.calls}'`,
+      `echo "${label} $* @ $PWD" >> '${fixture.calls}'`,
       'if [ "${1:-}" = "--version" ]; then echo "fallow 9.9.8"; exit 0; fi',
       `echo '${JSON.stringify({ verdict })}'`,
       `exit ${verdict === "fail" ? 1 : 0}`,
       "",
     ].join("\n"),
   );
-  chmodSync(local, 0o755);
+  chmodSync(fake, 0o755);
+  return fake;
 };
 
-test("the project-local fallow wins over a fallow on PATH", { skip }, () => {
+const allCalls = (fixture) =>
+  existsSync(fixture.calls) ? readFileSync(fixture.calls, "utf8").split("\n").filter(Boolean) : [];
+
+// The plugin is installed for the user, so the gate runs only a fallow that
+// the user installed: an absolute PATH entry outside node_modules and outside
+// the session tree.
+test("a project-local launcher does not run, and the fallow on PATH audits", { skip }, () => {
   const fixture = makeCase({ fallowJson: { verdict: "pass" } });
-  writeLocalFallow(fixture, "fail");
+  writeFakeFallow(fixture, join(fixture.project, "node_modules", ".bin"), "local", "fail");
   const result = runGate(fixture, "git commit -m 'change'");
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("local")), []);
+  assert.equal(auditCalls(fixture).length, 1);
+});
+
+test("a project-local launcher without a fallow on PATH gives the install notice", { skip }, () => {
+  const fixture = makeCase();
+  writeFakeFallow(fixture, join(fixture.project, "node_modules", ".bin"), "local", "fail");
+  const result = runGate(fixture, "git commit -m 'change'");
+  assert.equal(result.status, 0);
+  assert.deepEqual(allCalls(fixture), []);
+  assert.match(result.stderr, /fallow binary is not installed/);
+  assert.match(result.stderr, /npm install -g fallow/);
+});
+
+for (const [name, entry] of [
+  ["a relative PATH entry", "tools"],
+  ["an empty PATH entry", ""],
+]) {
+  test(`a fallow in ${name} does not run`, { skip }, () => {
+    const fixture = makeCase();
+    writeFakeFallow(fixture, entry === "" ? fixture.project : join(fixture.project, entry), "relative", "fail");
+    const result = runGate(fixture, "git commit -m 'change'", { PATH: `${entry}:${fixture.bin}` });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(allCalls(fixture), []);
+    assert.match(result.stderr, /fallow binary is not installed/);
+  });
+}
+
+test("a fallow in an absolute node_modules PATH entry does not run", { skip }, () => {
+  const fixture = makeCase();
+  const dir = join(fixture.root, "elsewhere", "node_modules", ".bin");
+  writeFakeFallow(fixture, dir, "modules", "fail");
+  const result = runGate(fixture, "git commit -m 'change'", { PATH: `${dir}:${fixture.bin}` });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture), []);
+});
+
+test("a fallow in a PATH entry that links into node_modules does not run", { skip }, () => {
+  const fixture = makeCase();
+  const dir = join(fixture.root, "elsewhere", "node_modules", ".bin");
+  writeFakeFallow(fixture, dir, "modules", "fail");
+  const link = join(fixture.root, "linked-bin");
+  symlinkSync(dir, link);
+  const result = runGate(fixture, "git commit -m 'change'", { PATH: `${link}:${fixture.bin}` });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture), []);
+});
+
+test("a fallow in an absolute PATH entry inside the session tree does not run", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  const dir = join(fixture.project, "tools", "bin");
+  writeFakeFallow(fixture, dir, "session", "fail");
+  const sub = join(fixture.project, "packages", "app");
+  mkdirSync(sub, { recursive: true });
+  const result = runGate(fixture, "git commit -m 'change'", { PATH: `${dir}:${fixture.bin}` }, sub, sub);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("session")), []);
+  assert.equal(auditCalls(fixture).length, 1);
+});
+
+test("a fallow in a PATH entry inside the session directory outside git does not run", { skip }, () => {
+  const fixture = makeCase();
+  const plain = join(fixture.root, "plain");
+  mkdirSync(plain, { recursive: true });
+  writeFileSync(join(plain, ".fallowrc.json"), "{}\n");
+  const dir = join(plain, "bin");
+  writeFakeFallow(fixture, dir, "session", "fail");
+  const result = runGate(fixture, "git commit -m 'change'", { PATH: `${dir}:${fixture.bin}` }, plain, plain);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture), []);
+});
+
+test("a trusted absolute fallow runs after a skipped PATH entry", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail", summary: {} }, fallowExit: 1 });
+  writeFakeFallow(fixture, join(fixture.project, "tools"), "relative", "pass");
+  const result = runGate(fixture, "git commit -m 'change'", { PATH: `tools:${fixture.bin}` });
   assert.equal(result.status, 2);
-  assert.match(result.stderr, /blocked by fallow 9\.9\.8 at \.\/node_modules\/\.bin\/fallow/);
-  assert.deepEqual(auditCalls(fixture), []);
+  assert.ok(result.stderr.includes(`blocked by fallow 9.9.9 at ${join(fixture.bin, "fallow")} in `), result.stderr);
+  assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("relative")), []);
 });
 
 test("a fallow on PATH runs when the project has no local install", { skip }, () => {
@@ -821,5 +906,527 @@ test("a fallow on PATH runs when the project has no local install", { skip }, ()
   const result = runGate(fixture, "git commit -m 'change'");
   assert.equal(result.status, 2);
   assert.ok(result.stderr.includes(`blocked by fallow 9.9.9 at ${join(fixture.bin, "fallow")} in `), result.stderr);
+  assert.equal(auditCalls(fixture).length, 1);
+});
+
+test("a command that is not a git commit or push starts no fallow", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" } });
+  const result = runGate(fixture, "git status && git log commit-message.txt");
+  assert.equal(result.status, 0);
+  assert.deepEqual(allCalls(fixture), []);
+});
+
+// Writes helper programs with the names of the tools that the gate calls.
+// Each one logs its name and exits 0, so a test sees every call.
+const addHelpers = (fixture, dir) => {
+  mkdirSync(dir, { recursive: true });
+  const log = join(fixture.root, "helper-calls.log");
+  for (const name of ["jq", "git", "cat", "sed", "awk", "tr", "grep", "mktemp", "sort", "dirname", "head", "rm"]) {
+    writeFileSync(join(dir, name), `#!/bin/sh\necho "${name} ${dir}" >> '${log}'\nexit 0\n`);
+    chmodSync(join(dir, name), 0o755);
+  }
+  return log;
+};
+
+test("helpers in relative, node_modules and session-tree PATH entries do not run", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  const log = addHelpers(fixture, join(fixture.project, "node_modules", ".bin"));
+  addHelpers(fixture, join(fixture.project, "tools"));
+  const path = ["node_modules/.bin", "tools", "", join(fixture.project, "node_modules", ".bin"), join(fixture.project, "tools"), fixture.bin].join(":");
+  const result = runGate(fixture, "git commit -m 'change'", { PATH: path });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(existsSync(log) ? readFileSync(log, "utf8") : "", "");
+  assert.equal(auditCalls(fixture).length, 1);
+});
+
+test("a PATH entry that reaches the session tree through a link and .. does not run", { skip }, () => {
+  const fixture = makeCase();
+  mkdirSync(join(fixture.project, "sub"));
+  writeFakeFallow(fixture, fixture.project, "session", "fail");
+  mkdirSync(join(fixture.root, "out"));
+  symlinkSync(join(fixture.project, "sub"), join(fixture.root, "out", "link"));
+  const result = runGate(fixture, "git commit -m 'change'", { PATH: `${join(fixture.root, "out", "link")}/..:${fixture.bin}` });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture), []);
+  assert.match(result.stderr, /fallow binary is not installed/);
+});
+
+test("a node_modules component in another letter case does not run", { skip }, () => {
+  const fixture = makeCase();
+  const dir = join(fixture.root, "elsewhere", "Node_Modules", ".bin");
+  writeFakeFallow(fixture, dir, "modules", "fail");
+  const result = runGate(fixture, "git commit -m 'change'", { PATH: `${dir}:${fixture.bin}` });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture), []);
+});
+
+test("a session-tree PATH entry in another letter case does not run", { skip: skip || (process.platform === "darwin" ? false : "case-insensitive file system only") }, () => {
+  const fixture = makeCase();
+  writeFakeFallow(fixture, join(fixture.project, "bin"), "session", "fail");
+  const upper = join(fixture.root, "PROJECT", "BIN");
+  const result = runGate(fixture, "git commit -m 'change'", { PATH: `${upper}:${fixture.bin}` });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture), []);
+});
+
+test("without a git answer the session tree is the nearest directory with .git", { skip }, () => {
+  const fixture = makeCase({ optIn: false });
+  const top = join(fixture.root, "broken");
+  const app = join(top, "packages", "app");
+  mkdirSync(app, { recursive: true });
+  writeFileSync(join(top, ".git"), "gitdir: nowhere\n");
+  writeFileSync(join(app, ".fallowrc.json"), "{}\n");
+  const dir = join(top, "bin");
+  writeFakeFallow(fixture, dir, "session", "fail");
+  const result = runGate(fixture, "git commit -m 'change'", { PATH: `${dir}:${fixture.bin}` }, app, app);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture), []);
+});
+
+test("a PATH entry in the session top does not run for an opt-in in a subdirectory", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" }, optIn: false });
+  const app = join(fixture.project, "packages", "app");
+  mkdirSync(app, { recursive: true });
+  writeFileSync(join(app, ".fallowrc.json"), "{}\n");
+  const dir = join(fixture.project, "bin");
+  writeFakeFallow(fixture, dir, "session", "fail");
+  const result = runGate(fixture, "git commit -m 'change'", { PATH: `${dir}:${fixture.bin}` }, app, app);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("session")), []);
+  assert.equal(auditCalls(fixture).length, 1);
+});
+
+test("a PATH entry in the work tree of a git -C target does not run", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  const other = gitInit(join(fixture.root, "other"));
+  const pkg = join(other, "pkg");
+  mkdirSync(pkg);
+  writeFileSync(join(pkg, ".fallowrc.json"), "{}\n");
+  const dir = join(other, "bin");
+  writeFakeFallow(fixture, dir, "target", "fail");
+  const result = runGate(fixture, `git -C ${pkg} commit -m x`, { PATH: `${dir}:${fixture.bin}` });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("target")), []);
+  assert.equal(auditCalls(fixture).length, 1);
+});
+
+// A command target can hold the only trusted fallow or git, for example
+// `git -C /opt/homebrew commit`. The gate does not run a program from a tree
+// that it audits, so it blocks the command instead of a commit with no audit.
+test("a fallow only in the tree of an audited git -C target blocks and names the target", { skip }, () => {
+  const fixture = makeCase();
+  const other = gitInit(join(fixture.root, "other"));
+  writeFileSync(join(other, ".fallowrc.json"), "{}\n");
+  writeFakeFallow(fixture, join(other, "bin"), "target", "pass");
+  const result = runGate(fixture, `git -C ${other} commit -m x`, { PATH: `${join(other, "bin")}:${fixture.bin}` });
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /blocked/);
+  assert.ok(result.stderr.includes(`the tree of the command target ${other}`), result.stderr);
+  assert.deepEqual(allCalls(fixture), []);
+});
+
+test("a git only in the tree of a git -C target blocks and names the target", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" }, tools: HOST_TOOLS.filter((name) => name !== "git") });
+  const other = gitInit(join(fixture.root, "other"));
+  writeFileSync(join(other, ".fallowrc.json"), "{}\n");
+  mkdirSync(join(other, "bin"));
+  symlinkSync(resolveTool("git"), join(other, "bin", "git"));
+  const result = runGate(fixture, `git -C ${other} commit -m x`, { PATH: `${join(other, "bin")}:${fixture.bin}` });
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /blocked/);
+  assert.ok(result.stderr.includes(`the tree of the command target ${other}`), result.stderr);
+  assert.deepEqual(auditCalls(fixture), []);
+});
+
+test("a git only in the tree of a target allows the commit when no tree opts in", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" }, tools: HOST_TOOLS.filter((name) => name !== "git"), optIn: false });
+  const other = gitInit(join(fixture.root, "other"));
+  mkdirSync(join(other, "bin"));
+  symlinkSync(resolveTool("git"), join(other, "bin", "git"));
+  const result = runGate(fixture, `git -C ${other} commit -m x`, { PATH: `${join(other, "bin")}:${fixture.bin}` });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, "");
+});
+
+test("a fallow only in the tree of a target blocks before the session audit", { skip }, () => {
+  const fixture = makeCase();
+  const other = gitInit(join(fixture.root, "other"));
+  writeFakeFallow(fixture, join(other, "bin"), "target", "pass");
+  const result = runGate(fixture, `git -C ${other} commit -m x; true`, { PATH: `${join(other, "bin")}:${fixture.bin}` });
+  assert.equal(result.status, 2, result.stderr);
+  assert.ok(result.stderr.includes(`the tree of the command target ${other}`), result.stderr);
+  assert.deepEqual(allCalls(fixture), []);
+});
+
+test("a fallow and helpers in the tree of root B do not run while root A is audited", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  const other = gitInit(join(fixture.root, "other"));
+  writeFileSync(join(other, ".fallowrc.json"), "{}\n");
+  const dir = join(other, "bin");
+  writeFakeFallow(fixture, dir, "rootb", "fail");
+  const log = join(fixture.root, "target-helpers.log");
+  for (const helper of TARGET_HELPERS) {
+    writeFileSync(join(dir, helper), `#!/bin/sh\necho "${helper}" >> '${log}'\nexit 0\n`);
+    chmodSync(join(dir, helper), 0o755);
+  }
+  const result = runGate(fixture, `git -C ${other} commit -m x; true`, { PATH: `${dir}:${fixture.bin}` });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(existsSync(log) ? readFileSync(log, "utf8") : "", "");
+  assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("rootb")), []);
+  assert.deepEqual(
+    auditCalls(fixture).map((line) => line.split(" @ ")[1]).sort(),
+    [fixture.project, other].sort(),
+  );
+});
+
+test("a git repository at HOME does not hide the user tools under HOME", { skip }, () => {
+  const fixture = makeCase({ optIn: false });
+  gitInit(fixture.home);
+  const session = join(fixture.home, "proj");
+  mkdirSync(session);
+  writeFileSync(join(session, ".fallowrc.json"), "{}\n");
+  writeFakeFallow(fixture, join(session, "bin"), "session", "pass");
+  writeFakeFallow(fixture, join(fixture.home, ".cargo", "bin"), "user", "fail");
+  const path = [join(session, "bin"), join(fixture.home, ".cargo", "bin"), fixture.bin].join(":");
+  const result = runGate(fixture, "git commit -m 'change'", { PATH: path }, session, session);
+  assert.equal(result.status, 2, result.stderr);
+  assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("session")), []);
+  assert.ok(allCalls(fixture).some((line) => line.startsWith("user audit")), allCalls(fixture).join("\n"));
+});
+
+test("a command that is not a git commit or push needs no helper on PATH", { skip }, () => {
+  const fixture = makeCase({ tools: ["bash"] });
+  const result = runGate(fixture, "ls -la && npm test");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, "");
+});
+
+test("a git commit written with a JSON unicode escape still audits", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1 });
+  const input = '{"tool_name":"Bash","tool_input":{"command":"\\u0067it commit -m x"}}';
+  const result = spawnSync(join(fixture.bin, "bash"), [gate], {
+    cwd: fixture.project,
+    encoding: "utf8",
+    input,
+    env: { PATH: fixture.bin, HOME: fixture.home, CLAUDE_PROJECT_DIR: fixture.project },
+  });
+  assert.equal(result.status, 2, result.stderr);
+  assert.equal(auditCalls(fixture).length, 1);
+});
+
+const TARGET_HELPERS = ["git", "sed", "grep", "mktemp", "sort", "head", "rm", "dirname", "readlink"];
+
+test("helpers in a PATH entry inside a git -C target do not run", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  const other = gitInit(join(fixture.root, "other"));
+  writeFileSync(join(other, ".fallowrc.json"), "{}\n");
+  const dir = join(other, "bin");
+  mkdirSync(dir);
+  const log = join(fixture.root, "target-helpers.log");
+  for (const name of TARGET_HELPERS) {
+    writeFileSync(join(dir, name), `#!/bin/sh\necho "${name}" >> '${log}'\nexit 0\n`);
+    chmodSync(join(dir, name), 0o755);
+  }
+  const result = runGate(fixture, `git -C ${other} commit -m x`, { PATH: `${dir}:${fixture.bin}` });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(existsSync(log) ? readFileSync(log, "utf8") : "", "");
+  assert.equal(auditCalls(fixture).length, 1);
+});
+
+// A command outside the allowlist reaches git through the loose scan. The
+// gate must exclude each target before its first git call.
+for (const [name, command] of [
+  ["git -C followed by another command", (other) => `git -C ${other} commit -m x; true`],
+  ["cd && git commit || true", (other) => `cd ${other} && git commit -m x || true`],
+]) {
+  test(`helpers in a PATH entry inside a loose-scan target do not run: ${name}`, { skip }, () => {
+    const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+    const other = gitInit(join(fixture.root, "other"));
+    writeFileSync(join(other, ".fallowrc.json"), "{}\n");
+    const dir = join(other, "bin");
+    mkdirSync(dir);
+    const log = join(fixture.root, "target-helpers.log");
+    for (const helper of TARGET_HELPERS) {
+      writeFileSync(join(dir, helper), `#!/bin/sh\necho "${helper}" >> '${log}'\nexit 0\n`);
+      chmodSync(join(dir, helper), 0o755);
+    }
+    const result = runGate(fixture, command(other), { PATH: `${dir}:${fixture.bin}` });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(existsSync(log) ? readFileSync(log, "utf8") : "", "");
+    assert.equal(auditCalls(fixture).length, 2);
+  });
+}
+
+test("a NUL byte in the hook input does not stop the audit", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1 });
+  const input = `{"x":"a\u0000b","tool_name":"Bash","tool_input":{"command":"git commit -m x"}}`;
+  const result = spawnSync(join(fixture.bin, "bash"), [gate], {
+    cwd: fixture.project,
+    encoding: "utf8",
+    input,
+    env: { PATH: fixture.bin, HOME: fixture.home, CLAUDE_PROJECT_DIR: fixture.project },
+  });
+  assert.equal(result.status, 2, result.stderr);
+  assert.equal(auditCalls(fixture).length, 1);
+});
+
+test("a session directory at HOME outside git keeps the user tools under HOME", { skip }, () => {
+  const fixture = makeCase({ optIn: false });
+  writeFileSync(join(fixture.home, ".fallowrc.json"), "{}\n");
+  writeFakeFallow(fixture, fixture.home, "home", "pass");
+  writeFakeFallow(fixture, join(fixture.home, ".cargo", "bin"), "user", "fail");
+  const path = [fixture.home, join(fixture.home, ".cargo", "bin"), fixture.bin].join(":");
+  const result = runGate(fixture, "git commit -m x", { PATH: path }, fixture.home, fixture.home);
+  assert.equal(result.status, 2, result.stderr);
+  assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("home")), []);
+  assert.ok(allCalls(fixture).some((line) => line.startsWith("user audit")), allCalls(fixture).join("\n"));
+});
+
+test("a session directory at / does not hide every fallow on PATH", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail" }, fallowExit: 1 });
+  const other = makeRepo(fixture, "optin", { optIn: true });
+  const result = runGate(fixture, `git -C ${other} commit -m x && git push`, {}, "/", "/");
+  assert.equal(result.status, 2, result.stderr);
+  assert.deepEqual(auditedNames(fixture), ["optin"]);
+});
+
+test("a git top below the directory with .git does not narrow the session tree", { skip }, () => {
+  const fixture = makeCase({ optIn: false });
+  const sub = join(fixture.project, "sub");
+  mkdirSync(sub);
+  writeFileSync(join(sub, ".fallowrc.json"), "{}\n");
+  const config = spawnSync("git", ["-C", fixture.project, "config", "core.worktree", sub], { encoding: "utf8" });
+  assert.equal(config.status, 0, config.stderr);
+  const top = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: sub, encoding: "utf8" });
+  assert.equal(realpathSync(top.stdout.trim()), realpathSync(sub));
+  const dir = join(fixture.project, "bin");
+  writeFakeFallow(fixture, dir, "session", "fail");
+  const result = runGate(fixture, "git commit -m x", { PATH: `${dir}:${fixture.bin}` }, sub, sub);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture), []);
+});
+
+test("a fallow that links into the session tree does not run", { skip }, () => {
+  const fixture = makeCase();
+  const real = writeFakeFallow(fixture, join(fixture.project, "tools"), "session", "fail");
+  const dir = join(fixture.root, "ubin");
+  mkdirSync(dir);
+  symlinkSync(real, join(dir, "fallow"));
+  const result = runGate(fixture, "git commit -m x", { PATH: `${dir}:${fixture.bin}` });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture), []);
+});
+
+test("a fallow that links into a global node_modules runs", { skip }, () => {
+  const fixture = makeCase();
+  const real = writeFakeFallow(fixture, join(fixture.root, "glib", "node_modules", "fallow", "bin"), "global", "fail");
+  const dir = join(fixture.root, "gbin");
+  mkdirSync(dir);
+  symlinkSync(real, join(dir, "fallow"));
+  const result = runGate(fixture, "git commit -m x", { PATH: `${dir}:${fixture.bin}` });
+  assert.equal(result.status, 2, result.stderr);
+  assert.ok(allCalls(fixture).some((line) => line.startsWith("global audit")), allCalls(fixture).join("\n"));
+});
+
+test("the hook command runs /bin/bash, not a bash from a relative PATH entry", { skip: skip || (existsSync("/bin/bash") && existsSync("/bin/sh") ? false : "needs /bin/bash and /bin/sh") }, () => {
+  const fixture = makeCase();
+  const tools = join(fixture.project, "tools");
+  mkdirSync(tools);
+  const log = join(fixture.root, "bash.log");
+  writeFileSync(join(tools, "bash"), `#!/bin/sh\necho helper-ran >> '${log}'\nexit 0\n`);
+  chmodSync(join(tools, "bash"), 0o755);
+  const config = JSON.parse(readFileSync(hooksConfig, "utf8"));
+  const command = config.hooks.PreToolUse[0].hooks[0].command;
+  const result = spawnSync("/bin/sh", ["-c", command], {
+    cwd: fixture.project,
+    encoding: "utf8",
+    input: JSON.stringify({ tool_name: "Bash", tool_input: { command: "ls" } }),
+    env: { PATH: `tools:${fixture.bin}`, HOME: fixture.home, CLAUDE_PLUGIN_ROOT: pluginRoot },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(existsSync(log) ? readFileSync(log, "utf8") : "", "");
+});
+
+// A version-manager shim can run the fallow that the project installs, so the
+// gate skips it and tries the next PATH entry.
+for (const [name, parts] of [
+  ["a Volta bin directory", [".volta", "bin"]],
+  ["a Volta bin directory in another letter case", [".Volta", "BIN"]],
+  ["a mise shims directory", [".local", "share", "mise", "shims"]],
+  ["an asdf shims directory", [".asdf", "shims"]],
+  ["any directory named shims in another letter case", ["tools", "Shims"]],
+  ["a Volta bin directory without a leading dot", ["AppData", "Local", "Volta", "bin"]],
+]) {
+  test(`a fallow in ${name} does not run`, { skip }, () => {
+    const fixture = makeCase({ fallowJson: { verdict: "fail", summary: {} }, fallowExit: 1 });
+    const dir = join(fixture.home, ...parts);
+    writeFakeFallow(fixture, dir, "shim", "pass");
+    const result = runGate(fixture, "git commit -m x", { PATH: `${dir}:${fixture.bin}` });
+    assert.equal(result.status, 2, result.stderr);
+    assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("shim")), []);
+    assert.equal(auditCalls(fixture).length, 1);
+  });
+}
+
+// The data directory of a version manager can have any name. The PATH entry
+// can also be the target of a link that the data directory holds.
+for (const [name, variable, sub, linked] of [
+  ["the bin directory of VOLTA_HOME", "VOLTA_HOME", "bin", false],
+  ["a link target of the bin directory of VOLTA_HOME", "VOLTA_HOME", "bin", true],
+  ["a link target of the shims directory of ASDF_DATA_DIR", "ASDF_DATA_DIR", "shims", true],
+  ["a link target of the shims directory of MISE_DATA_DIR", "MISE_DATA_DIR", "shims", true],
+]) {
+  test(`a fallow in ${name} does not run`, { skip }, () => {
+    const fixture = makeCase({ fallowJson: { verdict: "fail", summary: {} }, fallowExit: 1 });
+    const data = join(fixture.home, "vmdata");
+    mkdirSync(data);
+    let dir = join(data, sub);
+    if (linked) {
+      dir = join(fixture.home, "vmreal");
+      symlinkSync(dir, join(data, sub));
+    }
+    writeFakeFallow(fixture, dir, "shim", "pass");
+    const result = runGate(fixture, "git commit -m x", { PATH: `${dir}:${fixture.bin}`, [variable]: data });
+    assert.equal(result.status, 2, result.stderr);
+    assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("shim")), []);
+    assert.equal(auditCalls(fixture).length, 1);
+  });
+}
+
+test("a fallow that links to a file in a shims directory does not run", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "fail", summary: {} }, fallowExit: 1 });
+  const shims = join(fixture.home, "vm", "shims");
+  const shim = writeFakeFallow(fixture, shims, "shim", "pass");
+  const dir = join(fixture.home, "ubin");
+  mkdirSync(dir);
+  symlinkSync(shim, join(dir, "fallow"));
+  const result = runGate(fixture, "git commit -m x", { PATH: `${dir}:${fixture.bin}` });
+  assert.equal(result.status, 2, result.stderr);
+  assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("shim")), []);
+  assert.equal(auditCalls(fixture).length, 1);
+});
+
+test("a fallow that links to a volta-shim program does not run", { skip }, () => {
+  const fixture = makeCase();
+  const shim = join(fixture.root, "vm", "volta-shim");
+  renameSync(writeFakeFallow(fixture, join(fixture.root, "vm"), "shim", "fail"), shim);
+  const dir = join(fixture.root, "ubin");
+  mkdirSync(dir);
+  symlinkSync(shim, join(dir, "fallow"));
+  const result = runGate(fixture, "git commit -m x", { PATH: `${dir}:${fixture.bin}` });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture), []);
+  assert.match(result.stderr, /fallow binary is not installed/);
+  assert.match(result.stderr, /outside a version manager/);
+});
+
+test("a relative cwd in the hook input ends within the time limit", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  mkdirSync(join(fixture.project, "sub"));
+  const result = spawnSync(join(fixture.bin, "bash"), [gate], {
+    cwd: fixture.project,
+    encoding: "utf8",
+    timeout: 10000,
+    input: JSON.stringify({ tool_name: "Bash", tool_input: { command: "git commit -m x" }, cwd: "sub" }),
+    env: { PATH: fixture.bin, HOME: fixture.home, CLAUDE_PROJECT_DIR: fixture.project },
+  });
+  assert.equal(result.signal, null, "the gate did not end within 10 s");
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(auditCalls(fixture).map((line) => line.split(" @ ")[1]), [fixture.project]);
+});
+
+// The shell expands ~, $HOME and ${HOME} in a -C word, and a later -C with an
+// absolute path replaces the earlier one. The gate also excludes and audits
+// that HOME form.
+for (const command of [
+  "git -C ~/other commit -m x; true",
+  "git -C $HOME/other commit -m x; true",
+  "git -C ${HOME}/other commit -m x; true",
+  "git -C /tmp -C ~/other commit -m x; true",
+]) {
+  test(`the HOME form of the target in ${command} is excluded and audited`, { skip }, () => {
+    const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+    const other = gitInit(join(fixture.home, "other"));
+    writeFileSync(join(other, ".fallowrc.json"), "{}\n");
+    writeFakeFallow(fixture, join(other, "bin"), "other", "fail");
+    const path = [join(other, "bin"), fixture.bin].join(":");
+    const result = runGate(fixture, command, { PATH: path });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("other")), []);
+    assert.deepEqual(auditCalls(fixture).map((line) => line.split(" @ ")[1]).sort(), [fixture.project, other].sort());
+  });
+}
+
+// The shell does not expand ~ after --git-dir= or in a --work-tree word, so a
+// directory named ~ in the session directory stays a target.
+test("a literal ~ target in --git-dir= and --work-tree stays excluded", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  const clone = gitInit(join(fixture.root, "clone"));
+  writeFakeFallow(fixture, join(clone, "bin"), "clone", "fail");
+  symlinkSync(clone, join(fixture.project, "~"));
+  const path = [join(clone, "bin"), fixture.bin].join(":");
+  const result = runGate(fixture, "git --git-dir=~/.git --work-tree=~ commit -m x", { PATH: path });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("clone")), []);
+  assert.ok(auditCalls(fixture).length >= 1, result.stderr);
+});
+
+test("a relative cwd that links out of the process directory without git is excluded", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  const outside = join(fixture.root, "outside");
+  writeFakeFallow(fixture, join(outside, "bin"), "outside", "fail");
+  symlinkSync(outside, join(fixture.project, "out"));
+  const path = [join(outside, "bin"), fixture.bin].join(":");
+  const result = runGate(fixture, "git commit -m x", { PATH: path }, fixture.project, "out");
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("outside")), []);
+  assert.deepEqual(auditCalls(fixture).map((line) => line.split(" @ ")[1]), [fixture.project]);
+});
+
+// A git repository at HOME as a command target or an audit root excludes only
+// HOME itself, so the user tools below HOME stay in use.
+for (const [name, homeOptIn] of [
+  ["a command target", false],
+  ["an audit root", true],
+]) {
+  test(`a git repository at HOME as ${name} keeps the user tools under HOME`, { skip }, () => {
+    const fixture = makeCase();
+    gitInit(fixture.home);
+    if (homeOptIn) writeFileSync(join(fixture.home, ".fallowrc.json"), "{}\n");
+    writeFakeFallow(fixture, join(fixture.home, ".cargo", "bin"), "user", "pass");
+    const path = [join(fixture.home, ".cargo", "bin"), fixture.bin].join(":");
+    const result = runGate(fixture, `git -C ${fixture.home} commit -m x; true`, { PATH: path });
+    assert.equal(result.status, 0, result.stderr);
+    const audited = allCalls(fixture)
+      .filter((line) => line.startsWith("user audit"))
+      .map((line) => line.split(" @ ")[1])
+      .sort();
+    assert.deepEqual(audited, (homeOptIn ? [fixture.project, fixture.home] : [fixture.project]).sort());
+  });
+}
+
+test("the install notice says when the gate skipped a version-manager shim", { skip }, () => {
+  const fixture = makeCase();
+  const shims = join(fixture.home, ".asdf", "shims");
+  writeFakeFallow(fixture, shims, "shim", "pass");
+  const withShim = runGate(fixture, "git commit -m x", { PATH: `${shims}:${fixture.bin}` });
+  assert.equal(withShim.status, 0, withShim.stderr);
+  assert.deepEqual(allCalls(fixture), []);
+  assert.match(withShim.stderr, /a fallow in a version-manager shim directory is not used/);
+  const withoutShim = runGate(fixture, "git commit -m x");
+  assert.equal(withoutShim.status, 0, withoutShim.stderr);
+  assert.match(withoutShim.stderr, /fallow binary is not installed/);
+  assert.doesNotMatch(withoutShim.stderr, /shim directory is not used/);
+});
+
+test("a PATH entry that links to a directory with a colon in its name does not run", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  mkdirSync(join(fixture.root, "a:b"));
+  writeFakeFallow(fixture, join(fixture.root, "a"), "colon", "fail");
+  const link = join(fixture.root, "colonlink");
+  symlinkSync(join(fixture.root, "a:b"), link);
+  const result = runGate(fixture, "git commit -m x", { PATH: `${link}:${fixture.bin}` });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(allCalls(fixture).filter((line) => line.startsWith("colon")), []);
   assert.equal(auditCalls(fixture).length, 1);
 });
