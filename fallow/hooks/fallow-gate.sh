@@ -68,7 +68,31 @@ fi
 # longer than PREFILTER_MAX bytes, goes to the full check, because the
 # removal is slow on a long input in bash 3.2.
 PREFILTER_MAX=2048
-{ INPUT="$(</dev/stdin)"; } 2>/dev/null || INPUT=""
+# A hook runner can give a socket as stdin. On macOS, /dev/stdin opens a
+# socket, and the read through it is fast. On Linux, /dev/stdin cannot open a
+# socket, so the gate reads file descriptor 0 with the read builtin: in blocks
+# with bash 5 or later, else up to each NUL byte. Each form drops a NUL byte
+# and keeps the text after it.
+INPUT=""
+chunk=""
+case "${OSTYPE:-}" in
+  darwin*)
+    { INPUT="$(</dev/stdin)"; } 2>/dev/null || INPUT=""
+    ;;
+  *)
+    if [ "${BASH_VERSINFO[0]:-0}" -ge 5 ]; then
+      while IFS= read -r -N 65536 chunk 2>/dev/null || [ -n "$chunk" ]; do
+        INPUT+="$chunk"
+        chunk=""
+      done
+    else
+      while IFS= read -r -d '' chunk 2>/dev/null; do
+        INPUT+="$chunk"
+      done
+      INPUT+="$chunk"
+    fi
+    ;;
+esac
 prefilter_can_write() {
   local LC_ALL=C text="$1"
   [ "${#text}" -le "$PREFILTER_MAX" ] || return 0
