@@ -62,11 +62,9 @@ fi
 
 # Most Bash commands are not a git commit or push. The prefilter reads the
 # hook input with shell builtins only and exits when the input cannot hold
-# one. It removes the characters that can hide a git word (quotes,
-# backslashes, `$`, parentheses, braces and backticks) and then looks for git
-# followed by commit or push. An input with a JSON \u escape, or an input
-# longer than PREFILTER_MAX bytes, goes to the full check, because the
-# removal is slow on a long input in bash 3.2.
+# one. text_can_write below gives the rule. An input longer than
+# PREFILTER_MAX bytes goes to the full check, because the removal is slow on
+# a long input in bash 3.2.
 PREFILTER_MAX=2048
 # A hook runner can give a socket as stdin. On macOS, /dev/stdin opens a
 # socket, and the read through it is fast. On Linux, /dev/stdin cannot open a
@@ -93,25 +91,44 @@ case "${OSTYPE:-}" in
     fi
     ;;
 esac
-prefilter_can_write() {
-  local LC_ALL=C text="$1"
-  [ "${#text}" -le "$PREFILTER_MAX" ] || return 0
+# Returns 0 when the text $1 can hold a git commit or push. The function
+# removes quotes and backslashes, and for a flat copy also the other
+# characters that can hide a word (`$`, parentheses, braces and backticks).
+# The text can hold a write when, in any letter case, it has a `commit` or
+# `push` word, or `git` before an expansion, a brace, a glob or a backquote.
+# A program name from an expansion or a glob (`$G commit`, `g?t push`) still
+# has the `commit` or `push` word. A git subcommand with a brace or a glob
+# (`git c{o,}mmit`, `git c?mmit`) has `git` before it. A JSON \u escape can
+# hide a word, so a text with one can always hold a write.
+text_can_write() {
+  local LC_ALL=C text="$1" flat hit=1
   case "$text" in
     *'\u'*) return 0 ;;
   esac
   text="${text//\\/}"
   text="${text//\"/}"
   text="${text//\'/}"
-  text="${text//\$/}"
-  text="${text//\(/}"
-  text="${text//\)/}"
-  text="${text//\`/}"
-  text="${text//\{/}"
-  text="${text//\}/}"
-  case "$text" in
-    *git*commit* | *git*push*) return 0 ;;
+  flat="${text//\$/}"
+  flat="${flat//\(/}"
+  flat="${flat//\)/}"
+  flat="${flat//\`/}"
+  flat="${flat//\{/}"
+  flat="${flat//\}/}"
+  shopt -s nocasematch
+  case "$flat" in
+    *commit* | *push* | *git*[\?\*\[]*) hit=0 ;;
+    *)
+      case "$text" in
+        *git*[\$\{\`\?\*\[]*) hit=0 ;;
+      esac
+      ;;
   esac
-  return 1
+  shopt -u nocasematch
+  return "$hit"
+}
+prefilter_can_write() {
+  [ "${#1}" -le "$PREFILTER_MAX" ] || return 0
+  text_can_write "$1"
 }
 if ! prefilter_can_write "$INPUT"; then
   if [ -n "${FALLOW_GATE_DEBUG:-}" ]; then
@@ -409,11 +426,9 @@ if [ "$HAVE_JQ" -eq 0 ]; then
   # Without jq the gate cannot parse the command. Print the notice only in an
   # opted-in project and only for input that can be a git commit or push.
   find_root "$START" >/dev/null || exit 0
-  case "$INPUT" in
-    *git*commit* | *git*push*)
-      echo "fallow plugin gate: jq is not on PATH. The commit or push continues without a fallow audit. Install jq to turn the gate on." >&2
-      ;;
-  esac
+  if text_can_write "$INPUT"; then
+    echo "fallow plugin gate: jq is not on PATH. The commit or push continues without a fallow audit. Install jq to turn the gate on." >&2
+  fi
   exit 0
 fi
 
@@ -487,9 +502,14 @@ git_location() {
 # blanks, and ignores quotes. Git-level options between `git` and the
 # subcommand (git -c k=v commit, git -C dir push, git --no-pager commit,
 # git --git-dir=/x push) still count, while subcommand lookalikes in arguments
-# (git log commit-message.txt) do not. See issue #2106. It sets LOOSE_WRITES to
-# the number of git commit and push commands. It adds each directory that a
-# `cd`, -C, --work-tree or --git-dir names to TARGETS.
+# (git log commit-message.txt) do not. See issue #2106. A git word is `git` in
+# any letter case, with or without the `.exe` suffix of Git for Windows, as a
+# name or as the last part of a path. A file system that ignores letter case
+# runs git for `GIT` too. A subcommand with an expansion, a brace or a glob
+# (`git c{o,}mmit`, `git co${x}mit`) counts as a write, because the shell can
+# make it `commit` or `push`. It sets LOOSE_WRITES to the number of git commit
+# and push commands. It adds each directory that a `cd`, -C, --work-tree or
+# --git-dir names to TARGETS.
 LOOSE_WRITES=0
 TARGETS=()
 # shellcheck disable=SC2016
@@ -498,12 +518,18 @@ function join(base, path) {
   if (path ~ /^\// || base == "") return path
   return base "/" path
 }
+function is_git(word) {
+  word = tolower(word)
+  sub(/^.*\//, "", word)
+  sub(/\.exe$/, "", word)
+  return word == "git"
+}
 {
   state = "find"; first = 1; dir = ""
   for (i = 1; i <= NF; i++) {
     w = $i
     if (state == "find") {
-      if (w == "git") { state = "options"; dir = "" }
+      if (is_git(w)) { state = "options"; dir = "" }
       else if (w == "cd" && first) state = "cd"
       first = 0
       continue
@@ -512,7 +538,7 @@ function join(base, path) {
     if (state == "value") { state = "options"; continue }
     if (state == "C") { dir = join(dir, w); state = "options"; continue }
     if (state == "tree") { sub(/\/\.git$/, "", w); print "T " join(dir, w); state = "options"; continue }
-    if (w == "commit" || w == "push") {
+    if (w == "commit" || w == "push" || w ~ /[$`{?*\[]/) {
       writes++
       if (dir != "") print "T " dir
       state = "find"
@@ -531,7 +557,7 @@ function join(base, path) {
     if (w ~ /^-/) continue
     # A different subcommand; this word can still start a later git.
     state = "find"
-    if (w == "git") { state = "options"; dir = "" }
+    if (is_git(w)) { state = "options"; dir = "" }
   }
 }
 END { print "W " (writes + 0) }
@@ -687,12 +713,27 @@ home_form() {
 
 # Quotes, backslashes, substitutions and line continuations can hide a git
 # word (g\it, "com"mit, git -C "$(pwd)" commit). The floor also counts a copy
-# of the command without these characters and with its lines joined.
+# of the command without these characters and with its lines joined. QUOTELESS
+# drops only the quotes and backslashes and joins the lines. The two copies
+# follow the rule of text_can_write, with tr in place of the slow removal of
+# bash 3.2 on a long command.
+QUOTELESS="$(printf '%s' "$CMD" | tr -d '\\"'"'"'' | tr '\n' ' ')"
 # shellcheck disable=SC2016
-FLAT="$(printf '%s' "$CMD" | tr -d '\\"'"'"'$()`{}' | tr '\n' ' ')"
-set -f
+FLAT="$(printf '%s' "$QUOTELESS" | tr -d '$()`{}')"
+CAN_WRITE=0
+shopt -s nocasematch
 case "$FLAT" in
-  *git*commit* | *git*push*)
+  *commit* | *push* | *git*[\?\*\[]*) CAN_WRITE=1 ;;
+  *)
+    case "$QUOTELESS" in
+      *git*[\$\{\`\?\*\[]*) CAN_WRITE=1 ;;
+    esac
+    ;;
+esac
+shopt -u nocasematch
+set -f
+case "$CAN_WRITE" in
+  1)
     # The allowlist match uses only builtins, so the gate excludes its target
     # before the loose scan starts awk.
     if [ "${#CMD}" -le "$ALLOWLIST_MAX" ]; then
@@ -704,6 +745,19 @@ case "$FLAT" in
     else
       scan_loose "$CMD" "$FLAT"
     fi
+    # A program name or a word with an expansion, a brace, a glob or a
+    # backquote (`$G commit`, `g?t push`) can run git, so a command with such a
+    # word and a `commit` or `push` word counts as a write. The trusted fallow
+    # then audits the session.
+    case "$CMD" in
+      *[\$\{\`\?\*\[]*)
+        shopt -s nocasematch
+        case "$FLAT" in
+          *commit* | *push*) [ "$LOOSE_WRITES" -gt 0 ] || LOOSE_WRITES=1 ;;
+        esac
+        shopt -u nocasematch
+        ;;
+    esac
     # The gate excludes each target before its first git call. The later
     # target loop reads the unquoted words.
     if [ "${#TARGETS[@]}" -gt 0 ]; then

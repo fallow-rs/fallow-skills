@@ -392,6 +392,20 @@ const SESSION_CASES = [
   ["an option after a message read as a message", ({ o }) => `git -C ${o} commit -m -m --no-verify`, ["project"]],
   ["a git -C into an empty .git directory", () => "git -C emptygit commit -m x", ["project"]],
   ["a cd into an empty .git directory", () => "cd ./emptygit && git commit -m x", ["project"]],
+  ["git in upper case", () => "GIT commit -m x", ["project"]],
+  ["git in mixed case before push", () => "Git push", ["project"]],
+  ["git named by an absolute path", () => "/usr/bin/git commit -m x", ["project"]],
+  ["git named by a relative path", () => "./bin/git push", ["project"]],
+  ["git with the .exe suffix", () => "git.exe commit -m x", ["project"]],
+  ["git with the .exe suffix in upper case", () => "GIT.EXE push", ["project"]],
+  ["a brace that lists the subcommand", () => "git {commit,status} -m x", ["project"]],
+  ["a brace inside the subcommand", () => "git c{o,}mmit -m x", ["project"]],
+  ["a glob in the subcommand", () => "git c?mmit -m x", ["project"]],
+  ["a bracket glob in the subcommand", () => "git p[u]sh", ["project"]],
+  ["a variable in the subcommand", () => "git co${x}mmit -m x", ["project"]],
+  ["a variable as the program", () => "G=git; $G commit -m x", ["project"]],
+  ["a glob as the program", () => "g?t push", ["project"]],
+  ["a backtick as the program", () => "`echo git` commit -m x", ["project"]],
 ];
 for (const [name, command, expected] of SESSION_CASES) {
   test(`session audit: ${name}`, { skip }, () => {
@@ -908,6 +922,18 @@ test("a fallow on PATH runs when the project has no local install", { skip }, ()
   assert.ok(result.stderr.includes(`blocked by fallow 9.9.9 at ${join(fixture.bin, "fallow")} in `), result.stderr);
   assert.equal(auditCalls(fixture).length, 1);
 });
+
+// An expansion, a brace or a glob without a `commit` or `push` word, and a
+// git subcommand without one, is not a git write.
+for (const command of ["echo $HOME", "ls *.ts", "ls src/[ab]*.ts && echo ${HOME}", "git add src/*.ts", "echo `pwd`", "cat {a,b}.txt"]) {
+  test(`an expansion without a write word starts no fallow: ${command}`, { skip }, () => {
+    const fixture = makeCase({ fallowJson: { verdict: "fail" } });
+    const result = runGate(fixture, command);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stderr, "");
+    assert.deepEqual(allCalls(fixture), []);
+  });
+}
 
 test("a command that is not a git commit or push starts no fallow", { skip }, () => {
   const fixture = makeCase({ fallowJson: { verdict: "fail" } });
