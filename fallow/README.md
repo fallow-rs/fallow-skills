@@ -45,6 +45,7 @@ In an earlier version, add the marketplace first:
   `node_modules/.bin/fallow`, `yarn exec` or `npx`, and it takes jq, git and
   the other helpers only from the `PATH` entries that the same rules keep.
   When the tree of a write target holds the only such `fallow` or `git`,
+  or the jq, tr, awk or grep that the gate ran before it knew that target,
   the gate blocks the command and names the target. The gate reads `git`
   in any letter case, with an `.exe` suffix and as the last part of a path.
   A command with an expansion, a brace or a glob counts as a possible

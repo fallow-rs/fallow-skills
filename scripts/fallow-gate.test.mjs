@@ -1159,6 +1159,38 @@ test("helpers in a PATH entry inside a git -C target do not run", { skip }, () =
   assert.equal(auditCalls(fixture).length, 1);
 });
 
+// The gate runs jq, tr and awk before it knows every target. When the tree
+// of a target holds the copy that ran, the gate blocks and names the target.
+for (const [helper, command] of [
+  ["jq", (other) => `git -C ${other} commit -m x`],
+  ["tr", (other) => `git -C ${other} commit -m x`],
+  ["awk", (other) => `git -C ${other} commit -m x; true`],
+]) {
+  test(`a ${helper} that ran from the tree of a git -C target blocks and names the target`, { skip }, () => {
+    const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+    const other = gitInit(join(fixture.root, "other"));
+    writeFileSync(join(other, ".fallowrc.json"), "{}\n");
+    mkdirSync(join(other, "bin"));
+    symlinkSync(resolveTool(helper), join(other, "bin", helper));
+    const result = runGate(fixture, command(other), { PATH: `${join(other, "bin")}:${fixture.bin}` });
+    assert.equal(result.status, 2, result.stderr);
+    assert.match(result.stderr, new RegExp(`blocked: the ${helper} that the gate ran`));
+    assert.ok(result.stderr.includes(`the tree of the command target ${other}`), result.stderr);
+    assert.deepEqual(auditCalls(fixture), []);
+  });
+}
+
+test("a helper in the tree of a target that never ran does not block", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  const other = gitInit(join(fixture.root, "other"));
+  writeFileSync(join(other, ".fallowrc.json"), "{}\n");
+  mkdirSync(join(other, "bin"));
+  symlinkSync(resolveTool("awk"), join(other, "bin", "awk"));
+  const result = runGate(fixture, `git -C ${other} commit -m x`, { PATH: `${join(other, "bin")}:${fixture.bin}` });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(auditCalls(fixture).length, 1);
+});
+
 // A command outside the allowlist reaches git through the loose scan. The
 // gate must exclude each target before its first git call.
 for (const [name, command] of [
