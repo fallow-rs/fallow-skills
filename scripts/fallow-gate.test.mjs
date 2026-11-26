@@ -392,6 +392,20 @@ const SESSION_CASES = [
   ["an option after a message read as a message", ({ o }) => `git -C ${o} commit -m -m --no-verify`, ["project"]],
   ["a git -C into an empty .git directory", () => "git -C emptygit commit -m x", ["project"]],
   ["a cd into an empty .git directory", () => "cd ./emptygit && git commit -m x", ["project"]],
+  ["git in upper case", () => "GIT commit -m x", ["project"]],
+  ["git in mixed case before push", () => "Git push", ["project"]],
+  ["git named by an absolute path", () => "/usr/bin/git commit -m x", ["project"]],
+  ["git named by a relative path", () => "./bin/git push", ["project"]],
+  ["git with the .exe suffix", () => "git.exe commit -m x", ["project"]],
+  ["git with the .exe suffix in upper case", () => "GIT.EXE push", ["project"]],
+  ["a brace that lists the subcommand", () => "git {commit,status} -m x", ["project"]],
+  ["a brace inside the subcommand", () => "git c{o,}mmit -m x", ["project"]],
+  ["a glob in the subcommand", () => "git c?mmit -m x", ["project"]],
+  ["a bracket glob in the subcommand", () => "git p[u]sh", ["project"]],
+  ["a variable in the subcommand", () => "git co${x}mmit -m x", ["project"]],
+  ["a variable as the program", () => "G=git; $G commit -m x", ["project"]],
+  ["a glob as the program", () => "g?t push", ["project"]],
+  ["a backtick as the program", () => "`echo git` commit -m x", ["project"]],
 ];
 for (const [name, command, expected] of SESSION_CASES) {
   test(`session audit: ${name}`, { skip }, () => {
@@ -909,6 +923,18 @@ test("a fallow on PATH runs when the project has no local install", { skip }, ()
   assert.equal(auditCalls(fixture).length, 1);
 });
 
+// An expansion, a brace or a glob without a `commit` or `push` word, and a
+// git subcommand without one, is not a git write.
+for (const command of ["echo $HOME", "ls *.ts", "ls src/[ab]*.ts && echo ${HOME}", "git add src/*.ts", "echo `pwd`", "cat {a,b}.txt"]) {
+  test(`an expansion without a write word starts no fallow: ${command}`, { skip }, () => {
+    const fixture = makeCase({ fallowJson: { verdict: "fail" } });
+    const result = runGate(fixture, command);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stderr, "");
+    assert.deepEqual(allCalls(fixture), []);
+  });
+}
+
 test("a command that is not a git commit or push starts no fallow", { skip }, () => {
   const fixture = makeCase({ fallowJson: { verdict: "fail" } });
   const result = runGate(fixture, "git status && git log commit-message.txt");
@@ -1130,6 +1156,56 @@ test("helpers in a PATH entry inside a git -C target do not run", { skip }, () =
   const result = runGate(fixture, `git -C ${other} commit -m x`, { PATH: `${dir}:${fixture.bin}` });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(existsSync(log) ? readFileSync(log, "utf8") : "", "");
+  assert.equal(auditCalls(fixture).length, 1);
+});
+
+// The gate runs jq, tr and awk before it knows every target. When the tree
+// of a target holds the copy that ran, the gate blocks and names the target.
+for (const [helper, command] of [
+  ["jq", (other) => `git -C ${other} commit -m x`],
+  ["tr", (other) => `git -C ${other} commit -m x`],
+  ["awk", (other) => `git -C ${other} commit -m x; true`],
+]) {
+  test(`a ${helper} that ran from the tree of a git -C target blocks and names the target`, { skip }, () => {
+    const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+    const other = gitInit(join(fixture.root, "other"));
+    writeFileSync(join(other, ".fallowrc.json"), "{}\n");
+    mkdirSync(join(other, "bin"));
+    symlinkSync(resolveTool(helper), join(other, "bin", helper));
+    const result = runGate(fixture, command(other), { PATH: `${join(other, "bin")}:${fixture.bin}` });
+    assert.equal(result.status, 2, result.stderr);
+    assert.match(result.stderr, new RegExp(`blocked: the ${helper} that the gate ran`));
+    assert.ok(result.stderr.includes(`the tree of the command target ${other}`), result.stderr);
+    assert.deepEqual(auditCalls(fixture), []);
+  });
+}
+
+// A PATH directory outside every target can hold a link to a helper inside a
+// target tree. The gate checks the file that the link resolves to.
+test("a jq that ran through a link into the tree of a git -C target blocks", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  const other = gitInit(join(fixture.root, "other"));
+  writeFileSync(join(other, ".fallowrc.json"), "{}\n");
+  mkdirSync(join(other, "tools"));
+  symlinkSync(resolveTool("jq"), join(other, "tools", "jq"));
+  const linked = join(fixture.root, "linked-bin");
+  mkdirSync(linked);
+  symlinkSync(join(other, "tools", "jq"), join(linked, "jq"));
+  const result = runGate(fixture, `git -C ${other} commit -m x`, { PATH: `${linked}:${fixture.bin}` });
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /blocked: the jq that the gate ran is in /);
+  assert.ok(result.stderr.includes(`the tree of the command target ${other}`), result.stderr);
+  assert.deepEqual(auditCalls(fixture), []);
+});
+
+test("a helper in the tree of a target that never ran does not block", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  const other = gitInit(join(fixture.root, "other"));
+  writeFileSync(join(other, ".fallowrc.json"), "{}\n");
+  mkdirSync(join(other, "bin"));
+  symlinkSync(resolveTool("awk"), join(other, "bin", "awk"));
+  const result = runGate(fixture, `git -C ${other} commit -m x`, { PATH: `${join(other, "bin")}:${fixture.bin}` });
+  assert.equal(result.status, 0, result.stderr);
   assert.equal(auditCalls(fixture).length, 1);
 });
 

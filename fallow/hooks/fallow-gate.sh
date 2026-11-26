@@ -34,9 +34,11 @@ set -euo pipefail
 #   fallow that the project installs. The helpers (jq, git, sed and the
 #   others) come only from the PATH entries that the same rules keep. jq
 #   parses the hook input before the gate knows the write targets, and tr
-#   and awk read a command outside the allowlist before the gate finds the
-#   targets. A session or target directory that is `/`, or HOME outside git,
-#   excludes only that directory, so the user tools below HOME stay in use.
+#   and awk read the command before the gate finds the targets. The gate
+#   records the PATH directory of each such helper, and blocks (exit 2) when
+#   a target tree holds it. A session or target directory that is `/`, or
+#   HOME outside git, excludes only that directory, so the user tools below
+#   HOME stay in use.
 #   A target or audit root that is HOME also excludes only HOME itself.
 # - When the tree of a write target or of an audited directory holds the
 #   only trusted fallow or git, the gate blocks the command (exit 2) before
@@ -62,11 +64,9 @@ fi
 
 # Most Bash commands are not a git commit or push. The prefilter reads the
 # hook input with shell builtins only and exits when the input cannot hold
-# one. It removes the characters that can hide a git word (quotes,
-# backslashes, `$`, parentheses, braces and backticks) and then looks for git
-# followed by commit or push. An input with a JSON \u escape, or an input
-# longer than PREFILTER_MAX bytes, goes to the full check, because the
-# removal is slow on a long input in bash 3.2.
+# one. text_can_write below gives the rule. An input longer than
+# PREFILTER_MAX bytes goes to the full check, because the removal is slow on
+# a long input in bash 3.2.
 PREFILTER_MAX=2048
 # A hook runner can give a socket as stdin. On macOS, /dev/stdin opens a
 # socket, and the read through it is fast. On Linux, /dev/stdin cannot open a
@@ -93,25 +93,44 @@ case "${OSTYPE:-}" in
     fi
     ;;
 esac
-prefilter_can_write() {
-  local LC_ALL=C text="$1"
-  [ "${#text}" -le "$PREFILTER_MAX" ] || return 0
+# Returns 0 when the text $1 can hold a git commit or push. The function
+# removes quotes and backslashes, and for a flat copy also the other
+# characters that can hide a word (`$`, parentheses, braces and backticks).
+# The text can hold a write when, in any letter case, it has a `commit` or
+# `push` word, or `git` before an expansion, a brace, a glob or a backquote.
+# A program name from an expansion or a glob (`$G commit`, `g?t push`) still
+# has the `commit` or `push` word. A git subcommand with a brace or a glob
+# (`git c{o,}mmit`, `git c?mmit`) has `git` before it. A JSON \u escape can
+# hide a word, so a text with one can always hold a write.
+text_can_write() {
+  local LC_ALL=C text="$1" flat hit=1
   case "$text" in
     *'\u'*) return 0 ;;
   esac
   text="${text//\\/}"
   text="${text//\"/}"
   text="${text//\'/}"
-  text="${text//\$/}"
-  text="${text//\(/}"
-  text="${text//\)/}"
-  text="${text//\`/}"
-  text="${text//\{/}"
-  text="${text//\}/}"
-  case "$text" in
-    *git*commit* | *git*push*) return 0 ;;
+  flat="${text//\$/}"
+  flat="${flat//\(/}"
+  flat="${flat//\)/}"
+  flat="${flat//\`/}"
+  flat="${flat//\{/}"
+  flat="${flat//\}/}"
+  shopt -s nocasematch
+  case "$flat" in
+    *commit* | *push* | *git*[\?\*\[]*) hit=0 ;;
+    *)
+      case "$text" in
+        *git*[\$\{\`\?\*\[]*) hit=0 ;;
+      esac
+      ;;
   esac
-  return 1
+  shopt -u nocasematch
+  return "$hit"
+}
+prefilter_can_write() {
+  [ "${#1}" -le "$PREFILTER_MAX" ] || return 0
+  text_can_write "$1"
 }
 if ! prefilter_can_write "$INPUT"; then
   if [ -n "${FALLOW_GATE_DEBUG:-}" ]; then
@@ -338,6 +357,33 @@ exclude_location() {
   [ -z "$dir" ] || exclude_dir "$dir" "$top" "" "$dir"
 }
 
+# The gate runs some helpers before it knows every target tree: jq parses the
+# hook input and reads package.json, tr and awk read the command, and grep
+# reads package.json and the settings files. RAN_TOOLS holds one
+# `<name>|<directory>` entry for the copy of each helper that ran.
+# require_helpers blocks when a target tree holds one of these directories.
+RAN_TOOLS=()
+# Adds the PATH directory of each helper in the arguments to RAN_TOOLS. The
+# lookup follows the PATH search of the shell and uses only builtins.
+note_tool() {
+  local name entry found known
+  local -a entries
+  IFS=: read -r -a entries <<<"$PATH"
+  for name in "$@"; do
+    found=""
+    for entry in ${entries[@]+"${entries[@]}"}; do
+      if [ -f "$entry/$name" ] && [ -x "$entry/$name" ]; then
+        found="$name|$entry"
+        break
+      fi
+    done
+    for known in ${RAN_TOOLS[@]+"${RAN_TOOLS[@]}"}; do
+      [ "$known" != "$found" ] || found=""
+    done
+    [ -z "$found" ] || RAN_TOOLS+=("$found")
+  done
+}
+
 # The hook input is not parsed yet, so the first tree is the one of the
 # process directory.
 START="$PWD"
@@ -359,15 +405,18 @@ opted_in() {
   done
   [ -f "$dir/package.json" ] || return 1
   if [ "$HAVE_JQ" -eq 1 ]; then
+    note_tool jq
     jq -e '[.dependencies, .devDependencies, .optionalDependencies, .peerDependencies] | map(select(type == "object" and has("fallow"))) | length > 0' \
       "$dir/package.json" >/dev/null 2>&1
   else
+    note_tool grep
     grep -Eq '"fallow"[[:space:]]*:[[:space:]]*"[~^<>=0-9*.a-z:/-]' "$dir/package.json" 2>/dev/null
   fi
 }
 START=""
 CMD=""
 if [ "$HAVE_JQ" -eq 1 ]; then
+  note_tool jq
   START="$(jq -r '.cwd // empty' <<<"$INPUT" 2>/dev/null || true)"
   CMD="$(jq -r '.tool_input.command // empty' <<<"$INPUT" 2>/dev/null || true)"
 fi
@@ -388,11 +437,14 @@ if BASE_GIT="$(command -v git 2>/dev/null)"; then
   esac
 fi
 
-# Prints the nearest opted-in directory at or above $1. Without $2 the walk
-# stops at the first .git entry. With $2 it stops after directory $2, the top
-# of the work tree that git reported. Returns 1 when no directory opts in.
+# Sets FOUND_ROOT to the nearest opted-in directory at or above $1. Without
+# $2 the walk stops at the first .git entry. With $2 it stops after directory
+# $2, the top of the work tree that git reported. Returns 1 when no directory
+# opts in. The function runs in the gate shell, so note_tool keeps the
+# helpers that opted_in runs.
 find_root() {
   local dir="$1" stop="${2:-}"
+  FOUND_ROOT=""
   until opted_in "$dir"; do
     if [ -n "$stop" ]; then
       [ "$dir" != "$stop" ] || return 1
@@ -400,20 +452,25 @@ find_root() {
       return 1
     fi
     [ "$dir" != / ] || return 1
-    dir="$(dirname "$dir")"
+    dir="${dir%/}"
+    case "$dir" in
+      */*)
+        dir="${dir%/*}"
+        dir="${dir:-/}"
+        ;;
+      *) dir=. ;;
+    esac
   done
-  printf '%s' "$dir"
+  FOUND_ROOT="$dir"
 }
 
 if [ "$HAVE_JQ" -eq 0 ]; then
   # Without jq the gate cannot parse the command. Print the notice only in an
   # opted-in project and only for input that can be a git commit or push.
-  find_root "$START" >/dev/null || exit 0
-  case "$INPUT" in
-    *git*commit* | *git*push*)
-      echo "fallow plugin gate: jq is not on PATH. The commit or push continues without a fallow audit. Install jq to turn the gate on." >&2
-      ;;
-  esac
+  find_root "$START" || exit 0
+  if text_can_write "$INPUT"; then
+    echo "fallow plugin gate: jq is not on PATH. The commit or push continues without a fallow audit. Install jq to turn the gate on." >&2
+  fi
   exit 0
 fi
 
@@ -487,9 +544,14 @@ git_location() {
 # blanks, and ignores quotes. Git-level options between `git` and the
 # subcommand (git -c k=v commit, git -C dir push, git --no-pager commit,
 # git --git-dir=/x push) still count, while subcommand lookalikes in arguments
-# (git log commit-message.txt) do not. See issue #2106. It sets LOOSE_WRITES to
-# the number of git commit and push commands. It adds each directory that a
-# `cd`, -C, --work-tree or --git-dir names to TARGETS.
+# (git log commit-message.txt) do not. See issue #2106. A git word is `git` in
+# any letter case, with or without the `.exe` suffix of Git for Windows, as a
+# name or as the last part of a path. A file system that ignores letter case
+# runs git for `GIT` too. A subcommand with an expansion, a brace or a glob
+# (`git c{o,}mmit`, `git co${x}mit`) counts as a write, because the shell can
+# make it `commit` or `push`. It sets LOOSE_WRITES to the number of git commit
+# and push commands. It adds each directory that a `cd`, -C, --work-tree or
+# --git-dir names to TARGETS.
 LOOSE_WRITES=0
 TARGETS=()
 # shellcheck disable=SC2016
@@ -498,12 +560,18 @@ function join(base, path) {
   if (path ~ /^\// || base == "") return path
   return base "/" path
 }
+function is_git(word) {
+  word = tolower(word)
+  sub(/^.*\//, "", word)
+  sub(/\.exe$/, "", word)
+  return word == "git"
+}
 {
   state = "find"; first = 1; dir = ""
   for (i = 1; i <= NF; i++) {
     w = $i
     if (state == "find") {
-      if (w == "git") { state = "options"; dir = "" }
+      if (is_git(w)) { state = "options"; dir = "" }
       else if (w == "cd" && first) state = "cd"
       first = 0
       continue
@@ -512,7 +580,7 @@ function join(base, path) {
     if (state == "value") { state = "options"; continue }
     if (state == "C") { dir = join(dir, w); state = "options"; continue }
     if (state == "tree") { sub(/\/\.git$/, "", w); print "T " join(dir, w); state = "options"; continue }
-    if (w == "commit" || w == "push") {
+    if (w == "commit" || w == "push" || w ~ /[$`{?*\[]/) {
       writes++
       if (dir != "") print "T " dir
       state = "find"
@@ -531,7 +599,7 @@ function join(base, path) {
     if (w ~ /^-/) continue
     # A different subcommand; this word can still start a later git.
     state = "find"
-    if (w == "git") { state = "options"; dir = "" }
+    if (is_git(w)) { state = "options"; dir = "" }
   }
 }
 END { print "W " (writes + 0) }
@@ -540,6 +608,7 @@ scan_loose() {
   local out line result=0
   # A missing or failing awk must not hide a write. Without the result line,
   # the gate counts the command as a write.
+  note_tool tr awk
   if out="$(printf '%s\n' "$@" | tr ';|&()' '\n\n\n\n\n' | LC_ALL=C awk "$LOOSE_SCAN" 2>/dev/null)"; then
     while IFS= read -r line; do
       case "$line" in
@@ -687,12 +756,28 @@ home_form() {
 
 # Quotes, backslashes, substitutions and line continuations can hide a git
 # word (g\it, "com"mit, git -C "$(pwd)" commit). The floor also counts a copy
-# of the command without these characters and with its lines joined.
+# of the command without these characters and with its lines joined. QUOTELESS
+# drops only the quotes and backslashes and joins the lines. The two copies
+# follow the rule of text_can_write, with tr in place of the slow removal of
+# bash 3.2 on a long command.
+note_tool tr
+QUOTELESS="$(printf '%s' "$CMD" | tr -d '\\"'"'"'' | tr '\n' ' ')"
 # shellcheck disable=SC2016
-FLAT="$(printf '%s' "$CMD" | tr -d '\\"'"'"'$()`{}' | tr '\n' ' ')"
-set -f
+FLAT="$(printf '%s' "$QUOTELESS" | tr -d '$()`{}')"
+CAN_WRITE=0
+shopt -s nocasematch
 case "$FLAT" in
-  *git*commit* | *git*push*)
+  *commit* | *push* | *git*[\?\*\[]*) CAN_WRITE=1 ;;
+  *)
+    case "$QUOTELESS" in
+      *git*[\$\{\`\?\*\[]*) CAN_WRITE=1 ;;
+    esac
+    ;;
+esac
+shopt -u nocasematch
+set -f
+case "$CAN_WRITE" in
+  1)
     # The allowlist match uses only builtins, so the gate excludes its target
     # before the loose scan starts awk.
     if [ "${#CMD}" -le "$ALLOWLIST_MAX" ]; then
@@ -704,6 +789,19 @@ case "$FLAT" in
     else
       scan_loose "$CMD" "$FLAT"
     fi
+    # A program name or a word with an expansion, a brace, a glob or a
+    # backquote (`$G commit`, `g?t push`) can run git, so a command with such a
+    # word and a `commit` or `push` word counts as a write. The trusted fallow
+    # then audits the session.
+    case "$CMD" in
+      *[\$\{\`\?\*\[]*)
+        shopt -s nocasematch
+        case "$FLAT" in
+          *commit* | *push*) [ "$LOOSE_WRITES" -gt 0 ] || LOOSE_WRITES=1 ;;
+        esac
+        shopt -u nocasematch
+        ;;
+    esac
     # The gate excludes each target before its first git call. The later
     # target loop reads the unquoted words.
     if [ "${#TARGETS[@]}" -gt 0 ]; then
@@ -764,7 +862,7 @@ require_git() {
   ! command -v git >/dev/null 2>&1 || return 0
   [ -n "$BASE_GIT_DIR" ] && target_holding "$BASE_GIT_DIR" || return 0
   dir="$(join_path "$START" "$HOLDER")"
-  find_root "$START" >/dev/null || find_root "$dir" >/dev/null || return 0
+  find_root "$START" || find_root "$dir" || return 0
   {
     echo "fallow plugin gate: blocked: the only git on PATH is in $BASE_GIT_DIR, inside the tree of the command target $HOLDER."
     echo "fallow plugin gate: the gate does not run a program from a tree that the command writes to, so it cannot audit this commit or push."
@@ -772,7 +870,52 @@ require_git() {
   } >&2
   exit 2
 }
+
+# Blocks the command when a target tree holds the copy of a helper that ran
+# before the gate knew that target (see RAN_TOOLS). The gate cannot undo that
+# run, so it does not trust the audit of this commit or push.
+# Returns 0 when a target tree holds the directory of file $1 or of a hop of
+# its link chain, and sets HOP_DIR to that directory. A chain that is too long
+# or that cannot be read counts as held, with HOP_DIR set to the last hop.
+helper_hop_held() {
+  local file="$1" link hops=0
+  while :; do
+    HOP_DIR="${file%/*}"
+    target_holding "$HOP_DIR" && return 0
+    if resolve_dir "$HOP_DIR"; then
+      HOP_DIR="$RESOLVED"
+      target_holding "$HOP_DIR" && return 0
+    fi
+    [ -L "$file" ] || return 1
+    hops=$((hops + 1))
+    if [ "$hops" -gt 40 ] || ! link="$(readlink -- "$file" 2>/dev/null)"; then
+      HOLDER="an unreadable link chain"
+      return 0
+    fi
+    case "$link" in
+      /*) file="$link" ;;
+      *) file="$HOP_DIR/$link" ;;
+    esac
+  done
+}
+
+require_helpers() {
+  local entry where
+  for entry in ${RAN_TOOLS[@]+"${RAN_TOOLS[@]}"}; do
+    # A helper counts as held by a target tree when its PATH directory, or
+    # the directory of a hop of its link chain, is in that tree.
+    helper_hop_held "${entry#*|}/${entry%%|*}" || continue
+    where="$HOP_DIR"
+    {
+      echo "fallow plugin gate: blocked: the ${entry%%|*} that the gate ran is in $where, inside the tree of the command target $HOLDER."
+      echo "fallow plugin gate: the gate does not run a program from a tree that the command writes to, so it cannot audit this commit or push."
+      echo "fallow plugin gate: install ${entry%%|*} outside that tree, or set FALLOW_PLUGIN_GATE=off to turn the gate off."
+    } >&2
+    exit 2
+  done
+}
 require_git
+require_helpers
 
 # Git decides where a write lands. The gate asks git for the work tree top and
 # the git directory of each target, and of the session directory. The session
@@ -800,7 +943,8 @@ fi
 # The session tree is the union of the work tree top of the session
 # directory and the nearest directory with a .git entry.
 exclude_dir "$START" "$SESSION_TOP" self base
-SESSION_ROOT="$(find_root "$START" || true)"
+SESSION_ROOT=""
+! find_root "$START" || SESSION_ROOT="$FOUND_ROOT"
 SESSION_ROOT_PHYSICAL=""
 [ -z "$SESSION_ROOT" ] || SESSION_ROOT_PHYSICAL="$(physical "$SESSION_ROOT" || true)"
 
@@ -937,14 +1081,16 @@ if [ "$AUDIT_SESSION" -eq 1 ]; then
     done
   fi
 fi
-# The work tree tops of the targets can add trees that hold the git.
+# The work tree tops of the targets can add trees that hold the git or a
+# helper that ran.
 require_git
+require_helpers
 
 # ROOTS holds the physical path of each opted-in directory to audit, once.
 ROOTS=()
 for start in ${STARTS[@]+"${STARTS[@]}"}; do
-  root="$(find_root "${start%%|*}" "${start#*|}")" || continue
-  root="$(physical "$root")" || continue
+  find_root "${start%%|*}" "${start#*|}" || continue
+  root="$(physical "$FOUND_ROOT")" || continue
   seen=0
   if [ "${#ROOTS[@]}" -gt 0 ]; then
     for known in "${ROOTS[@]}"; do
@@ -969,7 +1115,9 @@ fi
 # exists. A stale settings entry must not turn off both gates.
 registers_gate() {
   local settings="$1" script="$2"
-  [ -f "$settings" ] && [ -f "$script" ] && grep -q 'fallow-gate\.sh' "$settings" 2>/dev/null
+  [ -f "$settings" ] && [ -f "$script" ] || return 1
+  note_tool grep
+  grep -q 'fallow-gate\.sh' "$settings" 2>/dev/null
 }
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$START}"
 covered_by_installed_gate() {
@@ -994,13 +1142,6 @@ covered_by_installed_gate() {
   done
   return 1
 }
-
-TMP_JSON="$(mktemp)"
-TMP_ERR="$(mktemp)"
-cleanup() {
-  rm -f "$TMP_JSON" "$TMP_ERR"
-}
-trap cleanup EXIT
 
 # Sets RESOLVED_FILE to the physical path of file $1, after every link.
 # Returns 1 after 40 links or when a link cannot be read.
@@ -1209,6 +1350,7 @@ for root in "${ROOTS[@]}"; do
 done
 [ "${#AUDITS[@]}" -gt 0 ] || exit 0
 require_git
+require_helpers
 
 # The trusted fallow with only the base trees excluded. When the trees of the
 # targets and the audit roots remove it, the gate blocks before any audit.
@@ -1221,6 +1363,15 @@ if ! find_trusted_fallow && find_fallow_without ${BASE_TREES[@]+"${BASE_TREES[@]
   } >&2
   exit 2
 fi
+
+# The temporary files come after the last tree is known, so mktemp and rm
+# never run from a target tree.
+TMP_JSON="$(mktemp)"
+TMP_ERR="$(mktemp)"
+cleanup() {
+  rm -f "$TMP_JSON" "$TMP_ERR"
+}
+trap cleanup EXIT
 
 for root in "${AUDITS[@]}"; do
   if [ -n "${FALLOW_GATE_DEBUG:-}" ]; then
