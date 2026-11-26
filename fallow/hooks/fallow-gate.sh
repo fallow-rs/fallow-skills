@@ -874,12 +874,40 @@ require_git() {
 # Blocks the command when a target tree holds the copy of a helper that ran
 # before the gate knew that target (see RAN_TOOLS). The gate cannot undo that
 # run, so it does not trust the audit of this commit or push.
+# Returns 0 when a target tree holds the directory of file $1 or of a hop of
+# its link chain, and sets HOP_DIR to that directory. A chain that is too long
+# or that cannot be read counts as held, with HOP_DIR set to the last hop.
+helper_hop_held() {
+  local file="$1" link hops=0
+  while :; do
+    HOP_DIR="${file%/*}"
+    target_holding "$HOP_DIR" && return 0
+    if resolve_dir "$HOP_DIR"; then
+      HOP_DIR="$RESOLVED"
+      target_holding "$HOP_DIR" && return 0
+    fi
+    [ -L "$file" ] || return 1
+    hops=$((hops + 1))
+    if [ "$hops" -gt 40 ] || ! link="$(readlink -- "$file" 2>/dev/null)"; then
+      HOLDER="an unreadable link chain"
+      return 0
+    fi
+    case "$link" in
+      /*) file="$link" ;;
+      *) file="$HOP_DIR/$link" ;;
+    esac
+  done
+}
+
 require_helpers() {
-  local entry
+  local entry where
   for entry in ${RAN_TOOLS[@]+"${RAN_TOOLS[@]}"}; do
-    target_holding "${entry#*|}" || continue
+    # A helper counts as held by a target tree when its PATH directory, or
+    # the directory of a hop of its link chain, is in that tree.
+    helper_hop_held "${entry#*|}/${entry%%|*}" || continue
+    where="$HOP_DIR"
     {
-      echo "fallow plugin gate: blocked: the ${entry%%|*} that the gate ran is in ${entry#*|}, inside the tree of the command target $HOLDER."
+      echo "fallow plugin gate: blocked: the ${entry%%|*} that the gate ran is in $where, inside the tree of the command target $HOLDER."
       echo "fallow plugin gate: the gate does not run a program from a tree that the command writes to, so it cannot audit this commit or push."
       echo "fallow plugin gate: install ${entry%%|*} outside that tree, or set FALLOW_PLUGIN_GATE=off to turn the gate off."
     } >&2

@@ -1180,6 +1180,24 @@ for (const [helper, command] of [
   });
 }
 
+// A PATH directory outside every target can hold a link to a helper inside a
+// target tree. The gate checks the file that the link resolves to.
+test("a jq that ran through a link into the tree of a git -C target blocks", { skip }, () => {
+  const fixture = makeCase({ fallowJson: { verdict: "pass" } });
+  const other = gitInit(join(fixture.root, "other"));
+  writeFileSync(join(other, ".fallowrc.json"), "{}\n");
+  mkdirSync(join(other, "tools"));
+  symlinkSync(resolveTool("jq"), join(other, "tools", "jq"));
+  const linked = join(fixture.root, "linked-bin");
+  mkdirSync(linked);
+  symlinkSync(join(other, "tools", "jq"), join(linked, "jq"));
+  const result = runGate(fixture, `git -C ${other} commit -m x`, { PATH: `${linked}:${fixture.bin}` });
+  assert.equal(result.status, 2, result.stderr);
+  assert.match(result.stderr, /blocked: the jq that the gate ran is in /);
+  assert.ok(result.stderr.includes(`the tree of the command target ${other}`), result.stderr);
+  assert.deepEqual(auditCalls(fixture), []);
+});
+
 test("a helper in the tree of a target that never ran does not block", { skip }, () => {
   const fixture = makeCase({ fallowJson: { verdict: "pass" } });
   const other = gitInit(join(fixture.root, "other"));
