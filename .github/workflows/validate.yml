@@ -197,7 +197,7 @@ jobs:
           server = manifest["mcpServers"]["fallow"]
           assert server == {
               "command": "npx",
-              "args": ["--yes", "--prefix", "${userHome}", "--package", "fallow@3.45.0", "fallow-mcp"],
+              "args": ["--yes", "--prefix", "${userHome}", "--package", "fallow@3.49.0", "fallow-mcp"],
           }
           assert not (root / "mcp.json").exists()
           PY
